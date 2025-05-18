@@ -93,3 +93,22 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-primary-500/80;
 }
+
+input, textarea, select {
+  color: #fff !important;
+  background-color: #18181b !important;
+  border-color: #333 !important;
+}
+input::placeholder, textarea::placeholder {
+  color: #aaa !important;
+  opacity: 1;
+}
+h1, h2, h3, h4, h5, h6 {
+  margin-bottom: 1.25rem !important;
+  margin-top: 1.5rem !important;
+}
+.section-padding, .container, form, .glass-card {
+  margin-bottom: 2rem !important;
+  padding-top: 1.5rem !important;
+  padding-bottom: 1.5rem !important;
+}

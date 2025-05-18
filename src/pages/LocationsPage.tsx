@@ -42,53 +42,56 @@ const LocationsPage: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchLocations();
+    fetchData();
   }, [searchParams]);
 
-  const fetchLocations = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      let query = supabase
-        .from('locations')
-        .select(`
-          *,
-          location_vibes (
-            vibes (name)
-          ),
-          blog_post:blog_posts (
-            slug, title, images, videos, reels
-          )
-        `);
-
-      // Apply filters
+      // Fetch locations
+      let locQuery = supabase.from('locations').select('*');
       if (searchQuery) {
-        query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+        locQuery = locQuery.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
       }
-
       if (filters.type.length > 0) {
-        query = query.in('type', filters.type);
+        locQuery = locQuery.in('type', filters.type);
       }
-
       if (filters.priceRange.length > 0) {
-        query = query.in('price_range', filters.priceRange);
+        locQuery = locQuery.in('price_range', filters.priceRange);
       }
-
       if (filters.rating) {
-        query = query.gte('rating', parseFloat(filters.rating));
+        locQuery = locQuery.gte('rating', parseFloat(filters.rating));
       }
+      const { data: locData, error: locError } = await locQuery;
+      if (locError) throw locError;
 
-      const { data, error } = await query;
+      // Fetch blog posts
+      const { data: blogData, error: blogError } = await supabase
+        .from('blog_posts')
+        .select('id, slug, title, images, videos, reels');
+      if (blogError) throw blogError;
 
-      if (error) throw error;
+      // Fetch location_vibes for each location
+      const { data: vibesData, error: vibesError } = await supabase
+        .from('location_vibes')
+        .select('location_id, vibes (name)');
+      if (vibesError) throw vibesError;
 
-      // Map vibes to string[]
+      // Map vibes to locations
+      const locsWithVibes = (locData || []).map(loc => ({
+        ...loc,
+        vibes: (vibesData || [])
+          .filter(v => v.location_id === loc.id)
+          .map(v => v.vibes?.name),
+      }));
+
+      // Attach blog post preview to each location
       setLocations(
-        (data || []).map(loc => ({
+        locsWithVibes.map(loc => ({
           ...loc,
-          vibes: (loc.location_vibes || []).map((lv: { vibes: { name: string } }) => lv.vibes?.name),
-          blog_post: loc.blog_post ? loc.blog_post : null,
+          blog_post: blogData?.find(bp => bp.id === loc.blog_post_id) || null,
         }))
       );
     } catch (err) {
