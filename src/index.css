@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Poppins:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif;
+  }
+
+  body {
+    @apply bg-black text-white;
+  }
+}
+
+@layer components {
+  .neon-border {
+    @apply border border-transparent relative;
+    box-shadow: 0 0 5px theme('colors.primary.500'), 
+                0 0 10px theme('colors.primary.500');
+  }
+  
+  .neon-text {
+    text-shadow: 0 0 5px theme('colors.primary.500'),
+                 0 0 10px theme('colors.primary.500');
+  }
+  
+  .glass-card {
+    @apply bg-black bg-opacity-50 backdrop-blur-md border border-white/10 rounded-xl;
+  }
+  
+  .gradient-text {
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-primary-500 via-secondary-500 to-accent-500;
+  }
+  
+  .section-padding {
+    @apply py-16 md:py-24 px-4 md:px-8;
+  }
+  
+  .button-primary {
+    @apply px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-full font-medium 
+           transition-all duration-300 shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50
+           hover:-translate-y-1;
+  }
+  
+  .button-secondary {
+    @apply px-6 py-3 bg-transparent border border-white/50 hover:border-white/80
+           text-white rounded-full font-medium transition-all duration-300
+           hover:bg-white/10 hover:-translate-y-1;
+  }
+}
+
+/* Animations */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px theme('colors.primary.500'); }
+  50% { box-shadow: 0 0 20px theme('colors.primary.500'); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Smooth scrollbar for WebKit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-black/50;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary-500/50 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary-500/80;
+}

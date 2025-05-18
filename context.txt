@@ -1,0 +1,105 @@
+**Project Name:** Outsider Map
+
+**Goal:**
+To build a cinematic, modern web platform (and eventually a mobile app) that helps users in Delhi discover unique, hidden, vibe-based experiences. It will be more than a directory — it will be a dynamic, immersive digital city guide powered by both curation and AI.
+
+---
+
+**Brand Positioning:**
+
+* Emotionally engaging, youth-focused, and exploratory.
+* A mix of a music video and a secret digital city guide.
+* Futuristic, elegant, edgy, and useful.
+
+---
+
+**Current Status:**
+
+* Built first prototype using [bolt.new](https://bolt.new) → deployed on Netlify.
+* Bolt.new initial prompt included immersive cinematic UI with mood-based discovery sections, curated experience cards, and 48-hour weekend plans.
+
+---
+
+**Next Steps (Website Development):**
+
+1. **Design Improvements in Bolt.new:**
+
+   * Add missing header/navigation bar.
+   * Convert the 48-hour curated plan section into dynamic content that updates weekly.
+   * Add button/functionality: "Let AI Suggest" → Opens a new AI-chat-like interface.
+   * Add a page for each vibe (Chill, Wild, etc.), where users are shown filtered lists of locations.
+   * Filters: Mood, Area, Category, Price, Open Now.
+   * Blog Page: For articles and updates.
+   * Each vibe is a clickable link from the homepage.
+   * Place database integration: display all location cards from Supabase.
+
+2. **Supabase Setup (Database):**
+   Supabase will serve as the backend and real-time database.
+
+   **Tables:**
+
+   * `places`: Stores all locations and metadata (vibe tags, timings, category, price, etc.)
+   * `vibes`: Stores defined moods with optional colors/icons
+   * `plans`: Dynamic 48-hour plans with Day 1/2 breakdown
+   * `blog_posts`: CMS-style blog content
+   * `submissions`: For user-submitted places (admin reviewed)
+
+   Supabase will auto-generate RESTful endpoints. The `anon` key will be used for public access in the frontend.
+
+3. **Planned Interactions:**
+
+   * Mood/Vibe bubbles → Filtered view with vibe pre-selected.
+   * AI Assistant → Prompts user to describe what they’re feeling → Fetches matching places from Supabase.
+   * Blog Articles → Informative + SEO focused.
+   * Email Newsletter → Users get weekend plans every Friday.
+   * User Submissions → Form for users to add hidden spots.
+
+---
+
+**Design Style Guide:**
+
+* **Colors:** Black background, neon accent (teal, magenta, electric blue)
+* **Fonts:** Clean, minimalist sans-serif
+* **Motion:** Smooth hovers, parallax scroll, video backgrounds
+* **Mobile-first:** Fully responsive
+* **Aesthetic:** Cinematic, immersive, digital noir
+
+---
+
+**Technologies Chosen:**
+
+* **Frontend:** Bolt.new (initially), soon export to production-grade React-based framework
+* **Backend:** Supabase (PostgreSQL + Auth + REST + Storage)
+* **Optional AI Chat Interface:** OpenAI API (to suggest plans dynamically)
+* **Deployment:** Netlify (current), later Vercel or similar
+* **CMS/Manual Update Option:** Supabase Dashboard or low-code admin UI
+
+---
+
+**Future Plans:**
+
+* Add city-switch feature (expand to other cities in India)
+* Launch mobile app (Flutter or React Native)
+* Monetization:
+
+  * Featured placements
+  * Affiliate/event partnerships
+  * Premium subscription for deeper AI plans / reservations
+* Collaborations with brands, cafes, local artists
+* Events & community-building IRL
+* Map integration for geolocation-based suggestions
+
+---
+
+**Immediate Tasks:**
+
+1. Finalize design updates in Bolt.new
+2. Create Supabase schema (tables, RLS config, seed data)
+3. Connect frontend to Supabase
+4. Build chat interface for AI suggestions
+5. Setup filters and vibes-based navigation
+6. Add real content (10–15 hidden places, 2–3 curated weekend plans)
+
+---
+
+This document will evolve as the project progresses. Cursor will be used to maintain code context, versioning, and architecture decisions.
