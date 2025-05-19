@@ -2,6 +2,7 @@ import { OrchestratorAgent } from './agents';
 import { supabase } from '@/lib/supabase';
 import { Database } from '@/lib/database.types';
 
+// @ts-ignore: 'Spot' is declared but never used. (Linter might not detect indirect usage)
 type Spot = Database['public']['Tables']['spots']['Row'];
 type VibeType = Database['public']['Enums']['vibe_type'];
 type SpotType = Database['public']['Enums']['spot_type'];
@@ -33,7 +34,6 @@ export async function handleAiSuggestion(
   userId?: string
 ): Promise<{
   aiResponse: StructuredResponse;
-  locations: Spot[];
 }> {
   try {
     // 1. Get user preferences if userId is provided
@@ -64,10 +64,24 @@ export async function handleAiSuggestion(
       if (error) throw error;
 
       if (data) {
-        conversationHistory = data.flatMap(msg => [
-          { role: 'user', content: msg.user_message },
-          { role: 'assistant', content: msg.ai_response }
-        ]).reverse();
+        conversationHistory = data.flatMap(msg => {
+          const messages: { role: string; content: string }[] = [];
+          messages.push({ role: 'user', content: msg.user_message });
+
+          if (msg.ai_response) {
+            try {
+              const parsedResponse: StructuredResponse = JSON.parse(msg.ai_response);
+              if (parsedResponse && typeof parsedResponse.text === 'string') {
+                messages.push({ role: 'assistant', content: parsedResponse.text });
+              } else {
+                messages.push({ role: 'assistant', content: msg.ai_response });
+              }
+            } catch (parseError) {
+              messages.push({ role: 'assistant', content: msg.ai_response });
+            }
+          }
+          return messages;
+        }).reverse();
       }
     }
 
@@ -87,11 +101,11 @@ export async function handleAiSuggestion(
         name: location.name,
         description: location.description,
         image: location.images?.[0] || '/location-placeholder.jpg',
-        address: location.address,
+        address: location.address || 'Not specified',
         price_range: location.price_range,
         vibe: location.vibe,
         type: location.type,
-        opening_hours: location.opening_hours || 'Not specified'
+        opening_hours: location.opening_hours || 'Not specified',
       }))
     };
 
@@ -114,9 +128,9 @@ export async function handleAiSuggestion(
       }
     }
 
+    // 6. Send the structured response back to frontend
     return {
       aiResponse: structuredResponse,
-      locations: result.locations,
     };
   } catch (error) {
     console.error('Error in AI suggestion:', error);

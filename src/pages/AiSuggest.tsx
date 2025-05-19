@@ -6,30 +6,35 @@ import { useAuth } from '@/lib/auth';
 import { Database } from '@/lib/database.types';
 import ExampleCards from '@/components/ExampleCards';
 
-type Spot = Database['public']['Tables']['spots']['Row'] & {
-  is_favorite?: boolean;
-};
+type VibeType = Database['public']['Enums']['vibe_type'];
+type SpotType = Database['public']['Enums']['spot_type'];
+type PriceRange = Database['public']['Enums']['price_range'];
+
+interface LocationCardData {
+  id: string;
+  name: string;
+  description: string;
+  image: string;
+  address: string;
+  price_range: PriceRange;
+  vibe: VibeType;
+  type: SpotType;
+  opening_hours: string;
+  blog_url?: string;
+  is_favorite: boolean;
+}
+
+interface StructuredResponseContent {
+  text: string;
+  cards?: LocationCardData[];
+}
 
 interface Message {
   id: string;
   content: string;
   isUser: boolean;
   timestamp: Date;
-  locations?: Spot[];
-  structuredResponse?: {
-    text: string;
-    cards: {
-      id: string;
-      name: string;
-      description: string;
-      image: string;
-      address: string;
-      price_range: PriceRange;
-      vibe: VibeType;
-      type: SpotType;
-      opening_hours: string;
-    }[];
-  };
+  structuredResponse?: StructuredResponseContent;
 }
 
 function AiSuggest() {
@@ -47,6 +52,29 @@ function AiSuggest() {
       loadChatHistory(user.id);
     }
   }, [user]);
+
+  const fetchLocationFavoriteStatus = async (locationIds: string[], userId: string): Promise<{ id: string; is_favorite: boolean }[]> => {
+    if (locationIds.length === 0 || !userId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('spot_id')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      const favoriteIds = new Set(data?.map(f => f.spot_id) || []);
+
+      return locationIds.map(id => ({
+        id: id,
+        is_favorite: favoriteIds.has(id)
+      }));
+
+    } catch (error) {
+      console.error('Error fetching favorite status:', error);
+      return [];
+    }
+  };
 
   const loadChatHistory = async (userId: string) => {
     try {
@@ -70,13 +98,44 @@ function AiSuggest() {
           });
 
           if (msg.ai_response) {
-            const locations = msg.locations ? await fetchLocations(msg.locations, userId) : [];
+            let aiContent: string = msg.ai_response;
+            let structuredData: StructuredResponseContent | undefined = undefined;
+
+            try {
+              // Attempt to parse as structured response
+              const parsedResponse = JSON.parse(msg.ai_response);
+              if (parsedResponse && typeof parsedResponse === 'object' && typeof parsedResponse.text === 'string' && Array.isArray(parsedResponse.cards)) {
+                 // Ensure cards array exists before mapping
+                 if (parsedResponse.cards.length > 0 && user) {
+                    const cardIds = parsedResponse.cards.map((card: LocationCardData) => card.id); // Explicitly type card
+                    const favoriteStatuses = await fetchLocationFavoriteStatus(cardIds, user.id);
+                    structuredData = {
+                       text: parsedResponse.text,
+                       cards: parsedResponse.cards.map((card: LocationCardData) => {
+                           const status = favoriteStatuses.find(fav => fav.id === card.id);
+                           return { ...card, is_favorite: status?.is_favorite || false };
+                       })
+                    };
+                 } else {
+                    structuredData = parsedResponse; // Keep original if no cards or not logged in
+                 }
+                 aiContent = parsedResponse.text; // Use the text part for content
+              } else {
+                 // If parsing fails or structure is unexpected, treat as plain text
+                 aiContent = msg.ai_response;
+              }
+            } catch (parseError) {
+              // If parsing fails, treat as plain text
+              console.warn('Failed to parse AI response as JSON, treating as plain text:', parseError);
+              aiContent = msg.ai_response;
+            }
+
             formattedMessages.push({
               id: `${msg.id}-ai`,
-              content: msg.ai_response,
+              content: aiContent,
               isUser: false,
               timestamp: new Date(msg.created_at),
-              locations,
+              structuredResponse: structuredData
             });
           }
         }
@@ -95,35 +154,6 @@ function AiSuggest() {
     }
   };
 
-  const fetchLocations = async (locationIds: string[], userId?: string): Promise<Spot[]> => {
-    try {
-      const { data, error } = await supabase
-        .from('spots')
-        .select('*')
-        .in('id', locationIds);
-
-      if (error) throw error;
-
-      if (userId && data) {
-        const { data: favorites } = await supabase
-          .from('favorites')
-          .select('spot_id')
-          .eq('user_id', userId);
-
-        const favoriteIds = new Set(favorites?.map(f => f.spot_id) || []);
-        return data.map(spot => ({
-          ...spot,
-          is_favorite: favoriteIds.has(spot.id)
-        }));
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching locations:', error);
-      return [];
-    }
-  };
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -136,11 +166,20 @@ function AiSuggest() {
     if (!user) return;
 
     try {
-      const isFavorite = messages
-        .flatMap(m => m.locations || [])
-        .find(l => l.id === locationId)?.is_favorite;
+      // Find the message containing the card and the card itself
+      const messageToUpdate = messages.find(msg => 
+        msg.structuredResponse?.cards?.some(card => card.id === locationId)
+      );
 
-      if (isFavorite) {
+      if (!messageToUpdate || !messageToUpdate.structuredResponse?.cards) return;
+
+      const cardToToggle = messageToUpdate.structuredResponse.cards.find(card => card.id === locationId);
+
+      if (!cardToToggle) return;
+
+      const isCurrentlyFavorite = cardToToggle.is_favorite;
+
+      if (isCurrentlyFavorite) {
         await supabase
           .from('favorites')
           .delete()
@@ -151,22 +190,17 @@ function AiSuggest() {
           .insert([{ user_id: user.id, spot_id: locationId }]);
       }
 
+      // Update the state with the new favorite status for the specific card
       setMessages(prevMessages => {
         return prevMessages.map(msg => {
-          if (msg.locations && msg.locations.some(loc => loc.id === locationId)) {
-            fetchLocations(msg.locations.map(loc => loc.id), user.id).then(updatedLocations => {
-              setMessages(currentMessages => currentMessages.map(currentMsg => 
-                currentMsg.id === msg.id ? { ...currentMsg, locations: updatedLocations } : currentMsg
-              ));
-            }).catch(err => console.error('Error refetching locations after favorite toggle:', err));
-            return {
-              ...msg,
-              locations: msg.locations.map(loc =>
-                loc.id === locationId
-                  ? { ...loc, is_favorite: !isFavorite }
-                  : loc
-              )
-            };
+          if (msg.id === messageToUpdate.id && msg.structuredResponse?.cards) {
+            const updatedCards = msg.structuredResponse.cards.map(card => {
+              if (card.id === locationId) {
+                return { ...card, is_favorite: !isCurrentlyFavorite };
+              }
+              return card;
+            });
+            return { ...msg, structuredResponse: { ...msg.structuredResponse, cards: updatedCards } };
           }
           return msg;
         });
@@ -217,17 +251,24 @@ function AiSuggest() {
       }
 
       const data = await response.json();
-      const { aiResponse, locations } = data;
+      const { aiResponse } = data as { aiResponse: StructuredResponseContent }; // Cast to the expected type
 
-      const locationsWithFavorites = user ? await fetchLocations(locations.map((loc: Spot) => loc.id), user.id) : locations;
+      // If there are cards, fetch their favorite status before adding to messages
+      if (aiResponse.cards && aiResponse.cards.length > 0 && user) {
+        const cardIds = aiResponse.cards.map(card => card.id);
+        const favoriteStatuses = await fetchLocationFavoriteStatus(cardIds, user.id);
+        aiResponse.cards = aiResponse.cards.map(card => {
+          const status = favoriteStatuses.find(fav => fav.id === card.id);
+          return { ...card, is_favorite: status?.is_favorite || false };
+        });
+      }
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: aiResponse.text,
         isUser: false,
         timestamp: new Date(),
-        locations: locationsWithFavorites,
-        structuredResponse: aiResponse
+        structuredResponse: aiResponse // Pass the entire structured response
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -246,45 +287,48 @@ function AiSuggest() {
     inputRef.current?.focus();
   };
 
-  const LocationCard = ({ location }: { location: Spot }) => (
-    <div className="bg-dark-700 rounded-lg overflow-hidden">
+  const LocationCard = ({ card, onToggleFavorite }: {
+    card: LocationCardData;
+    onToggleFavorite: (id: string) => void;
+  }) => (
+    <div className="bg-dark-700 rounded-lg overflow-hidden shadow-lg">
       <div className="aspect-video relative">
         <img
-          src={location.images?.[0] || '/location-placeholder.jpg'}
-          alt={location.name}
+          src={card.image}
+          alt={card.name}
           className="w-full h-full object-cover"
         />
         {user && (
           <button
-            onClick={() => toggleFavorite(location.id)}
+            onClick={() => onToggleFavorite(card.id)}
             className="absolute top-2 right-2 p-2 rounded-full bg-dark-800/80 hover:bg-dark-800 transition-colors"
           >
             <Heart
               className={`w-5 h-5 ${
-                location.is_favorite ? 'text-red-500 fill-red-500' : 'text-white'
+                card.is_favorite ? 'text-red-500 fill-red-500' : 'text-white'
               }`}
             />
           </button>
         )}
       </div>
       <div className="p-4">
-        <h3 className="text-lg font-semibold mb-2">{location.name}</h3>
-        <p className="text-gray-400 text-sm mb-3">{location.description}</p>
+        <h3 className="text-lg font-semibold mb-2">{card.name}</h3>
+        <p className="text-gray-400 text-sm mb-3">{card.description}</p>
         <div className="space-y-2">
           <div className="flex items-center text-sm text-gray-400">
             <MapPin className="w-4 h-4 mr-2" />
-            <span>{location.address}</span>
+            <span>{card.address}</span>
           </div>
           <div className="flex items-center text-sm text-gray-400">
             <Clock className="w-4 h-4 mr-2" />
-            <span>{location.opening_hours}</span>
+            <span>{card.opening_hours}</span>
           </div>
           <div className="flex items-center text-sm text-gray-400">
             <IndianRupee className="w-4 h-4 mr-2" />
-            <span>{location.price_range}</span>
+            <span>{card.price_range}</span>
           </div>
           <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}`}
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(card.address)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center text-sm text-primary-500 hover:text-primary-400 transition-colors"
@@ -292,6 +336,17 @@ function AiSuggest() {
             <ExternalLink className="w-4 h-4 mr-2" />
             <span>Open in Google Maps</span>
           </a>
+           {card.blog_url && (
+            <a
+              href={card.blog_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-sm text-primary-500 hover:text-primary-400 transition-colors"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              <span>Read Blog Post</span>
+            </a>
+          )}
         </div>
       </div>
     </div>
@@ -357,56 +412,11 @@ function AiSuggest() {
                         <h4 className="font-medium">Recommended Places:</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {message.structuredResponse.cards.map((card) => (
-                            <div key={card.id} className="bg-dark-800 rounded-lg overflow-hidden shadow-lg">
-                              <div className="aspect-video relative">
-                                <img
-                                  src={card.image}
-                                  alt={card.name}
-                                  className="w-full h-full object-cover"
-                                />
-                                {user && (
-                                  <button
-                                    onClick={() => toggleFavorite(card.id)}
-                                    className="absolute top-2 right-2 p-2 rounded-full bg-dark-800/80 hover:bg-dark-800 transition-colors"
-                                  >
-                                    <Heart
-                                      className={`w-5 h-5 ${
-                                        message.locations?.find(l => l.id === card.id)?.is_favorite 
-                                          ? 'text-red-500 fill-red-500' 
-                                          : 'text-white'
-                                      }`}
-                                    />
-                                  </button>
-                                )}
-                              </div>
-                              <div className="p-4">
-                                <h3 className="text-lg font-semibold mb-2">{card.name}</h3>
-                                <p className="text-gray-400 text-sm mb-3">{card.description}</p>
-                                <div className="space-y-2">
-                                  <div className="flex items-center text-sm text-gray-400">
-                                    <MapPin className="w-4 h-4 mr-2" />
-                                    <span>{card.address}</span>
-                                  </div>
-                                  <div className="flex items-center text-sm text-gray-400">
-                                    <Clock className="w-4 h-4 mr-2" />
-                                    <span>{card.opening_hours}</span>
-                                  </div>
-                                  <div className="flex items-center text-sm text-gray-400">
-                                    <IndianRupee className="w-4 h-4 mr-2" />
-                                    <span>{card.price_range}</span>
-                                  </div>
-                                  <a
-                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(card.address)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center text-sm text-primary-500 hover:text-primary-400 transition-colors"
-                                  >
-                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                    <span>Open in Google Maps</span>
-                                  </a>
-                                </div>
-                              </div>
-                            </div>
+                            <LocationCard 
+                              key={card.id} 
+                              card={card} 
+                              onToggleFavorite={toggleFavorite}
+                            />
                           ))}
                         </div>
                       </div>
