@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { Database } from '@/lib/database.types';
 import ExampleCards from '@/components/ExampleCards';
+import { useLocation } from 'react-router-dom';
+import LocationCarousel from '@/components/LocationCarousel';
 
 type VibeType = Database['public']['Enums']['vibe_type'];
 type SpotType = Database['public']['Enums']['spot_type'];
@@ -39,6 +41,7 @@ interface Message {
 
 function AiSuggest() {
   const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -50,8 +53,21 @@ function AiSuggest() {
   useEffect(() => {
     if (user) {
       loadChatHistory(user.id);
+    } else {
+      // Set initial message with location context if available
+      const locationData = location.state?.location;
+      const initialMessage = locationData
+        ? `Hi! I'm your AI guide for Delhi. I see you're near ${locationData.latitude.toFixed(4)}, ${locationData.longitude.toFixed(4)}. Tell me what kind of place you're looking for, and I'll help you discover the perfect spot nearby!`
+        : "Hi! I'm your AI guide for Delhi. Tell me what kind of place you're looking for, and I'll help you discover the perfect spot!";
+      
+      setMessages([{
+        id: '1',
+        content: initialMessage,
+        isUser: false,
+        timestamp: new Date(),
+      }]);
     }
-  }, [user]);
+  }, [user, location.state]);
 
   const fetchLocationFavoriteStatus = async (locationIds: string[], userId: string): Promise<{ id: string; is_favorite: boolean }[]> => {
     if (locationIds.length === 0 || !userId) return [];
@@ -237,6 +253,7 @@ function AiSuggest() {
         body: JSON.stringify({
           query: input,
           userId: user?.id,
+          userLocation: location.state?.location
         }),
       });
 
@@ -250,14 +267,14 @@ function AiSuggest() {
         }
       }
 
-      const data = await response.json();
-      const { aiResponse } = data as { aiResponse: StructuredResponseContent }; // Cast to the expected type
+      const apiData = await response.json();
+      const data: StructuredResponseContent = apiData.aiResponse || apiData;
 
       // If there are cards, fetch their favorite status before adding to messages
-      if (aiResponse.cards && aiResponse.cards.length > 0 && user) {
-        const cardIds = aiResponse.cards.map(card => card.id);
+      if (data.cards && data.cards.length > 0 && user) {
+        const cardIds = data.cards.map(card => card.id);
         const favoriteStatuses = await fetchLocationFavoriteStatus(cardIds, user.id);
-        aiResponse.cards = aiResponse.cards.map(card => {
+        data.cards = data.cards.map(card => {
           const status = favoriteStatuses.find(fav => fav.id === card.id);
           return { ...card, is_favorite: status?.is_favorite || false };
         });
@@ -265,10 +282,10 @@ function AiSuggest() {
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: aiResponse.text,
+        content: data.text,
         isUser: false,
         timestamp: new Date(),
-        structuredResponse: aiResponse // Pass the entire structured response
+        structuredResponse: data
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -402,24 +419,13 @@ function AiSuggest() {
                         : 'bg-dark-700 text-gray-200'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    <p className="whitespace-pre-wrap">{message.isUser ? message.content : typeof message.structuredResponse?.text === 'string' ? message.structuredResponse.text : ''}</p>
                     <span className="text-xs opacity-50 mt-2 block">
                       {message.timestamp.toLocaleTimeString()}
                     </span>
-                    
-                    {message.structuredResponse?.cards && message.structuredResponse.cards.length > 0 && (
-                      <div className="mt-4 space-y-4">
-                        <h4 className="font-medium">Recommended Places:</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {message.structuredResponse.cards.map((card) => (
-                            <LocationCard 
-                              key={card.id} 
-                              card={card} 
-                              onToggleFavorite={toggleFavorite}
-                            />
-                          ))}
-                        </div>
-                      </div>
+                    {/* Render carousel for AI messages with cards */}
+                    {!message.isUser && message.structuredResponse?.cards && message.structuredResponse.cards.length > 0 && (
+                      <LocationCarousel cards={message.structuredResponse.cards} />
                     )}
                   </div>
                 </motion.div>

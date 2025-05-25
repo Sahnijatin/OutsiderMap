@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Hero = () => {
+  const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setIsVisible(true);
@@ -12,6 +15,32 @@ const Hero = () => {
     const moodSection = document.getElementById('mood-selector');
     if (moodSection) {
       moodSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleAiSuggest = async () => {
+    setIsLoading(true);
+    try {
+      // Get user's current location
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+
+      // Navigate to AI suggest page with location data
+      navigate('/ai-suggest', {
+        state: {
+          location: {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error getting location:', error);
+      // If location access is denied or fails, still navigate to AI suggest
+      navigate('/ai-suggest');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -26,10 +55,10 @@ const Hero = () => {
           loop
           muted
           playsInline
-          poster="https://images.pexels.com/photos/1720315/pexels-photo-1720315.jpeg"
+          poster="https://www.pexels.com/photo/facade-of-humayuns-tomb-in-delhi-19966839/"
         >
           <source 
-            src="https://media.istockphoto.com/id/1420758814/video/india-gate-delhi-time-lapse-video.mp4?s=mp4-640x640-is&k=20&c=vg2b-nk9JxgzFhhVDVwuxJIEEQh7O5-qTwYnRn9zDyc=" 
+            src="https://ik.imagekit.io/oxsyemwolu/gettyimages-511956434-640_adpp.mp4?updatedAt=1747759154690" 
             type="video/mp4" 
           />
           Your browser does not support the video tag.
@@ -53,9 +82,13 @@ const Hero = () => {
             >
               Explore Now
             </button>
-            <button className="button-secondary flex items-center justify-center">
+            <button 
+              onClick={handleAiSuggest}
+              disabled={isLoading}
+              className="button-secondary flex items-center justify-center"
+            >
               <Sparkles className="w-5 h-5 mr-2" />
-              Let AI Suggest
+              {isLoading ? 'Getting Location...' : 'Let AI Suggest'}
             </button>
           </div>
         </div>

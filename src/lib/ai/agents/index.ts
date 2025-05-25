@@ -4,7 +4,7 @@ import { ContextUnderstandingAgent } from './contextUnderstanding';
 import { ValidationAgent } from './validation';
 import { Database } from '@/lib/database.types';
 
-type Spot = Database['public']['Tables']['spots']['Row'];
+type Place = Database['public']['Tables']['places']['Row'];
 type VibeType = Database['public']['Enums']['vibe_type'];
 type SpotType = Database['public']['Enums']['spot_type'];
 type PriceRange = Database['public']['Enums']['price_range'];
@@ -45,10 +45,14 @@ export class OrchestratorAgent {
   async processQuery(
     query: string,
     userPreferences?: UserPreferences,
-    conversationHistory?: { role: string; content: string }[]
+    conversationHistory?: { role: string; content: string }[],
+    userLocation?: {
+      latitude: number;
+      longitude: number;
+    }
   ): Promise<{
     response: string;
-    locations: Spot[];
+    locations: Place[];
     searchCriteria: SearchCriteria;
   }> {
     // 1. Understand context and extract criteria
@@ -65,7 +69,8 @@ export class OrchestratorAgent {
     // 3. Get location recommendations
     const locations = await this.agents.locationExpert.findLocations(
       validatedCriteria,
-      userPreferences
+      userPreferences,
+      userLocation
     );
 
     // 4. Generate personalized response

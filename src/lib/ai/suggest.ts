@@ -31,7 +31,11 @@ interface StructuredResponse {
 
 export async function handleAiSuggestion(
   query: string,
-  userId?: string
+  userId?: string,
+  userLocation?: {
+    latitude: number;
+    longitude: number;
+  }
 ): Promise<{
   aiResponse: StructuredResponse;
 }> {
@@ -90,7 +94,8 @@ export async function handleAiSuggestion(
     const result = await orchestrator.processQuery(
       query,
       userPreferences || undefined,
-      conversationHistory
+      conversationHistory,
+      userLocation
     );
 
     // 4. Structure the response
@@ -105,7 +110,11 @@ export async function handleAiSuggestion(
         price_range: location.price_range,
         vibe: location.vibe,
         type: location.type,
-        opening_hours: location.opening_hours || 'Not specified',
+        opening_hours: typeof location.opening_hours === 'string' 
+          ? location.opening_hours 
+          : Array.isArray(location.opening_hours)
+            ? location.opening_hours.join(', ')
+            : 'Not specified'
       }))
     };
 
@@ -118,7 +127,7 @@ export async function handleAiSuggestion(
             user_id: userId,
             user_message: query,
             ai_response: JSON.stringify(structuredResponse),
-            locations: result.locations.map(l => l.id),
+            location_ids: result.locations.map(l => l.id),
           }
         ]);
 
