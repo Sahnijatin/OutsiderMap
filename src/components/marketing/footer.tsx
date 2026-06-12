@@ -12,6 +12,9 @@ export function MarketingFooter() {
           <Link href="/#how" className="transition-colors hover:text-ink">
             How it works
           </Link>
+          <Link href="/pricing" className="transition-colors hover:text-ink">
+            Pricing
+          </Link>
           <Link href="/sign-in" className="transition-colors hover:text-ink">
             Sign in
           </Link>

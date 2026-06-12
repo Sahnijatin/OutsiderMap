@@ -15,6 +15,12 @@ export function MarketingNav() {
           >
             How it works
           </Link>
+          <Link
+            href="/pricing"
+            className="hidden text-sm text-ink-dim transition-colors hover:text-ink sm:block"
+          >
+            Pricing
+          </Link>
           <ButtonLink href="/sign-in" variant="secondary" size="sm">
             Sign in
           </ButtonLink>

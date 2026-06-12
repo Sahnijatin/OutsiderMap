@@ -5,6 +5,8 @@ import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TasteDimensionsSchema } from "@/lib/taste/profile";
 import { retryTasteRead } from "@/app/onboarding/actions";
+import { cancelPremium } from "@/app/(marketing)/pricing/actions";
+import { revalidatePath } from "next/cache";
 import { signOut } from "./actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +54,12 @@ export default async function ProfilePage({
   const dimensions = parsed.success ? parsed.data.dimensions : undefined;
   const premium =
     subscription?.tier === "premium" && subscription.status === "active";
+
+  async function cancelPremiumAction() {
+    "use server";
+    await cancelPremium();
+    revalidatePath("/profile");
+  }
 
   const learnedSignals =
     taste?.learned_signals &&
@@ -179,6 +187,44 @@ export default async function ProfilePage({
             ? "The profile is updating from how you actually use the city — asks, saves, skips, hours."
             : "Every ask, save, and skip from here on sharpens this profile. The 3am ones count double."}
         </p>
+      </Card>
+
+      <Card className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <p className="voice">Membership</p>
+          <p className="text-sm text-ink-dim">
+            {premium
+              ? `Premium · renews ${
+                  subscription?.current_period_end
+                    ? new Date(
+                        subscription.current_period_end,
+                      ).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        timeZone: "Asia/Kolkata",
+                      })
+                    : "soon"
+                }`
+              : "Free tier — Right Now answers, unlimited."}
+          </p>
+        </div>
+        {premium ? (
+          <form action={cancelPremiumAction}>
+            <button
+              type="submit"
+              className="text-sm text-ink-dim transition-colors hover:text-danger"
+            >
+              Cancel premium
+            </button>
+          </form>
+        ) : (
+          <Link
+            href="/pricing"
+            className="text-sm text-under transition-colors hover:underline"
+          >
+            Go premium →
+          </Link>
+        )}
       </Card>
 
       <footer className="flex flex-wrap items-center gap-4 border-t border-line pt-6">
