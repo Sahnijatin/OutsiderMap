@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { serverEnv } from "@/lib/env";
+import { parseWithRepair, repairTurns } from "@/lib/ai/repair";
 import type {
   AIMessage,
   AIProvider,
@@ -91,32 +92,39 @@ export function createAnthropicProvider(): AIProvider {
     },
 
     async extract<T>(req: ExtractRequest<T>): Promise<T> {
-      const { system, turns } = splitMessages(req.messages);
-      const response = await getClient().messages.create({
-        model: model(req),
-        max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
-        system,
-        messages: turns,
-        tools: [
-          {
-            name: req.schemaName,
-            description: `Record the ${req.schemaName} extracted from the conversation.`,
-            input_schema: z.toJSONSchema(req.schema, {
-              target: "draft-7",
-            }) as Anthropic.Tool["input_schema"],
-          },
-        ],
-        tool_choice: { type: "tool", name: req.schemaName },
-      });
-      const toolUse = response.content.find(
-        (block) => block.type === "tool_use",
-      );
-      if (!toolUse) {
-        throw new Error(
-          `Anthropic extract returned no tool_use block for ${req.schemaName}`,
+      const inputSchema = z.toJSONSchema(req.schema, {
+        target: "draft-7",
+      }) as Anthropic.Tool["input_schema"];
+      // tool_use doesn't enforce array length / number ranges, so a failed
+      // parse gets one corrective pass (see parseWithRepair).
+      return parseWithRepair(req.schema, async (repair) => {
+        const { system, turns } = splitMessages(
+          repair ? repairTurns(req.messages, repair) : req.messages,
         );
-      }
-      return req.schema.parse(toolUse.input);
+        const response = await getClient().messages.create({
+          model: model(req),
+          max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+          system,
+          messages: turns,
+          tools: [
+            {
+              name: req.schemaName,
+              description: `Record the ${req.schemaName} extracted from the conversation.`,
+              input_schema: inputSchema,
+            },
+          ],
+          tool_choice: { type: "tool", name: req.schemaName },
+        });
+        const toolUse = response.content.find(
+          (block) => block.type === "tool_use",
+        );
+        if (!toolUse) {
+          throw new Error(
+            `Anthropic extract returned no tool_use block for ${req.schemaName}`,
+          );
+        }
+        return toolUse.input;
+      });
     },
   };
 }
