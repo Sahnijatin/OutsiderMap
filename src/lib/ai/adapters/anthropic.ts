@@ -1,12 +1,12 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import { serverEnv } from "@/lib/env";
-import {
-  NotImplementedError,
-  type AIMessage,
-  type AIProvider,
-  type CompletionRequest,
-  type ExtractRequest,
+import type {
+  AIMessage,
+  AIProvider,
+  CompletionRequest,
+  ExtractRequest,
 } from "@/lib/ai/types";
 
 const DEFAULT_MODEL = "claude-opus-4-8";
@@ -41,13 +41,17 @@ export function createAnthropicProvider(): AIProvider {
     return client;
   }
 
+  function model(req: CompletionRequest) {
+    return req.model ?? serverEnv().AI_MODEL ?? DEFAULT_MODEL;
+  }
+
   return {
     name: "anthropic",
 
     async complete(req: CompletionRequest) {
       const { system, turns } = splitMessages(req.messages);
       const response = await getClient().messages.create({
-        model: req.model ?? serverEnv().AI_MODEL ?? DEFAULT_MODEL,
+        model: model(req),
         max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
         system,
         messages: turns,
@@ -65,17 +69,54 @@ export function createAnthropicProvider(): AIProvider {
       };
     },
 
-    stream(): ReadableStream<string> {
-      // Phase 3: client.messages.stream() text deltas piped into a
-      // ReadableStream for the recommendation "why" explanations.
-      throw new NotImplementedError("AnthropicProvider.stream");
+    stream(req: CompletionRequest): ReadableStream<string> {
+      const { system, turns } = splitMessages(req.messages);
+      return new ReadableStream<string>({
+        async start(controller) {
+          try {
+            const stream = getClient().messages.stream({
+              model: model(req),
+              max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+              system,
+              messages: turns,
+            });
+            stream.on("text", (text) => controller.enqueue(text));
+            await stream.finalMessage();
+            controller.close();
+          } catch (error) {
+            controller.error(error);
+          }
+        },
+      });
     },
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async extract<T>(_req: ExtractRequest<T>): Promise<T> {
-      // Phase 2: structured outputs via output_config.format (json_schema),
-      // validated post-hoc with the same zod schema as the OpenAI adapter.
-      throw new NotImplementedError("AnthropicProvider.extract");
+    async extract<T>(req: ExtractRequest<T>): Promise<T> {
+      const { system, turns } = splitMessages(req.messages);
+      const response = await getClient().messages.create({
+        model: model(req),
+        max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+        system,
+        messages: turns,
+        tools: [
+          {
+            name: req.schemaName,
+            description: `Record the ${req.schemaName} extracted from the conversation.`,
+            input_schema: z.toJSONSchema(req.schema, {
+              target: "draft-7",
+            }) as Anthropic.Tool["input_schema"],
+          },
+        ],
+        tool_choice: { type: "tool", name: req.schemaName },
+      });
+      const toolUse = response.content.find(
+        (block) => block.type === "tool_use",
+      );
+      if (!toolUse) {
+        throw new Error(
+          `Anthropic extract returned no tool_use block for ${req.schemaName}`,
+        );
+      }
+      return req.schema.parse(toolUse.input);
     },
   };
 }

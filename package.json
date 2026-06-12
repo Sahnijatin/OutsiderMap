@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "node scripts/seed-places.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
@@ -14,6 +15,7 @@
     "@react-three/fiber": "^9.6.1",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
+    "@vercel/analytics": "^2.0.1",
     "lucide-react": "^1.17.0",
     "motion": "^12.40.0",
     "next": "16.2.9",

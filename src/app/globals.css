@@ -1,25 +1,37 @@
 @import "tailwindcss";
 
 /*
- * OutsiderMap design tokens — provisional values.
- * Final palette/type decisions happen in Phase 1 (design system pass).
+ * OutsiderMap design tokens — final (Phase 1).
+ *
+ * The palette is derived from Delhi's actual night light: the sky over the
+ * city is a warm amber-brown haze (never blue-black), streets are lit by
+ * sodium-vapor lamps, and neon belongs to the underground. So:
+ *  - night/surface/line: warm asphalt darks with a brown undertone
+ *  - ink: warm paper-white
+ *  - accent: sodium-vapor amber — the default voice of the brand
+ *  - under: neon violet — reserved exclusively for underground/premium
+ *
  * Tokens are real CSS custom properties: usable as Tailwind utilities
- * (bg-night, text-ink, border-line) and readable from Motion variants
- * and R3F materials via getComputedStyle.
+ * (bg-night, text-ink, border-line) and readable from Motion variants and
+ * R3F materials via getComputedStyle. Never hardcode colors in components.
  */
 @theme {
-  --color-night: #0b0b10;
-  --color-surface: #14141b;
-  --color-line: #26262f;
-  --color-ink: #ece9e2;
-  --color-ink-dim: #8b8a93;
-  --color-accent: #e8b84b;
+  --color-night: #0c0a08;
+  --color-surface: #16120e;
+  --color-raise: #1e1914;
+  --color-line: #2b241c;
+  --color-ink: #ede7db;
+  --color-ink-dim: #9b9183;
+  --color-accent: #f0a431;
+  --color-ember: #c87c1f;
+  --color-under: #b48aed;
+  --color-danger: #e0654f;
 
   --font-display: var(--font-fraunces);
   --font-body: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  --radius-card: 1rem;
+  --radius-card: 1.25rem;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -33,6 +45,43 @@ body {
   color: var(--color-ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+/* The "system voice": mono eyebrows and timestamps. */
+.voice {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-ink-dim);
+}
+
+/* Sodium-lamp halo — the recurring lighting motif. */
+.halo {
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--color-accent) 14%, transparent) 0%,
+    transparent 65%
+  );
+}
+
+.halo-under {
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--color-under) 12%, transparent) 0%,
+    transparent 65%
+  );
+}
+
+/* Visible keyboard focus everywhere, in brand amber. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

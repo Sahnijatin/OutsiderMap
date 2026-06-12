@@ -1,11 +1,11 @@
 import "server-only";
 import OpenAI from "openai";
+import { z } from "zod";
 import { serverEnv } from "@/lib/env";
-import {
-  NotImplementedError,
-  type AIProvider,
-  type CompletionRequest,
-  type ExtractRequest,
+import type {
+  AIProvider,
+  CompletionRequest,
+  ExtractRequest,
 } from "@/lib/ai/types";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
@@ -27,12 +27,16 @@ export function createOpenAIProvider(): AIProvider {
     return client;
   }
 
+  function model(req: CompletionRequest) {
+    return req.model ?? serverEnv().AI_MODEL ?? DEFAULT_MODEL;
+  }
+
   return {
     name: "openai",
 
     async complete(req: CompletionRequest) {
       const response = await getClient().chat.completions.create({
-        model: req.model ?? serverEnv().AI_MODEL ?? DEFAULT_MODEL,
+        model: model(req),
         max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
         messages: req.messages,
       });
@@ -45,17 +49,52 @@ export function createOpenAIProvider(): AIProvider {
       };
     },
 
-    stream(): ReadableStream<string> {
-      // Phase 3: chat.completions.create({stream: true}) deltas piped into
-      // a ReadableStream.
-      throw new NotImplementedError("OpenAIProvider.stream");
+    stream(req: CompletionRequest): ReadableStream<string> {
+      return new ReadableStream<string>({
+        async start(controller) {
+          try {
+            const stream = await getClient().chat.completions.create({
+              model: model(req),
+              max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+              messages: req.messages,
+              stream: true,
+            });
+            for await (const chunk of stream) {
+              const delta = chunk.choices[0]?.delta?.content;
+              if (delta) controller.enqueue(delta);
+            }
+            controller.close();
+          } catch (error) {
+            controller.error(error);
+          }
+        },
+      });
     },
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async extract<T>(_req: ExtractRequest<T>): Promise<T> {
-      // Phase 2: response_format json_schema, validated post-hoc with the
-      // same zod schema as the Anthropic adapter.
-      throw new NotImplementedError("OpenAIProvider.extract");
+    async extract<T>(req: ExtractRequest<T>): Promise<T> {
+      const response = await getClient().chat.completions.create({
+        model: model(req),
+        max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+        messages: req.messages,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: req.schemaName,
+            schema: z.toJSONSchema(req.schema, {
+              target: "draft-7",
+            }) as Record<string, unknown>,
+          },
+        },
+      });
+      const text = response.choices[0]?.message?.content;
+      if (!text) {
+        throw new Error(
+          `OpenAI extract returned no content for ${req.schemaName}`,
+        );
+      }
+      // Validated with the same zod schema as the Anthropic adapter, so
+      // behavior is provider-independent.
+      return req.schema.parse(JSON.parse(text));
     },
   };
 }

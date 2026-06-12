@@ -21,3 +21,14 @@ export const stagger: Variants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
 };
+
+/** Slower stagger for full-section reveals. */
+export const staggerSlow: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.18, delayChildren: 0.15 } },
+};
+
+export const scaleIn: Variants = {
+  hidden: { opacity: 0, scale: 0.96 },
+  visible: { opacity: 1, scale: 1, transition: defaultTransition },
+};

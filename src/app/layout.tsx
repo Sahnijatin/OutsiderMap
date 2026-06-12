@@ -1,26 +1,46 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-fraunces",
+  axes: ["SOFT", "WONK", "opsz"],
+  display: "swap",
 });
 
 const geistSans = Geist({
   subsets: ["latin"],
   variable: "--font-geist-sans",
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
+  display: "swap",
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
-  title: "OutsiderMap — your city, your taste",
+  metadataBase: new URL(appUrl),
+  title: {
+    default: "OutsiderMap — ten thousand places, one answer",
+    template: "%s · OutsiderMap",
+  },
   description:
-    "Hyper-personalized discovery for Delhi. Tell us your mood — we know your taste — and get one confident answer for where to go and what to do, even at 3am.",
+    "OutsiderMap learns your taste and turns “it’s 3am and I want something” into exactly where to go in Delhi — one confident answer, not ten thousand options.",
+  openGraph: {
+    siteName: "OutsiderMap",
+    type: "website",
+    locale: "en_IN",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0c0a08",
 };
 
 export default function RootLayout({
@@ -33,7 +53,10 @@ export default function RootLayout({
       lang="en"
       className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
