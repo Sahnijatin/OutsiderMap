@@ -1,0 +1,233 @@
+import "server-only";
+import { z } from "zod";
+import { getAI, getEmbeddings } from "@/lib/ai";
+import { isOpenNow, openStatusLabel, nowInIST } from "@/lib/places/hours";
+import { createClient } from "@/lib/supabase/server";
+import { TasteDimensionsSchema } from "@/lib/taste/profile";
+import {
+  QueryIntentSchema,
+  RerankSchema,
+  type QueryIntent,
+} from "@/lib/now/intent";
+import type { Json, MatchedPlace } from "@/types/database";
+
+const QUERY_WEIGHT = 0.65; // the ask outranks the standing profile
+const CANDIDATES = 24;
+
+export type Recommendation = {
+  place: MatchedPlace & {
+    hours: Json | null;
+    image_path: string | null;
+    openLabel: string | null;
+  };
+  reason: string;
+};
+
+export type RecommendResult = {
+  picks: Recommendation[];
+  intent: QueryIntent;
+};
+
+const KNOWN_AREAS = [
+  "Connaught Place",
+  "Khan Market",
+  "Hauz Khas",
+  "Shahpur Jat",
+  "Champa Gali",
+  "Lodhi Colony",
+  "Mehrauli",
+  "Greater Kailash",
+  "Saket",
+  "Vasant Kunj",
+  "Old Delhi",
+  "Karol Bagh",
+  "Lajpat Nagar",
+  "Nizamuddin",
+  "Majnu ka Tilla",
+  "Paharganj",
+  "Defence Colony",
+  "Green Park",
+  "Kamla Nagar",
+  "Aerocity",
+  "Gurgaon",
+  "Noida",
+];
+
+const INTENT_SYSTEM = `You parse late-night, plain-spoken asks from people in Delhi into structured search intent. Read between the lines (e.g. "heartbroken" is a mood; "greasy" is a want; "broke" caps the budget at 1). Canonicalize neighbourhoods to one of: ${KNOWN_AREAS.join(", ")} — or null if none is mentioned. Never invent constraints that aren't there.`;
+
+const RERANK_SYSTEM = `You are OutsiderMap's recommendation brain for Delhi. Given a person's taste profile, their right-now ask, the current time, and a candidate list, choose the 3 best places, best first. Honor the ask over the standing profile when they conflict. Prefer open places strongly; only pick a closed one if it is clearly worth planning around, and say so in the reason. Reasons must be specific to THIS person and THIS moment — name the detail that earns the pick (a dish, a corner, the hour, the silence). Never use marketing language.`;
+
+function combineEmbeddings(query: number[], taste: number[] | null) {
+  if (!taste || taste.length !== query.length) return query;
+  const combined = query.map(
+    (q, i) => q * QUERY_WEIGHT + taste[i] * (1 - QUERY_WEIGHT),
+  );
+  const norm = Math.hypot(...combined);
+  return combined.map((v) => v / norm);
+}
+
+function intentToEmbeddingText(query: string, intent: QueryIntent) {
+  return [
+    query,
+    intent.mood && `Mood: ${intent.mood}.`,
+    intent.craving && `Craving: ${intent.craving}.`,
+    intent.wants.length > 0 && `Wants: ${intent.wants.join(", ")}.`,
+    intent.company && `Company: ${intent.company}.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+const StoredQuizSchema = z.object({
+  dimensions: TasteDimensionsSchema.optional(),
+});
+
+export async function recommend(
+  userId: string,
+  query: string,
+): Promise<RecommendResult> {
+  const supabase = await createClient();
+  const ai = getAI();
+
+  // Taste profile + intent extraction + (the intent feeds the embedding,
+  // so taste fetch and intent run in parallel).
+  const [tasteRow, intent] = await Promise.all([
+    supabase
+      .from("taste_profiles")
+      .select("taste_summary, embedding, quiz_answers")
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => data),
+    ai.extract({
+      schema: QueryIntentSchema,
+      schemaName: "query_intent",
+      messages: [
+        { role: "system", content: INTENT_SYSTEM },
+        { role: "user", content: query },
+      ],
+      maxTokens: 1200,
+    }),
+  ]);
+
+  const tasteEmbedding: number[] | null = tasteRow?.embedding
+    ? JSON.parse(tasteRow.embedding)
+    : null;
+  const dimensions = StoredQuizSchema.safeParse(tasteRow?.quiz_answers);
+
+  const [queryEmbedding] = await getEmbeddings().embed([
+    intentToEmbeddingText(query, intent),
+  ]);
+  const combined = combineEmbeddings(queryEmbedding, tasteEmbedding);
+
+  const area =
+    intent.area && KNOWN_AREAS.includes(intent.area) ? intent.area : null;
+
+  const { data: matches, error } = await supabase.rpc("match_places", {
+    query_embedding: JSON.stringify(combined),
+    match_count: CANDIDATES,
+    filter_city: "delhi",
+    filter_area: area,
+    max_price_level: intent.budget_max,
+  });
+  if (error) throw new Error(`match_places failed: ${error.message}`);
+  let candidates = matches ?? [];
+  if (candidates.length === 0 && area) {
+    // Area filter can over-constrain; retry city-wide before giving up.
+    const { data: retry } = await supabase.rpc("match_places", {
+      query_embedding: JSON.stringify(combined),
+      match_count: CANDIDATES,
+      filter_city: "delhi",
+      filter_area: null,
+      max_price_level: intent.budget_max,
+    });
+    candidates = retry ?? [];
+  }
+  if (candidates.length === 0) {
+    return { picks: [], intent };
+  }
+
+  // match_places keeps embeddings server-side and returns a slim row; pull
+  // hours/images for the shortlist separately.
+  const { data: details } = await supabase
+    .from("places")
+    .select("id, hours, image_path")
+    .in(
+      "id",
+      candidates.map((c) => c.id),
+    );
+  const detailById = new Map(details?.map((d) => [d.id, d]) ?? []);
+
+  const enriched = candidates.map((c) => {
+    const detail = detailById.get(c.id);
+    return {
+      ...c,
+      hours: detail?.hours ?? null,
+      image_path: detail?.image_path ?? null,
+      open: isOpenNow(detail?.hours ?? null),
+      openLabel: openStatusLabel(detail?.hours ?? null),
+    };
+  });
+
+  // Soft open-now preference: drop closed places while at least 6 open/
+  // unknown candidates remain, so the reranker still has range.
+  const openish = enriched.filter((c) => c.open !== false);
+  const pool = openish.length >= 6 ? openish : enriched;
+
+  const { day, minutes } = nowInIST();
+  const timeLabel = `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]} ${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")} IST`;
+
+  const rerank = await ai.extract({
+    schema: RerankSchema,
+    schemaName: "ranked_picks",
+    messages: [
+      { role: "system", content: RERANK_SYSTEM },
+      {
+        role: "user",
+        content: [
+          `Time: ${timeLabel}`,
+          `Ask: "${query}"`,
+          `Parsed intent: ${JSON.stringify(intent)}`,
+          tasteRow?.taste_summary &&
+            `Taste profile: ${tasteRow.taste_summary}`,
+          dimensions.success && dimensions.data.dimensions
+            ? `Anchors: ${dimensions.data.dimensions.anchors.join(" | ")}`
+            : null,
+          `Candidates:\n${JSON.stringify(
+            pool.map((c) => ({
+              slug: c.slug,
+              name: c.name,
+              area: c.area,
+              category: c.category,
+              price: c.price_level,
+              vibes: c.vibe_tags,
+              about: c.description,
+              editor_note: c.editor_note,
+              open: c.open === null ? "unknown" : c.open,
+            })),
+          )}`,
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+      },
+    ],
+    maxTokens: 1500,
+  });
+
+  const bySlug = new Map(enriched.map((c) => [c.slug, c]));
+  const picks: Recommendation[] = [];
+  for (const pick of rerank.picks) {
+    const place = bySlug.get(pick.slug);
+    if (place && !picks.some((p) => p.place.slug === place.slug)) {
+      picks.push({ place, reason: pick.reason });
+    }
+  }
+  // The reranker hallucinating slugs shouldn't empty the answer.
+  for (const c of pool) {
+    if (picks.length >= 3) break;
+    if (!picks.some((p) => p.place.slug === c.slug)) {
+      picks.push({ place: c, reason: c.editor_note ?? "" });
+    }
+  }
+
+  return { picks: picks.slice(0, 3), intent };
+}
