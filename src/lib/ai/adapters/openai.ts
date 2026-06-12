@@ -2,6 +2,7 @@ import "server-only";
 import OpenAI from "openai";
 import { z } from "zod";
 import { serverEnv } from "@/lib/env";
+import { parseWithRepair, repairTurns } from "@/lib/ai/repair";
 import type {
   AIProvider,
   CompletionRequest,
@@ -72,29 +73,30 @@ export function createOpenAIProvider(): AIProvider {
     },
 
     async extract<T>(req: ExtractRequest<T>): Promise<T> {
-      const response = await getClient().chat.completions.create({
-        model: model(req),
-        max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
-        messages: req.messages,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: req.schemaName,
-            schema: z.toJSONSchema(req.schema, {
-              target: "draft-7",
-            }) as Record<string, unknown>,
+      const jsonSchema = z.toJSONSchema(req.schema, {
+        target: "draft-7",
+      }) as Record<string, unknown>;
+      // json_schema mode doesn't enforce array length / number ranges, so a
+      // failed parse gets one corrective pass (see parseWithRepair).
+      return parseWithRepair(req.schema, async (repair) => {
+        const messages = repair ? repairTurns(req.messages, repair) : req.messages;
+        const response = await getClient().chat.completions.create({
+          model: model(req),
+          max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+          messages,
+          response_format: {
+            type: "json_schema",
+            json_schema: { name: req.schemaName, schema: jsonSchema },
           },
-        },
+        });
+        const text = response.choices[0]?.message?.content;
+        if (!text) {
+          throw new Error(
+            `OpenAI extract returned no content for ${req.schemaName}`,
+          );
+        }
+        return JSON.parse(text);
       });
-      const text = response.choices[0]?.message?.content;
-      if (!text) {
-        throw new Error(
-          `OpenAI extract returned no content for ${req.schemaName}`,
-        );
-      }
-      // Validated with the same zod schema as the Anthropic adapter, so
-      // behavior is provider-independent.
-      return req.schema.parse(JSON.parse(text));
     },
   };
 }
