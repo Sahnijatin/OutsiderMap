@@ -94,6 +94,11 @@ the same zod schema so behavior is provider-independent.
 
 ## 4. Roadmap
 
+> **Status (2026-06-12):** All six phases are code-complete and build clean.
+> Remaining to go live: provision Supabase (apply migrations, enable Email
+> OTP + Google auth), set env keys, run `npm run seed`, create the Razorpay
+> plan + webhook, and deploy to Vercel. See README → "Going live, end to end".
+
 Each phase is a shippable milestone.
 
 ### Phase 0 — Wipe + scaffold ✅ (this pass)
@@ -103,7 +108,7 @@ landing + R3F proof, Supabase clients + session proxy, AI layer (types + factory
 skills installed: find-skills, frontend-design, react-three-fiber,
 motion-framer, web3d-integration-patterns.
 
-### Phase 1 — Design system + landing
+### Phase 1 — Design system + landing ✅
 Finalize palette/typography (use the `frontend-design` skill; current tokens
 are provisional — avoid the generic near-black + acid-accent default).
 `components/ui` primitives, motion presets, the one signature R3F hero moment
@@ -111,14 +116,14 @@ are provisional — avoid the generic near-black + acid-accent default).
 page with product story + waitlist/sign-in CTA, OG images, analytics.
 **Exit:** Lighthouse ≥ 90, reduced-motion respected, deployed on Vercel.
 
-### Phase 2 — Auth + onboarding profiling
+### Phase 2 — Auth + onboarding profiling ✅
 Apply init migration to a live Supabase project; email OTP + Google auth;
 cinematic multi-step onboarding quiz; on completion run `extract` (answers →
 structured profile) + `complete` (taste summary) + `embed` (taste embedding);
 profile page showing the system's read on you — invest here, it's a wow moment.
 **Exit:** users exist with populated taste profiles.
 
-### Phase 3 — Right Now recommendations (the core free product)
+### Phase 3 — Right Now recommendations (the core free product) ✅
 Seed 100–150 curated Delhi places with embeddings (service-role script). Query
 surface → intent extraction → `match_places` retrieval (taste ⊕ query
 embedding, filtered by open-now/area/price) → LLM rerank + streamed
@@ -126,18 +131,18 @@ personalized "why". Log every interaction; save/dismiss/rate; recompute
 `learned_signals` nightly or on write.
 **Exit:** query → 3 ranked places with reasons in < 4s.
 
-### Phase 4 — Weekend Planner + payments
+### Phase 4 — Weekend Planner + payments ✅
 Razorpay Subscriptions + webhook route handler (service role writes
 `subscriptions`); pricing page; `is_premium()` gates server-side. Planner
 generates an editable Fri–Sun itinerary from profile + constraints.
 **Exit:** first paid subscription possible.
 
-### Phase 5 — Underground events
+### Phase 5 — Underground events ✅
 Events list/detail surfaces (RLS already enforces tier); blurred/locked teaser
 cards for free users; "happening tonight" injection into Right Now results.
 **Exit:** premium hook live.
 
-### Phase 6 — Admin + curation
+### Phase 6 — Admin + curation ✅
 `(admin)` route group gated by `is_admin()`; place/event CRUD with Storage
 image upload; embedding regeneration on edit; submission review queue; signal
 dashboards (top queries, save rates).
@@ -153,3 +158,7 @@ dashboards (top queries, save rates).
 | 2026-06-11 | Tailwind v4 CSS-first tokens; `motion` package (not legacy framer-motion); R3F v9. |
 | 2026-06-11 | Razorpay over Stripe for the India subscription market. |
 | 2026-06-11 | Dark-only at MVP (`color-scheme: dark`, no theme toggle). |
+| 2026-06-12 | Final palette derived from Delhi night light: warm asphalt darks, sodium-vapor amber accent, neon violet reserved for underground/premium. Hero signature: convergence field (10k lights → one answer). |
+| 2026-06-12 | Razorpay integrated via raw REST + HMAC (no SDK); webhook is the source of truth for subscriptions, checkout confirmation activates provisionally. |
+| 2026-06-12 | Free users see premium events only via the `event_teasers()` security-definer function (area/time/vibes, never names) — RLS stays strict, teasing stays safe. |
+| 2026-06-12 | Learned signals: weighted vibe/area scores from interaction_events, recomputed every 10 events and nightly; taste embedding re-blended with behavior. |

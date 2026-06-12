@@ -11,6 +11,7 @@ const PROTECTED_PREFIXES = [
   "/events",
   "/account",
   "/admin",
+  "/submit",
 ];
 
 function isProtected(pathname: string) {

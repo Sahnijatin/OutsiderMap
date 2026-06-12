@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { nowInIST } from "@/lib/places/hours";
 import { NowSurface } from "./now-surface";
 
@@ -29,6 +30,12 @@ export default function NowPage() {
         <h1 className="font-display text-3xl sm:text-4xl">{greeting()}</h1>
       </header>
       <NowSurface />
+      <p className="mt-8 border-t border-line pt-6 text-sm text-ink-dim">
+        Know a place we don&rsquo;t?{" "}
+        <Link href="/submit" className="text-accent hover:underline">
+          Tell the curators.
+        </Link>
+      </p>
     </main>
   );
 }

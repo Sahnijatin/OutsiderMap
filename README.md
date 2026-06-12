@@ -31,6 +31,26 @@ The app runs without any keys configured (the landing page and build don't
 need them); Supabase- and AI-backed features fail with a descriptive error
 until the corresponding env vars are set.
 
+### Going live, end to end
+
+1. **Supabase**: create a project, then `npx supabase db push` to apply
+   `supabase/migrations/`. Enable the Email (OTP) and Google providers in
+   Auth settings; add your domain to the redirect allowlist
+   (`/auth/callback`).
+2. **Seed the catalog**: `npm run seed` (needs `NEXT_PUBLIC_SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`). Idempotent — re-run after
+   editing `data/places.delhi.json`.
+3. **AI keys**: `ANTHROPIC_API_KEY` (or `AI_PROVIDER=openai`), plus
+   `OPENAI_API_KEY` for embeddings in all cases.
+4. **Razorpay** (premium): create a monthly plan, set the `RAZORPAY_*` vars,
+   and point a webhook at `/api/razorpay/webhook` subscribed to the
+   `subscription.*` events.
+5. **Cron**: `vercel.json` schedules the nightly learned-signals recompute
+   (`/api/cron/recompute`, gated by `CRON_SECRET`).
+6. **Admin**: flip `is_admin` on your profile row once —
+   `update profiles set is_admin = true where id = '<your-uuid>';` — and the
+   curation desk appears at `/admin`.
+
 ## Project layout
 
 ```
