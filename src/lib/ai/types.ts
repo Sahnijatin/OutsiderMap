@@ -42,10 +42,3 @@ export interface EmbeddingProvider {
   /** Returns one embedding vector per input text (1536 dimensions). */
   embed(texts: string[]): Promise<number[][]>;
 }
-
-export class NotImplementedError extends Error {
-  constructor(what: string) {
-    super(`${what} is not implemented yet — scheduled for a later phase.`);
-    this.name = "NotImplementedError";
-  }
-}

@@ -1,6 +1,24 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+/** Route prefixes that require a signed-in user. */
+const PROTECTED_PREFIXES = [
+  "/now",
+  "/onboarding",
+  "/profile",
+  "/weekend",
+  "/saved",
+  "/events",
+  "/account",
+  "/admin",
+];
+
+function isProtected(pathname: string) {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -29,7 +47,21 @@ export async function proxy(request: NextRequest) {
 
   // Refreshes the auth token if expired; required for Server Components
   // to see a valid session.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  if (!user && isProtected(pathname)) {
+    const signIn = new URL("/sign-in", request.url);
+    signIn.searchParams.set("next", pathname);
+    return NextResponse.redirect(signIn);
+  }
+
+  if (user && pathname === "/sign-in") {
+    return NextResponse.redirect(new URL("/now", request.url));
+  }
 
   return response;
 }
