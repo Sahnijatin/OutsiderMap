@@ -52,6 +52,10 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable}`}
+      // Browser extensions and remote-frame/casting layers inject attributes
+      // onto <html> before React hydrates (e.g. __gcrremoteframetoken). Those
+      // are outside our control and harmless — don't warn on them.
+      suppressHydrationWarning
     >
       <body>
         {children}
