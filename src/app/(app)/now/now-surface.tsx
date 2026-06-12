@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn, priceGlyph } from "@/lib/utils";
-import type { Recommendation } from "@/lib/now/recommend";
+import Link from "next/link";
+import { formatEventTime } from "@/lib/utils";
+import type { Recommendation, TonightEvent } from "@/lib/now/recommend";
 import { askNow, dismissPlace, markVisited, savePlace, unsavePlace } from "./actions";
 
 const SUGGESTIONS = [
@@ -198,6 +200,8 @@ export function NowSurface() {
   const [query, setQuery] = useState("");
   const [askedQuery, setAskedQuery] = useState("");
   const [picks, setPicks] = useState<Recommendation[] | null>(null);
+  const [tonight, setTonight] = useState<TonightEvent[]>([]);
+  const [lockedCount, setLockedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +216,8 @@ export function NowSurface() {
       try {
         const result = await askNow(q);
         setPicks(result.picks);
+        setTonight(result.tonight);
+        setLockedCount(result.lockedTonightCount);
       } catch {
         setError(
           "Couldn’t read the city just now. Give it a second and ask again.",
@@ -301,6 +307,40 @@ export function NowSurface() {
             <p className="text-center font-mono text-xs text-ink-dim/60">
               two backups, in case — but trust the first one
             </p>
+          )}
+
+          {(tonight.length > 0 || lockedCount > 0) && (
+            <aside className="rounded-card border border-under/30 bg-surface p-5">
+              <p className="voice mb-3">Meanwhile, tonight</p>
+              <div className="flex flex-col gap-2">
+                {tonight.map((event) => (
+                  <Link
+                    key={event.id}
+                    href={`/events/${event.id}`}
+                    className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm transition-colors hover:text-under"
+                  >
+                    <span className="font-mono text-xs text-under">
+                      {formatEventTime(event.starts_at)}
+                    </span>
+                    <span className="text-ink">{event.title}</span>
+                    <span className="text-ink-dim">
+                      {[event.venue_name, event.area].filter(Boolean).join(" · ")}
+                    </span>
+                  </Link>
+                ))}
+                {lockedCount > 0 && (
+                  <Link
+                    href="/pricing"
+                    className="text-sm text-ink-dim transition-colors hover:text-under"
+                  >
+                    <span aria-hidden className="mr-2">🔒</span>
+                    {lockedCount} underground{" "}
+                    {lockedCount === 1 ? "thing" : "things"} happening tonight
+                    — premium only
+                  </Link>
+                )}
+              </div>
+            </aside>
           )}
         </div>
       )}

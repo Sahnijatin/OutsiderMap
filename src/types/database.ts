@@ -242,7 +242,15 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "events_place_id_fkey";
+            columns: ["place_id"];
+            isOneToOne: false;
+            referencedRelation: "places";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       saved_places: {
         Row: {
@@ -366,6 +374,16 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      event_teasers: {
+        Args: { max_count?: number };
+        Returns: {
+          id: string;
+          area: string | null;
+          starts_at: string;
+          vibe_tags: string[];
+          is_underground: boolean;
+        }[];
+      };
       is_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
