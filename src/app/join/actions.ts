@@ -1,7 +1,14 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { after } from "next/server";
 import { z } from "zod";
+import { serverEnv } from "@/lib/env";
+import {
+  adminApplicationEmail,
+  applicantWelcomeEmail,
+} from "@/lib/email/templates";
+import { sendEmail } from "@/lib/email/resend";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -33,11 +40,47 @@ const ApplicationSchema = z.object({
 });
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
-const IMAGE_EXT: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
+const EXT_MIME: Record<"jpg" | "png" | "webp", string> = {
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
 };
+
+/**
+ * Identifies an image by its magic bytes, not the client-supplied MIME type —
+ * the bucket is public-read, so we must not trust the caller's Content-Type.
+ * Returns the canonical extension, or null if the bytes aren't an allowed image.
+ */
+async function sniffImageExt(
+  file: File,
+): Promise<"jpg" | "png" | "webp" | null> {
+  const b = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpg";
+  if (
+    b[0] === 0x89 &&
+    b[1] === 0x50 &&
+    b[2] === 0x4e &&
+    b[3] === 0x47 &&
+    b[4] === 0x0d &&
+    b[5] === 0x0a &&
+    b[6] === 0x1a &&
+    b[7] === 0x0a
+  )
+    return "png";
+  // RIFF....WEBP
+  if (
+    b[0] === 0x52 &&
+    b[1] === 0x49 &&
+    b[2] === 0x46 &&
+    b[3] === 0x46 &&
+    b[8] === 0x57 &&
+    b[9] === 0x45 &&
+    b[10] === 0x42 &&
+    b[11] === 0x50
+  )
+    return "webp";
+  return null;
+}
 
 export type ApplicationResult = { ok: true; referralCode: string };
 
@@ -126,6 +169,7 @@ export async function submitApplication(
   //    applicant is safely on the list: a spot failure must never block signup,
   //    and ordering this second means a places row is never orphaned by a
   //    failed waitlist write. Persist only when there's a real description.
+  let droppedSpotId: string | null = null;
   const description = input.spotDescription;
   if (description && description.length >= 10) {
     try {
@@ -153,11 +197,58 @@ export async function submitApplication(
           updated_at: new Date().toISOString(),
         })
         .eq("email", input.email);
+      droppedSpotId = spotPlaceId;
     } catch (error) {
       // Don't fail the application over a spot the curators can live without.
       console.error("Dropped-spot submission failed:", error);
     }
   }
+
+  // 3) Notifications — applicant confirmation + admin alert. Best-effort and
+  //    deferred via after() so email latency never delays the success screen.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const spotId = droppedSpotId;
+  after(async () => {
+    try {
+      const welcome = applicantWelcomeEmail({
+        firstName: input.firstName,
+        referralCode,
+        shareUrl: `${appUrl}/join?ref=${referralCode}`,
+      });
+      await sendEmail({
+        to: input.email,
+        subject: welcome.subject,
+        html: welcome.html,
+      });
+    } catch (error) {
+      console.error("Waitlist welcome email failed:", error);
+    }
+
+    const adminEmail = serverEnv().RESEND_ADMIN_EMAIL;
+    if (adminEmail) {
+      try {
+        const alert = adminApplicationEmail({
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email,
+          phone: input.phone,
+          city: input.city,
+          instagram,
+          referredBy,
+          spotUrl: spotId ? `${appUrl}/admin/places/${spotId}` : null,
+          waitlistUrl: `${appUrl}/admin/waitlist`,
+        });
+        await sendEmail({
+          to: adminEmail,
+          subject: alert.subject,
+          html: alert.html,
+          replyTo: input.email,
+        });
+      } catch (error) {
+        console.error("Waitlist admin email failed:", error);
+      }
+    }
+  });
 
   return { ok: true, referralCode };
 }
@@ -177,17 +268,18 @@ async function insertDroppedSpot(
       .slice(0, 40) || "spot";
   const slug = `${slugBase}-${id.slice(0, 6)}`;
 
-  // Optional photo: validate type/size and upload via service role (the
-  // place-images bucket is admin-write only). A bad/failed upload must not
-  // block the submission, so we degrade to no image.
+  // Optional photo: enforce size, then verify the actual bytes are a real
+  // image (magic-byte sniff, not the client-supplied MIME) before uploading
+  // via service role. A bad/failed upload must not block the submission, so we
+  // degrade to no image.
   let imagePath: string | null = null;
-  if (photo instanceof File && photo.size > 0) {
-    const ext = IMAGE_EXT[photo.type];
-    if (ext && photo.size <= MAX_IMAGE_BYTES) {
+  if (photo instanceof File && photo.size > 0 && photo.size <= MAX_IMAGE_BYTES) {
+    const ext = await sniffImageExt(photo);
+    if (ext) {
       const path = `submitted/${id}.${ext}`;
       const { error: uploadError } = await admin.storage
         .from("place-images")
-        .upload(path, photo, { contentType: photo.type, upsert: true });
+        .upload(path, photo, { contentType: EXT_MIME[ext], upsert: true });
       if (!uploadError) imagePath = path;
     }
   }

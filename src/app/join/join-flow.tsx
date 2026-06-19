@@ -8,6 +8,12 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { submitApplication } from "./actions";
 
+declare global {
+  interface Window {
+    gtag?: (command: string, ...args: unknown[]) => void;
+  }
+}
+
 const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 /** Client-side preview code, shown in step 2 before submission. The success
@@ -98,6 +104,11 @@ export function JoinFlow({ defaultReferral }: { defaultReferral: string }) {
 
       const result = await submitApplication(data);
       setServerCode(result.referralCode);
+      // Conversion signal for GA4 / Google Ads (the base tag is in the layout).
+      window.gtag?.("event", "generate_lead", {
+        method: "waitlist",
+        dropped_spot: form.spotDescription.trim().length >= 10,
+      });
       setStep(3);
     } catch {
       setError(
