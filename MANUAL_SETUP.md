@@ -34,6 +34,21 @@ be closed.
       site-wide. In the GA dashboard, mark the waitlist submission as a
       conversion / set up the goal so campaign spend can be attributed.
 
+## Security hardening (recommended before high-traffic campaigns)
+
+The `/join` submit action runs with the service role and is reachable by
+anonymous visitors, so a paid campaign is also an attack surface.
+
+- [ ] **Rate limiting / bot protection** on the submit action — without it,
+      a script can mass-create `waitlist` rows, `places` submissions, and 5 MB
+      image uploads. Needs shared state (e.g. Upstash/Vercel KV) or a CAPTCHA
+      (e.g. Turnstile); can't be done reliably with in-memory state on
+      serverless.
+- [ ] **Validate dropped-spot image content** beyond MIME + size. The bucket
+      is public-read and the file type is currently trusted from the
+      client-supplied `Content-Type`; sniff magic bytes or re-encode
+      server-side before storing.
+
 ## Optional enhancements (need your go-ahead)
 
 - [ ] **Confirmation email + admin notification** when a new application lands
