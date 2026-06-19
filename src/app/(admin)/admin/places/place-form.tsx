@@ -31,7 +31,7 @@ export function PlaceForm({ place }: { place?: Tables<"places"> }) {
             name="category"
             defaultValue={place?.category ?? ""}
           >
-            <option value="">—</option>
+            <option value="">-</option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -39,7 +39,7 @@ export function PlaceForm({ place }: { place?: Tables<"places"> }) {
             ))}
           </Select>
         </Field>
-        <Field label="Price level (1–4)" htmlFor="price_level">
+        <Field label="Price level (1-4)" htmlFor="price_level">
           <Input
             id="price_level"
             name="price_level"
@@ -123,7 +123,7 @@ export function PlaceForm({ place }: { place?: Tables<"places"> }) {
           defaultChecked={place?.is_published ?? false}
           className="size-4 accent-(--color-accent)"
         />
-        Published — visible in the product
+        Published - visible in the product
       </label>
 
       <div className="flex items-center gap-4 border-t border-line pt-5">

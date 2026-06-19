@@ -11,7 +11,7 @@ import {
 /**
  * The learning loop: distills interaction_events into learned_signals and
  * refreshes the taste embedding with what the person actually does.
- * Service-role only — learned columns are not owner-writable by policy
+ * Service-role only - learned columns are not owner-writable by policy
  * intent. Runs nightly via /api/cron/recompute and opportunistically
  * (every RECOMPUTE_EVERY events) after saves/dismisses.
  */

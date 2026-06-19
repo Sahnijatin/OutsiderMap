@@ -11,7 +11,7 @@ let provider: AIProvider | null = null;
 
 /**
  * Returns the configured LLM provider (env: AI_PROVIDER, AI_MODEL).
- * Every consumer goes through this factory — no direct SDK imports
+ * Every consumer goes through this factory - no direct SDK imports
  * outside src/lib/ai/.
  */
 export function getAI(): AIProvider {

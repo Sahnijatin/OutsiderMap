@@ -41,7 +41,7 @@ export function SubscribeButton() {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         subscription_id: subscriptionId,
         name: "OutsiderMap",
-        description: "Premium — weekend planning + underground access",
+        description: "Premium - weekend planning + underground access",
         theme: { color: "#f0a431" },
         modal: { ondismiss: () => setPending(false) },
         handler: async (response: {
@@ -59,7 +59,7 @@ export function SubscribeButton() {
             router.refresh();
           } catch {
             setError(
-              "Payment went through but activation hiccuped. It will sort itself out in a minute — or write to us.",
+              "Payment went through but activation hiccuped. It will sort itself out in a minute - or write to us.",
             );
             setPending(false);
           }
@@ -76,7 +76,7 @@ export function SubscribeButton() {
     <div className="flex flex-col gap-3">
       <Button variant="under" size="lg" onClick={subscribe} disabled={pending}>
         {pending && <Spinner className="border-night/30 border-t-night" />}
-        Go premium — ₹499/month
+        Go premium - ₹499/month
       </Button>
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>

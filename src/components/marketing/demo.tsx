@@ -14,7 +14,7 @@ const WHY_LINES = [
 
 /**
  * A staged mock of the Right Now surface: the query types itself, then the
- * answer streams in — the product, demonstrated instead of described.
+ * answer streams in - the product, demonstrated instead of described.
  */
 export function Demo() {
   const ref = useRef<HTMLDivElement>(null);

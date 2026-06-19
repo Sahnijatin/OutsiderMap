@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * Lazily validated env access. Validation happens at call time, not import
- * time, so builds and previews succeed without secrets configured — a
+ * time, so builds and previews succeed without secrets configured - a
  * missing variable fails loudly only when the code path that needs it runs.
  */
 const serverEnvSchema = z.object({
@@ -18,6 +18,9 @@ const serverEnvSchema = z.object({
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
   RAZORPAY_PREMIUM_PLAN_ID: z.string().min(1).optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_FROM: z.string().min(1).optional(),
+  RESEND_ADMIN_EMAIL: z.string().email().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

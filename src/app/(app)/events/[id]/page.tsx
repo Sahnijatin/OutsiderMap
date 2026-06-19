@@ -20,7 +20,7 @@ export default async function EventPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // RLS: free users simply can't load premium events — 404, not a leak.
+  // RLS: free users simply can't load premium events - 404, not a leak.
   const { data: event } = await supabase
     .from("events")
     .select("*, places (slug, name, area)")
@@ -39,7 +39,7 @@ export default async function EventPage({
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-mono text-sm text-accent">
             {formatEventTime(event.starts_at)}
-            {event.ends_at ? ` — ${formatEventTime(event.ends_at)}` : ""}
+            {event.ends_at ? ` - ${formatEventTime(event.ends_at)}` : ""}
           </span>
           {event.is_underground && <Badge variant="under">underground</Badge>}
           {event.required_tier === "premium" && (

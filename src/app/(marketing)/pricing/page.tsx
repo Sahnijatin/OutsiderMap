@@ -12,14 +12,14 @@ export const metadata: Metadata = {
 
 const freeFeatures = [
   "Your taste profile, always learning",
-  "Right Now mode — unlimited asks",
+  "Right Now mode - unlimited asks",
   "Save places, build your shortlist",
 ];
 
 const premiumFeatures = [
   "Everything in free",
-  "Weekend Planner — Fri to Sun, built around you",
-  "Underground access — events that aren't on Google",
+  "Weekend Planner - Fri to Sun, built around you",
+  "Underground access - events that aren't on Google",
   "Tonight's underground folded into Right Now answers",
 ];
 
@@ -53,7 +53,7 @@ export default async function PricingPage() {
           </ul>
           {user ? (
             <ButtonLink href="/now" variant="secondary">
-              You have this — go ask
+              You have this - go ask
             </ButtonLink>
           ) : (
             <ButtonLink href="/sign-in" variant="secondary">
@@ -84,7 +84,7 @@ export default async function PricingPage() {
           <div className="relative">
             {premium ? (
               <ButtonLink href="/weekend" variant="under">
-                You&rsquo;re in — plan the weekend
+                You&rsquo;re in - plan the weekend
               </ButtonLink>
             ) : user ? (
               <SubscribeButton />
@@ -98,7 +98,7 @@ export default async function PricingPage() {
       </div>
 
       <p className="mt-10 text-center font-mono text-xs text-ink-dim/60">
-        Billed by Razorpay. Cancel from your profile — access runs to the end
+        Billed by Razorpay. Cancel from your profile - access runs to the end
         of the period.
       </p>
     </main>

@@ -31,7 +31,7 @@ export function Premium() {
               <h3 className="font-display text-2xl">Weekend Planner</h3>
               <p className="text-sm leading-relaxed text-ink-dim">
                 Friday evening to Sunday night, planned around your taste,
-                your energy curve, and your budget — then editable down to
+                your energy curve, and your budget - then editable down to
                 the brunch table. Save it, share it, actually do it.
               </p>
               <div className="mt-auto flex flex-col gap-2 pt-4">
@@ -57,7 +57,7 @@ export function Premium() {
               <h3 className="font-display text-2xl">Underground access</h3>
               <p className="text-sm leading-relaxed text-ink-dim">
                 Parties without posters. Supper clubs, listening bars,
-                basement gigs — curated by people, not scraped from
+                basement gigs - curated by people, not scraped from
                 anywhere. If it&rsquo;s on Google, it doesn&rsquo;t count.
               </p>
               <div className="mt-auto flex flex-col gap-2 pt-4">

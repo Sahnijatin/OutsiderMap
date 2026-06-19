@@ -4,7 +4,7 @@ const steps = [
   {
     number: "01",
     title: "Answer seven questions",
-    body: "A two-minute quiz — how you eat, where you like to sit, what “late” means to you. That becomes your taste profile, version one.",
+    body: "A two-minute quiz - how you eat, where you like to sit, what “late” means to you. That becomes your taste profile, version one.",
   },
   {
     number: "02",
@@ -14,7 +14,7 @@ const steps = [
   {
     number: "03",
     title: "Ask like you’d text a friend",
-    body: "“im at GK, slightly heartbroken, want greasy food” gets one confident answer — a place, and exactly why it’s yours.",
+    body: "“im at GK, slightly heartbroken, want greasy food” gets one confident answer - a place, and exactly why it’s yours.",
   },
 ];
 

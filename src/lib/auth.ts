@@ -5,7 +5,7 @@ import type { Tables } from "@/types/database";
 
 /** Returns the signed-in auth user, or null. */
 export async function getUser() {
-  // Public pages call this too — render signed-out rather than crash when
+  // Public pages call this too - render signed-out rather than crash when
   // Supabase isn't configured (preview builds without env vars).
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||

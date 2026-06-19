@@ -28,7 +28,7 @@ export function formatEventTime(iso: string) {
 
 const PRICE_GLYPHS = ["₹", "₹₹", "₹₹₹", "₹₹₹₹"] as const;
 
-/** Renders price_level (1–4) as rupee glyphs. */
+/** Renders price_level (1-4) as rupee glyphs. */
 export function priceGlyph(level: number | null | undefined) {
   if (!level || level < 1 || level > 4) return "";
   return PRICE_GLYPHS[level - 1];

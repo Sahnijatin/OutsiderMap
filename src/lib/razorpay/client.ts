@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { serverEnv } from "@/lib/env";
 
 /**
- * Minimal Razorpay REST client — subscriptions only. Razorpay over Stripe
+ * Minimal Razorpay REST client - subscriptions only. Razorpay over Stripe
  * because UPI + UPI Autopay mandates are non-negotiable for Indian consumer
  * subscriptions. No SDK: it's three endpoints and an HMAC.
  */

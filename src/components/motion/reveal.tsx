@@ -6,7 +6,7 @@ import { fadeUp, staggerSlow } from "@/components/motion/primitives";
 
 /**
  * Scroll-into-view reveal. Wrap a section in <Reveal> and mark each
- * animated child with <RevealItem> — children stagger in once when the
+ * animated child with <RevealItem> - children stagger in once when the
  * section enters the viewport.
  */
 export function Reveal({

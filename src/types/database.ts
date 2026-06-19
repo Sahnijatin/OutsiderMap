@@ -4,7 +4,7 @@
  *
  *   npx supabase gen types typescript --linked > src/types/database.ts
  *
- * pgvector columns surface as strings over PostgREST — serialize embeddings
+ * pgvector columns surface as strings over PostgREST - serialize embeddings
  * with JSON.stringify(numbers) when writing.
  */
 
@@ -370,6 +370,65 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      waitlist: {
+        Row: {
+          id: string;
+          first_name: string;
+          last_name: string;
+          email: string;
+          phone: string;
+          gender: string | null;
+          city: string;
+          instagram: string | null;
+          referral_code: string;
+          referred_by: string | null;
+          spot_place_id: string | null;
+          status: "pending" | "accepted" | "rejected";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          first_name: string;
+          last_name: string;
+          email: string;
+          phone: string;
+          gender?: string | null;
+          city: string;
+          instagram?: string | null;
+          referral_code: string;
+          referred_by?: string | null;
+          spot_place_id?: string | null;
+          status?: "pending" | "accepted" | "rejected";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          first_name?: string;
+          last_name?: string;
+          email?: string;
+          phone?: string;
+          gender?: string | null;
+          city?: string;
+          instagram?: string | null;
+          referral_code?: string;
+          referred_by?: string | null;
+          spot_place_id?: string | null;
+          status?: "pending" | "accepted" | "rejected";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "waitlist_spot_place_id_fkey";
+            columns: ["spot_place_id"];
+            isOneToOne: false;
+            referencedRelation: "places";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<string, never>;

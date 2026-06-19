@@ -73,8 +73,8 @@ export function EventForm({ event }: { event?: Tables<"events"> }) {
             name="required_tier"
             defaultValue={event?.required_tier ?? "free"}
           >
-            <option value="free">free — everyone</option>
-            <option value="premium">premium — members only</option>
+            <option value="free">free - everyone</option>
+            <option value="premium">premium - members only</option>
           </Select>
         </Field>
       </div>
@@ -96,7 +96,7 @@ export function EventForm({ event }: { event?: Tables<"events"> }) {
             defaultChecked={event?.is_underground ?? false}
             className="size-4 accent-(--color-under)"
           />
-          Underground — editorial flavor, shows the violet badge
+          Underground - editorial flavor, shows the violet badge
         </label>
         <label className="flex items-center gap-3 text-sm">
           <input
@@ -105,7 +105,7 @@ export function EventForm({ event }: { event?: Tables<"events"> }) {
             defaultChecked={event?.is_published ?? false}
             className="size-4 accent-(--color-accent)"
           />
-          Published — visible in the product
+          Published - visible in the product
         </label>
       </div>
 

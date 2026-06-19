@@ -21,8 +21,14 @@ export function MarketingNav() {
           >
             Pricing
           </Link>
-          <ButtonLink href="/sign-in" variant="secondary" size="sm">
+          <Link
+            href="/sign-in"
+            className="hidden text-sm text-ink-dim transition-colors hover:text-ink sm:block"
+          >
             Sign in
+          </Link>
+          <ButtonLink href="/join" variant="primary" size="sm">
+            Join waitlist
           </ButtonLink>
         </div>
       </nav>

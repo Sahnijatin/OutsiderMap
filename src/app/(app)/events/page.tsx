@@ -110,7 +110,7 @@ export default async function EventsPage() {
                       Somebody&rsquo;s basement, somebody&rsquo;s list
                     </span>
                     <span className="sr-only">
-                      A locked underground event — premium members see the
+                      A locked underground event - premium members see the
                       details.
                     </span>
                     {teaser.vibe_tags.length > 0 && (

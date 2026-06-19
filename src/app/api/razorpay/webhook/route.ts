@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Razorpay subscription lifecycle webhook. The single source of truth for
- * the subscriptions table — written with the service role; users never
+ * the subscriptions table - written with the service role; users never
  * write their own tier.
  *
  * Subscribe to: subscription.activated, subscription.charged,
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = EventSchema.safeParse(JSON.parse(rawBody));
   if (!parsed.success) {
-    // Not a subscription event — acknowledge and ignore.
+    // Not a subscription event - acknowledge and ignore.
     return NextResponse.json({ ignored: true });
   }
 

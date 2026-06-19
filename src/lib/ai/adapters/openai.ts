@@ -95,7 +95,15 @@ export function createOpenAIProvider(): AIProvider {
             `OpenAI extract returned no content for ${req.schemaName}`,
           );
         }
-        return JSON.parse(text);
+        try {
+          return JSON.parse(text) as unknown;
+        } catch {
+          // Non-JSON output (truncation / refusal). Hand the raw text back so
+          // parseWithRepair treats it as a validation failure and runs the
+          // corrective pass, rather than throwing an opaque SyntaxError that
+          // skips repair entirely.
+          return text;
+        }
       });
     },
   };

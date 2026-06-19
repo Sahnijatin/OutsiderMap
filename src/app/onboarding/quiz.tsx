@@ -33,7 +33,7 @@ export function OnboardingQuiz() {
           await completeOnboarding(finalAnswers);
         } catch {
           setError(
-            "Something broke while saving. Your answers are safe — try again.",
+            "Something broke while saving. Your answers are safe - try again.",
           );
         }
       });
@@ -64,7 +64,7 @@ export function OnboardingQuiz() {
         <Spinner className="size-6" />
         <p className="voice">Reading you</p>
         <p className="max-w-sm text-sm text-ink-dim">
-          Building your taste profile — the structured read, the summary,
+          Building your taste profile - the structured read, the summary,
           the embedding. Twenty seconds, once.
         </p>
       </div>

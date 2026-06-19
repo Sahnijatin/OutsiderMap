@@ -6,7 +6,7 @@ import { TasteDimensionsSchema } from "@/lib/taste/profile";
 
 /**
  * Weekend Planner generation (premium). Candidates come from taste-embedding
- * retrieval; the LLM composes the Fri–Sun arc and must pick only from them.
+ * retrieval; the LLM composes the Fri-Sun arc and must pick only from them.
  */
 
 export const PLAN_DAYS = ["fri", "sat", "sun"] as const;
@@ -60,7 +60,7 @@ export const StoredItemSchema = z.object({
 export type StoredPlanItem = z.infer<typeof StoredItemSchema>;
 export const StoredItemsSchema = z.array(StoredItemSchema);
 
-const PLAN_SYSTEM = `You are OutsiderMap's weekend planner for Delhi. Compose a Friday-evening-to-Sunday-night arc for one specific person from the candidate places provided — never invent a place, only use candidate slugs verbatim. Think in energy: Friday unwinds the week, Saturday is the long day, Sunday repairs. Respect their budget and stated constraints, vary areas sensibly (no criss-crossing the city twice in a day), match places to realistic times (no breakfast at a bar), and write notes that are specific to this person — name the dish, the corner, the hour. No marketing language.`;
+const PLAN_SYSTEM = `You are OutsiderMap's weekend planner for Delhi. Compose a Friday-evening-to-Sunday-night arc for one specific person from the candidate places provided - never invent a place, only use candidate slugs verbatim. Think in energy: Friday unwinds the week, Saturday is the long day, Sunday repairs. Respect their budget and stated constraints, vary areas sensibly (no criss-crossing the city twice in a day), match places to realistic times (no breakfast at a bar), and write notes that are specific to this person - name the dish, the corner, the hour. No marketing language. Write with plain hyphens only, never em or en dashes.`;
 
 const StoredQuizSchema = z.object({
   dimensions: TasteDimensionsSchema.optional(),
@@ -85,7 +85,7 @@ export async function generateWeekendPlan(
     .maybeSingle();
   if (!taste?.embedding) {
     throw new Error(
-      "Your taste profile isn't ready yet — finish it from your profile page.",
+      "Your taste profile isn't ready yet - finish it from your profile page.",
     );
   }
 
@@ -144,7 +144,7 @@ export async function generateWeekendPlan(
   for (const day of generated.days) {
     for (const item of day.items) {
       const place = bySlug.get(item.place_slug);
-      if (!place) continue; // hallucinated slug — drop the item
+      if (!place) continue; // hallucinated slug - drop the item
       items.push({
         day: day.day,
         slot: item.slot,
@@ -157,7 +157,7 @@ export async function generateWeekendPlan(
     }
   }
   if (items.length === 0) {
-    throw new Error("Plan generation produced nothing usable — try again.");
+    throw new Error("Plan generation produced nothing usable - try again.");
   }
 
   const { data: plan, error: insertError } = await supabase

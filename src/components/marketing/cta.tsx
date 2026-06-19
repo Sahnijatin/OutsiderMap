@@ -13,8 +13,8 @@ export function ClosingCta() {
           </h2>
         </RevealItem>
         <RevealItem>
-          <ButtonLink href="/sign-in" size="lg">
-            Get your taste profile
+          <ButtonLink href="/join" size="lg">
+            Join the waitlist
           </ButtonLink>
         </RevealItem>
         <RevealItem>

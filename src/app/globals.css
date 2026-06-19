@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 /*
- * OutsiderMap design tokens — final (Phase 1).
+ * OutsiderMap design tokens - final (Phase 1).
  *
  * The palette is derived from Delhi's actual night light: the sky over the
  * city is a warm amber-brown haze (never blue-black), streets are lit by
  * sodium-vapor lamps, and neon belongs to the underground. So:
  *  - night/surface/line: warm asphalt darks with a brown undertone
  *  - ink: warm paper-white
- *  - accent: sodium-vapor amber — the default voice of the brand
- *  - under: neon violet — reserved exclusively for underground/premium
+ *  - accent: sodium-vapor amber - the default voice of the brand
+ *  - under: neon violet - reserved exclusively for underground/premium
  *
  * Tokens are real CSS custom properties: usable as Tailwind utilities
  * (bg-night, text-ink, border-line) and readable from Motion variants and
@@ -60,7 +60,7 @@ body {
   color: var(--color-ink-dim);
 }
 
-/* Sodium-lamp halo — the recurring lighting motif. */
+/* Sodium-lamp halo - the recurring lighting motif. */
 .halo {
   background: radial-gradient(
     ellipse at center,

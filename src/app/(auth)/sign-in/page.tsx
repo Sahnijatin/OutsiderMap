@@ -15,11 +15,11 @@ export default function SignInPage() {
           <Link href="/" className="font-display text-xl italic">
             OutsiderMap
           </Link>
-          <p className="voice">Delhi · members &amp; first-timers</p>
+          <p className="voice">Members &amp; first-timers</p>
         </div>
         <SignInForm />
         <p className="text-center text-xs leading-relaxed text-ink-dim/70">
-          New here? Same door — we&rsquo;ll set you up with a taste profile
+          New here? Same door - we&rsquo;ll set you up with a taste profile
           right after.
         </p>
       </div>
