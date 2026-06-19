@@ -22,7 +22,9 @@ const ApplicationSchema = z.object({
   lastName: z.string().trim().min(1).max(60),
   email: z.string().trim().toLowerCase().email().max(160),
   phone: z.string().trim().min(6).max(24),
-  gender: z.string().trim().max(40).optional(),
+  gender: z
+    .enum(["woman", "man", "non-binary", "prefer-not-to-say"])
+    .optional(),
   city: z.string().trim().min(1).max(80),
   instagram: z.string().trim().max(60).optional(),
   referredBy: z.string().trim().max(24).optional(),
@@ -63,29 +65,24 @@ export async function submitApplication(
 
   const admin = createAdminClient();
 
-  // Re-applying with the same email keeps the original shareable code.
+  // Re-applying with the same email keeps the original shareable code, and we
+  // track any spot they linked before so a new drop can replace it.
   const { data: existing } = await admin
     .from("waitlist")
-    .select("id, referral_code")
+    .select("id, referral_code, spot_place_id")
     .eq("email", input.email)
     .maybeSingle();
-
-  // Optional spot drop -> submissions queue. Only persist when there's a real
-  // description to review (the whole card is optional in the flow).
-  let spotPlaceId: string | null = null;
-  const description = input.spotDescription;
-  if (description && description.length >= 10) {
-    spotPlaceId = await insertDroppedSpot(
-      admin,
-      input.spotArea ?? null,
-      description,
-      formData.get("spotPhoto"),
-    );
-  }
 
   const instagram = input.instagram
     ? input.instagram.replace(/^@+/, "").trim() || null
     : null;
+
+  let referralCode = existing?.referral_code ?? generateReferralCode();
+  // Don't let a returning applicant "refer" themselves with their own code.
+  const referredBy =
+    input.referredBy && input.referredBy.toUpperCase() !== referralCode
+      ? input.referredBy.toUpperCase()
+      : null;
 
   const baseRow = {
     first_name: input.firstName,
@@ -95,15 +92,15 @@ export async function submitApplication(
     gender: input.gender ?? null,
     city: input.city,
     instagram,
-    referred_by: input.referredBy ? input.referredBy.toUpperCase() : null,
-    spot_place_id: spotPlaceId,
+    referred_by: referredBy,
     updated_at: new Date().toISOString(),
   };
 
-  let referralCode = existing?.referral_code ?? generateReferralCode();
-
-  // Upsert by email; on the (astronomically rare) chance a freshly generated
-  // referral_code collides with another applicant's, regenerate and retry.
+  // 1) Write the waitlist row first — being on the list is the primary goal,
+  //    so it must succeed before we touch anything else. Spot link (if any)
+  //    is preserved here and updated in step 2. On the (astronomically rare)
+  //    chance a fresh referral_code collides, regenerate and retry.
+  let saved = false;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const { error } = await admin
       .from("waitlist")
@@ -111,14 +108,58 @@ export async function submitApplication(
         { ...baseRow, referral_code: referralCode },
         { onConflict: "email" },
       );
-    if (!error) return { ok: true, referralCode };
+    if (!error) {
+      saved = true;
+      break;
+    }
     if (error.code === "23505" && !existing) {
       referralCode = generateReferralCode();
       continue;
     }
     throw new Error(error.message);
   }
-  throw new Error("Couldn't reserve a referral code. Please try again.");
+  if (!saved) {
+    throw new Error("Couldn't reserve a referral code. Please try again.");
+  }
+
+  // 2) Optional spot drop -> submissions queue. Best-effort and only after the
+  //    applicant is safely on the list: a spot failure must never block signup,
+  //    and ordering this second means a places row is never orphaned by a
+  //    failed waitlist write. Persist only when there's a real description.
+  const description = input.spotDescription;
+  if (description && description.length >= 10) {
+    try {
+      const spotPlaceId = await insertDroppedSpot(
+        admin,
+        input.spotArea ?? null,
+        description,
+        formData.get("spotPhoto"),
+      );
+      // Replace a spot from a previous application so re-applying doesn't
+      // accumulate orphaned submissions (FK is on delete set null). Keep it if
+      // an editor already published it (no longer an unreviewed submission).
+      if (existing?.spot_place_id && existing.spot_place_id !== spotPlaceId) {
+        await admin
+          .from("places")
+          .delete()
+          .eq("id", existing.spot_place_id)
+          .eq("source", "submitted")
+          .eq("is_published", false);
+      }
+      await admin
+        .from("waitlist")
+        .update({
+          spot_place_id: spotPlaceId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("email", input.email);
+    } catch (error) {
+      // Don't fail the application over a spot the curators can live without.
+      console.error("Dropped-spot submission failed:", error);
+    }
+  }
+
+  return { ok: true, referralCode };
 }
 
 async function insertDroppedSpot(
