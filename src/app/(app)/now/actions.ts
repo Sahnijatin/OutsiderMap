@@ -16,7 +16,7 @@ export async function askNow(rawQuery: string): Promise<RecommendResult> {
 
   const result = await recommend(user.id, query);
 
-  // Log from day one — interaction_events is the learning loop's raw
+  // Log from day one - interaction_events is the learning loop's raw
   // material. after() keeps it off the response's critical path.
   after(async () => {
     await supabase.from("interaction_events").insert({

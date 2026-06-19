@@ -44,7 +44,7 @@ export default async function SavedPage() {
         <div className="rounded-card border border-line bg-surface p-10 text-center">
           <p className="font-display text-xl">Nothing saved yet.</p>
           <p className="mx-auto mt-2 max-w-sm text-sm text-ink-dim">
-            When an answer lands, hit Save and it lives here — your own map
+            When an answer lands, hit Save and it lives here - your own map
             of the city.
           </p>
           <Link

@@ -27,7 +27,7 @@ export function nowInIST(date = new Date()) {
 
 export function isOpenAt(hours: Json | null, day: number, minutes: number) {
   const parsed = HoursSchema.safeParse(hours);
-  if (!parsed.success) return null; // unknown — don't filter out
+  if (!parsed.success) return null; // unknown - don't filter out
 
   const today = parsed.data[DAY_KEYS[day]] ?? [];
   for (const w of today) {

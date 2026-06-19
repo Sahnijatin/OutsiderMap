@@ -10,7 +10,7 @@ type SendArgs = {
 };
 
 /**
- * Sends a transactional email via the Resend REST API. No SDK — same
+ * Sends a transactional email via the Resend REST API. No SDK - same
  * raw-fetch approach as the Razorpay integration. Returns false (rather than
  * throwing) when Resend isn't configured, so callers can treat email as
  * best-effort and never block the primary action.
@@ -24,7 +24,7 @@ export async function sendEmail({
   const env = serverEnv();
   if (!env.RESEND_API_KEY || !env.RESEND_FROM) {
     console.warn(
-      "Resend not configured (RESEND_API_KEY / RESEND_FROM) — skipping email.",
+      "Resend not configured (RESEND_API_KEY / RESEND_FROM) - skipping email.",
     );
     return false;
   }

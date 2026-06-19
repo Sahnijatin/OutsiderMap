@@ -81,7 +81,7 @@ export async function moveItem(planId: string, index: number, dir: -1 | 1) {
   await requireUser();
   const { supabase, items } = await loadPlan(planId);
   const target = index + dir;
-  // Only reorder within the same day — days are a fixed arc.
+  // Only reorder within the same day - days are a fixed arc.
   if (
     index < 0 ||
     index >= items.length ||

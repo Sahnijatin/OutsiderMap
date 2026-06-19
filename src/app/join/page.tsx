@@ -3,7 +3,7 @@ import Link from "next/link";
 import { JoinFlow } from "./join-flow";
 
 export const metadata: Metadata = {
-  title: "Become an Outsider — join the waitlist",
+  title: "Become an Outsider - join the waitlist",
   description:
     "The first 100 outsiders get early access to every spot, every drop, and every area before anyone else. Apply to the OutsiderMap waitlist.",
   openGraph: {
@@ -23,7 +23,7 @@ export default async function JoinPage({
 
   return (
     <main className="relative min-h-dvh overflow-hidden">
-      {/* Sodium-lamp halo — the recurring brand lighting motif. */}
+      {/* Sodium-lamp halo - the recurring brand lighting motif. */}
       <div
         aria-hidden
         className="halo pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[36rem] -translate-x-1/2 opacity-70"
@@ -33,7 +33,7 @@ export default async function JoinPage({
           <Link href="/" className="font-display text-lg italic">
             OutsiderMap
           </Link>
-          <span className="voice hidden sm:block">Delhi · invite only</span>
+          <span className="voice hidden sm:block">Invite only · Delhi first</span>
         </header>
         <JoinFlow defaultReferral={defaultReferral} />
       </div>

@@ -77,7 +77,7 @@ function shell(inner: string, preheader: string) {
 </td></tr>
 ${inner}
 <tr><td style="padding:24px 40px 36px;border-top:1px solid ${C.line};">
-<div style="font-family:${MONO};font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:${C.inkDim};">Made for Delhi</div>
+<div style="font-family:${MONO};font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:${C.inkDim};">For every city · Delhi first</div>
 <div style="font-family:${SANS};font-size:12px;color:${C.inkDim};opacity:0.7;margin-top:8px;">You're getting this because you applied to the OutsiderMap waitlist.</div>
 </td></tr>
 </table>
@@ -106,17 +106,17 @@ ${paragraph(
 <tr><td style="padding:20px 24px;">
 <div style="font-family:${MONO};font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:${C.inkDim};">Your referral code</div>
 <div style="font-family:${MONO};font-size:24px;letter-spacing:0.22em;color:${C.accent};margin-top:8px;">${code}</div>
-<div style="font-family:${SANS};font-size:14px;color:${C.inkDim};margin-top:10px;">Share it — every friend who applies with your code moves you up the list.</div>
+<div style="font-family:${SANS};font-size:14px;color:${C.inkDim};margin-top:10px;">Share it - every friend who applies with your code moves you up the list.</div>
 <div style="margin-top:18px;">${button("Share your code", args.shareUrl)}</div>
 </td></tr>
 </table>
 ${paragraph(
-  `Follow <a href="https://instagram.com/outsidermap" style="color:${C.accent};text-decoration:none;">@outsidermap</a> — hidden spots dropping every day until we open.`,
+  `Follow <a href="https://instagram.com/outsidermap" style="color:${C.accent};text-decoration:none;">@outsidermap</a> - hidden spots dropping every day until we open.`,
 )}
 </td></tr>`;
   return {
     subject: "You're on the OutsiderMap list",
-    html: shell(inner, "You're on the list — here's your referral code."),
+    html: shell(inner, "You're on the list - here's your referral code."),
   };
 }
 
@@ -150,7 +150,7 @@ ${row("Phone", escapeHtml(args.phone))}
 ${row("City", escapeHtml(args.city))}
 ${args.instagram ? row("Instagram", `@${escapeHtml(args.instagram)}`) : ""}
 ${args.referredBy ? row("Referred by", escapeHtml(args.referredBy)) : ""}
-${row("Dropped a spot", args.spotUrl ? "Yes — review below" : "No")}
+${row("Dropped a spot", args.spotUrl ? "Yes - review below" : "No")}
 </table>
 <div style="margin-top:24px;">${button(
     args.spotUrl ? "Review the spot" : "Open the waitlist",
@@ -158,7 +158,7 @@ ${row("Dropped a spot", args.spotUrl ? "Yes — review below" : "No")}
   )}</div>
 </td></tr>`;
   return {
-    subject: `New waitlist application — ${args.firstName} ${args.lastName}`,
+    subject: `New waitlist application - ${args.firstName} ${args.lastName}`,
     html: shell(inner, `${args.firstName} from ${args.city} just applied.`),
   };
 }

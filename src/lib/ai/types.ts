@@ -28,7 +28,7 @@ export interface ExtractRequest<T> extends CompletionRequest {
  * product's needs:
  *  - complete: taste summaries, plan narration
  *  - stream:   progressively rendered "why this place, for you" explanations
- *  - extract:  structured output — quiz answers → taste profile,
+ *  - extract:  structured output - quiz answers → taste profile,
  *              free-text queries → search intent
  */
 export interface AIProvider {

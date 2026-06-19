@@ -25,7 +25,7 @@ const ConfirmSchema = z.object({
 
 /**
  * Step 2: Checkout succeeded client-side. Verify the signature and activate
- * provisionally — the webhook remains the source of truth and will land
+ * provisionally - the webhook remains the source of truth and will land
  * with exact period dates.
  */
 export async function confirmPremiumCheckout(input: z.infer<typeof ConfirmSchema>) {

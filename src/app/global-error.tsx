@@ -1,7 +1,7 @@
 "use client";
 
 // Catches errors thrown by the root layout/template itself (fonts, metadata,
-// Analytics) — the segment-level error.tsx boundary cannot. This file replaces
+// Analytics) - the segment-level error.tsx boundary cannot. This file replaces
 // the root layout when active, so it must define its own <html>/<body> and
 // pull in global styles. See node_modules/next/dist/docs/01-app/03-api-reference
 // /03-file-conventions/error.md (global-error.jsx).

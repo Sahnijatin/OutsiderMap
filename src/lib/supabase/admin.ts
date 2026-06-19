@@ -4,7 +4,7 @@ import { serverEnv } from "@/lib/env";
 import type { Database } from "@/types/database";
 
 /**
- * Service-role client. Bypasses RLS — use only in trusted server code
+ * Service-role client. Bypasses RLS - use only in trusted server code
  * (webhook handlers, learned-signal recompute, seeding scripts).
  */
 export function createAdminClient() {

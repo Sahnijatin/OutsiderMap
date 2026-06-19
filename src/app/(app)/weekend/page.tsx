@@ -31,7 +31,7 @@ export default async function WeekendPage() {
           </h1>
           <p className="max-w-lg text-sm leading-relaxed text-ink-dim">
             The planner reads your taste profile and composes Friday evening
-            to Sunday night — your energy curve, your budget, your corners of
+            to Sunday night - your energy curve, your budget, your corners of
             the city. Editable down to the brunch table.
           </p>
         </header>

@@ -93,7 +93,7 @@ export default async function ProfilePage({
           <p className="voice">Still reading you</p>
           <p className="max-w-lg text-sm leading-relaxed text-ink-dim">
             Your answers are saved, but the written read didn&rsquo;t finish.
-            Run it again — it takes about twenty seconds.
+            Run it again - it takes about twenty seconds.
           </p>
           <form action={retryTasteRead}>
             <Button type="submit" variant="secondary" size="sm">
@@ -184,7 +184,7 @@ export default async function ProfilePage({
         <p className="voice">Still learning</p>
         <p className="max-w-lg text-sm leading-relaxed text-ink-dim">
           {learnedSignals
-            ? "The profile is updating from how you actually use the city — asks, saves, skips, hours."
+            ? "The profile is updating from how you actually use the city - asks, saves, skips, hours."
             : "Every ask, save, and skip from here on sharpens this profile. The 3am ones count double."}
         </p>
       </Card>
@@ -205,7 +205,7 @@ export default async function ProfilePage({
                       })
                     : "soon"
                 }`
-              : "Free tier — Right Now answers, unlimited."}
+              : "Free tier - Right Now answers, unlimited."}
           </p>
         </div>
         {premium ? (

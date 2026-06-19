@@ -63,7 +63,7 @@ export default async function SubmitPage({
         <p className="voice">Received</p>
         <h1 className="font-display text-3xl">The curators have it.</h1>
         <p className="text-sm leading-relaxed text-ink-dim">
-          If it&rsquo;s as good as you say, it goes in the catalog — and your
+          If it&rsquo;s as good as you say, it goes in the catalog - and your
           taste profile gets the credit when it starts showing up in answers.
         </p>
       </main>
@@ -76,7 +76,7 @@ export default async function SubmitPage({
         <p className="voice">Suggest a place</p>
         <h1 className="font-display text-3xl">Know somewhere we don&rsquo;t?</h1>
         <p className="text-sm leading-relaxed text-ink-dim">
-          The catalog is hand-curated. Tell us what it is and why it matters —
+          The catalog is hand-curated. Tell us what it is and why it matters -
           a human reads every one.
         </p>
       </header>

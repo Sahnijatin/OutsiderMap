@@ -6,7 +6,7 @@ export function MarketingFooter() {
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
         <div className="flex flex-col items-center gap-1 sm:items-start">
           <span className="font-display italic">OutsiderMap</span>
-          <span className="voice">Made for Delhi</span>
+          <span className="voice">For every city · Delhi first</span>
         </div>
         <div className="flex items-center gap-6 text-sm text-ink-dim">
           <Link href="/#how" className="transition-colors hover:text-ink">

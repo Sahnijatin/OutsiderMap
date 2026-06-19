@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "OutsiderMap — ten thousand places, one answer";
+export const alt = "OutsiderMap - ten thousand places, one answer";
 
 // Deterministic pseudo-random scatter so the image is stable across builds.
 function mulberry32(seed: number) {
@@ -100,7 +100,7 @@ export default function OgImage() {
             textTransform: "uppercase",
           }}
         >
-          OutsiderMap · Delhi
+          OutsiderMap · Delhi first
         </div>
       </div>
     ),

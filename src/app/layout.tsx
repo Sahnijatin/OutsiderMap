@@ -31,11 +31,11 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    default: "OutsiderMap — ten thousand places, one answer",
+    default: "OutsiderMap - ten thousand places, one answer",
     template: "%s · OutsiderMap",
   },
   description:
-    "OutsiderMap learns your taste and turns “it’s 3am and I want something” into exactly where to go in Delhi — one confident answer, not ten thousand options.",
+    "OutsiderMap learns your taste and turns “it’s 3am and I want something” into exactly where to go - one confident answer, not ten thousand options. Built for every city, launching in Delhi.",
   openGraph: {
     siteName: "OutsiderMap",
     type: "website",
@@ -58,7 +58,7 @@ export default function RootLayout({
       className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable}`}
       // Browser extensions and remote-frame/casting layers inject attributes
       // onto <html> before React hydrates (e.g. __gcrremoteframetoken). Those
-      // are outside our control and harmless — don't warn on them.
+      // are outside our control and harmless - don't warn on them.
       suppressHydrationWarning
     >
       <body>

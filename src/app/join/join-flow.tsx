@@ -196,7 +196,8 @@ function StepDetails({
         </h1>
         <p className="text-sm leading-relaxed text-ink-dim">
           We&rsquo;re not running a race. We&rsquo;re choosing 100 outsiders
-          ourselves. Good things take time. We open July 10.
+          ourselves. Good things take time. We open in Delhi on July 10 -
+          more cities soon.
         </p>
       </header>
 
@@ -374,7 +375,7 @@ function StepStandOut({
         <Field
           label="What makes it the one"
           htmlFor="spotDescription"
-          hint="Tell us in a sentence or two — at least 10 characters to submit it."
+          hint="Tell us in a sentence or two - at least 10 characters to submit it."
         >
           <Textarea
             id="spotDescription"
@@ -409,7 +410,7 @@ function StepStandOut({
           disabled={submitting}
           className="text-sm text-ink-dim transition-colors hover:text-ink disabled:opacity-50"
         >
-          Skip — just put my name down
+          Skip - just put my name down
         </button>
       </div>
     </div>
@@ -474,7 +475,7 @@ function CodeRow({ code, variant }: { code: string; variant: "code" | "link" }) 
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 1800);
     } catch {
-      // Clipboard blocked (e.g. insecure context) — no-op; code is visible.
+      // Clipboard blocked (e.g. insecure context) - no-op; code is visible.
     }
   }
 

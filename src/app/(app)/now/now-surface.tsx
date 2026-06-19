@@ -285,7 +285,7 @@ export function NowSurface() {
         <div className="rounded-card border border-line bg-surface p-8 text-center">
           <p className="font-display text-xl">Nothing matched that.</p>
           <p className="mt-2 text-sm text-ink-dim">
-            Loosen it up — drop the area or the budget and ask again.
+            Loosen it up - drop the area or the budget and ask again.
           </p>
         </div>
       )}
@@ -305,7 +305,7 @@ export function NowSurface() {
           </AnimatePresence>
           {picks.length > 1 && (
             <p className="text-center font-mono text-xs text-ink-dim/60">
-              two backups, in case — but trust the first one
+              two backups, in case - but trust the first one
             </p>
           )}
 
@@ -336,7 +336,7 @@ export function NowSurface() {
                     <span aria-hidden className="mr-2">🔒</span>
                     {lockedCount} underground{" "}
                     {lockedCount === 1 ? "thing" : "things"} happening tonight
-                    — premium only
+                    - premium only
                   </Link>
                 )}
               </div>

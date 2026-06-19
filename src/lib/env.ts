@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * Lazily validated env access. Validation happens at call time, not import
- * time, so builds and previews succeed without secrets configured — a
+ * time, so builds and previews succeed without secrets configured - a
  * missing variable fails loudly only when the code path that needs it runs.
  */
 const serverEnvSchema = z.object({

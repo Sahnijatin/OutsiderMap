@@ -25,7 +25,7 @@ export function Hero() {
         animate="visible"
       >
         <motion.p variants={fadeUp} className="voice">
-          Delhi · 3:00 AM
+          Your city · 3:00 AM
         </motion.p>
 
         <motion.h1
@@ -41,8 +41,8 @@ export function Hero() {
           variants={fadeUp}
           className="max-w-xl text-lg leading-relaxed text-ink-dim"
         >
-          OutsiderMap learns your taste — what you eat, where you sit, how
-          late you stay — and turns &ldquo;it&rsquo;s 3am and I want
+          OutsiderMap learns your taste - what you eat, where you sit, how
+          late you stay - and turns &ldquo;it&rsquo;s 3am and I want
           something&rdquo; into exactly where to go.
         </motion.p>
 
@@ -59,7 +59,7 @@ export function Hero() {
         </motion.div>
 
         <motion.p variants={fadeUp} className="font-mono text-xs text-ink-dim/60">
-          Free in Delhi · more cities later
+          Launching in Delhi, July 10 · every city soon
         </motion.p>
       </motion.div>
     </section>

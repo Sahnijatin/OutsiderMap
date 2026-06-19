@@ -4,7 +4,7 @@ import { getAI, getEmbeddings } from "@/lib/ai";
 import { answersToText, type QuizAnswers } from "@/lib/taste/quiz";
 
 /**
- * The structured taste profile — the workhorse schema. Extracted from quiz
+ * The structured taste profile - the workhorse schema. Extracted from quiz
  * answers at onboarding, re-extracted when the quiz is retaken, and blended
  * with learned signals from interaction_events over time.
  */
@@ -49,9 +49,9 @@ export const TasteDimensionsSchema = z.object({
 
 export type TasteDimensions = z.infer<typeof TasteDimensionsSchema>;
 
-const EXTRACT_SYSTEM = `You are the taste-profiling engine of OutsiderMap, a Delhi discovery product. You turn quiz answers into a precise structured profile. Be specific and opinionated; never average everything to the middle. The free-text answer about a perfect night is the strongest evidence — weight it above the multiple-choice answers when they disagree.`;
+const EXTRACT_SYSTEM = `You are the taste-profiling engine of OutsiderMap, a Delhi discovery product. You turn quiz answers into a precise structured profile. Be specific and opinionated; never average everything to the middle. The free-text answer about a perfect night is the strongest evidence - weight it above the multiple-choice answers when they disagree.`;
 
-const SUMMARY_SYSTEM = `You write the "taste summary" a member sees on their OutsiderMap profile — the system's read on them. Second person, warm but unsentimental, specific to Delhi, 80–120 words, no bullet points, no flattery padding. It should feel slightly too accurate, like a friend who has watched them order for years. Mention concrete patterns (times, textures, places, moods), not personality-test abstractions.`;
+const SUMMARY_SYSTEM = `You write the "taste summary" a member sees on their OutsiderMap profile - the system's read on them. Second person, warm but unsentimental, specific to Delhi, 80-120 words, no bullet points, no flattery padding. It should feel slightly too accurate, like a friend who has watched them order for years. Mention concrete patterns (times, textures, places, moods), not personality-test abstractions. Use plain hyphens only, never em or en dashes.`;
 
 export async function extractTasteDimensions(answers: QuizAnswers) {
   return getAI().extract({

@@ -25,7 +25,7 @@ export class AIValidationError extends Error {
  * Runs a structured-output generation and validates it against `schema`.
  *
  * LLM structured-output modes (OpenAI json_schema, Anthropic tool_use) do not
- * reliably enforce array length limits or number ranges — the model can return
+ * reliably enforce array length limits or number ranges - the model can return
  * too few / too many items, or out-of-range numbers, and only `schema.parse`
  * catches it. Rather than crash, we feed the validation error back for one
  * corrective pass before giving up. `generate` is provider-specific; it must
@@ -71,7 +71,7 @@ export function repairTurns(
         "Validation errors:",
         repair.error,
         "",
-        "Satisfy every array length limit (min/max items) and number range exactly — these are hard constraints, not suggestions.",
+        "Satisfy every array length limit (min/max items) and number range exactly - these are hard constraints, not suggestions.",
       ].join("\n"),
     },
   ];

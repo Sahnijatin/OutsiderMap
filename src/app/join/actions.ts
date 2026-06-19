@@ -47,7 +47,7 @@ const EXT_MIME: Record<"jpg" | "png" | "webp", string> = {
 };
 
 /**
- * Identifies an image by its magic bytes, not the client-supplied MIME type —
+ * Identifies an image by its magic bytes, not the client-supplied MIME type -
  * the bucket is public-read, so we must not trust the caller's Content-Type.
  * Returns the canonical extension, or null if the bytes aren't an allowed image.
  */
@@ -139,7 +139,7 @@ export async function submitApplication(
     updated_at: new Date().toISOString(),
   };
 
-  // 1) Write the waitlist row first — being on the list is the primary goal,
+  // 1) Write the waitlist row first - being on the list is the primary goal,
   //    so it must succeed before we touch anything else. Spot link (if any)
   //    is preserved here and updated in step 2. On the (astronomically rare)
   //    chance a fresh referral_code collides, regenerate and retry.
@@ -204,7 +204,7 @@ export async function submitApplication(
     }
   }
 
-  // 3) Notifications — applicant confirmation + admin alert. Best-effort and
+  // 3) Notifications - applicant confirmation + admin alert. Best-effort and
   //    deferred via after() so email latency never delays the success screen.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const spotId = droppedSpotId;

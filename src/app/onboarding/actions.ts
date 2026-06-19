@@ -21,7 +21,7 @@ export async function completeOnboarding(rawAnswers: QuizAnswers) {
   const answers = AnswersSchema.parse(rawAnswers);
   const supabase = await createClient();
 
-  // Persist the raw answers first — the AI pipeline must never be able to
+  // Persist the raw answers first - the AI pipeline must never be able to
   // lose a finished quiz.
   const { data: existing } = await supabase
     .from("taste_profiles")
@@ -40,7 +40,7 @@ export async function completeOnboarding(rawAnswers: QuizAnswers) {
   }
 
   // Profile pipeline: structured read → summary → embedding. Failures here
-  // degrade gracefully — the profile page shows a "still reading you" state
+  // degrade gracefully - the profile page shows a "still reading you" state
   // and the pipeline can be retried from there.
   try {
     const dimensions = await extractTasteDimensions(answers);

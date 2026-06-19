@@ -70,7 +70,7 @@ export default async function AdminDashboard() {
   const saveRate =
     queries.length > 0
       ? `${Math.round((saves.length / queries.length) * 100)}%`
-      : "—";
+      : "-";
 
   const queryCounts = new Map<string, number>();
   for (const event of queries) {

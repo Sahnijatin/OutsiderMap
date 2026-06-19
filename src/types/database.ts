@@ -4,7 +4,7 @@
  *
  *   npx supabase gen types typescript --linked > src/types/database.ts
  *
- * pgvector columns surface as strings over PostgREST — serialize embeddings
+ * pgvector columns surface as strings over PostgREST - serialize embeddings
  * with JSON.stringify(numbers) when writing.
  */
 

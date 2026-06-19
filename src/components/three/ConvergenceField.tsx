@@ -6,8 +6,8 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 
 /**
- * The signature scene: a field of sodium-amber city lights — the ten
- * thousand options — that drift, then collapse into a single bright point
+ * The signature scene: a field of sodium-amber city lights - the ten
+ * thousand options - that drift, then collapse into a single bright point
  * (the one answer), hold, and scatter again. The product thesis, enacted.
  *
  * Load via next/dynamic with ssr: false. With prefers-reduced-motion the
@@ -37,7 +37,7 @@ function clamp01(x: number) {
 }
 
 // Seeded PRNG: keeps the scene stable across renders and satisfies render
-// purity — the same field of lights every visit.
+// purity - the same field of lights every visit.
 function mulberry32(seed: number) {
   return () => {
     seed |= 0;
@@ -64,7 +64,7 @@ function CityLights({ reduced }: { reduced: boolean }) {
     const rand = mulberry32(3 * 60 + 0); // 3:00 AM
 
     for (let i = 0; i < COUNT; i++) {
-      // A wide, shallow ellipse seen obliquely — a city from a rooftop.
+      // A wide, shallow ellipse seen obliquely - a city from a rooftop.
       const angle = rand() * Math.PI * 2;
       const radius = 0.5 + Math.pow(rand(), 0.6) * 4.6;
       const x = Math.cos(angle) * radius * 1.6;

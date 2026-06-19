@@ -1,6 +1,6 @@
 /**
  * The onboarding quiz. Seven questions, two minutes, version 1 of the
- * taste profile. Shared by the onboarding UI and the extraction prompt —
+ * taste profile. Shared by the onboarding UI and the extraction prompt -
  * no server-only import here.
  */
 
@@ -23,7 +23,7 @@ export const QUIZ: QuizQuestion[] = [
     title: "When does your city happen?",
     options: [
       { value: "morning", label: "Early", detail: "chai before the noise" },
-      { value: "golden-hour", label: "Golden hour", detail: "5–8pm person" },
+      { value: "golden-hour", label: "Golden hour", detail: "5-8pm person" },
       { value: "after-dark", label: "After dark", detail: "dinner is the start" },
       { value: "past-midnight", label: "Past midnight", detail: "the 3am shift" },
     ],
@@ -59,8 +59,8 @@ export const QUIZ: QuizQuestion[] = [
     title: "A great night out usually costs you…",
     options: [
       { value: "1", label: "Under ₹500", detail: "the best food is street food" },
-      { value: "2", label: "₹500–1,500", detail: "good food, no ceremony" },
-      { value: "3", label: "₹1,500–4,000", detail: "cocktails count" },
+      { value: "2", label: "₹500-1,500", detail: "good food, no ceremony" },
+      { value: "3", label: "₹1,500-4,000", detail: "cocktails count" },
       { value: "4", label: "Money isn't the point", detail: "the night decides" },
     ],
   },
@@ -98,7 +98,7 @@ export const QUIZ: QuizQuestion[] = [
     id: "perfect-night",
     kind: "text",
     eyebrow: "07 / evidence",
-    title: "Describe a recent perfect night — out or in.",
+    title: "Describe a recent perfect night - out or in.",
     hint: "Plain words. Where you were, what you ate, who was there, why it worked. This is the part we read closely.",
   },
 ];
@@ -110,15 +110,15 @@ export function answersToText(answers: QuizAnswers) {
   return QUIZ.map((q) => {
     const raw = answers[q.id];
     if (raw == null || raw === "" || (Array.isArray(raw) && raw.length === 0)) {
-      return `${q.title}\n— (skipped)`;
+      return `${q.title}\n- (skipped)`;
     }
     if (q.kind === "text") {
-      return `${q.title}\n— ${raw}`;
+      return `${q.title}\n- ${raw}`;
     }
     const values = Array.isArray(raw) ? raw : [raw];
     const labels = values.map(
       (v) => q.options?.find((o) => o.value === v)?.label ?? v,
     );
-    return `${q.title}\n— ${labels.join(", ")}`;
+    return `${q.title}\n- ${labels.join(", ")}`;
   }).join("\n\n");
 }

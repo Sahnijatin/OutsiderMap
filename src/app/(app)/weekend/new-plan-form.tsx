@@ -63,9 +63,9 @@ export function NewPlanForm({ defaultWeekend }: { defaultWeekend: string }) {
           </label>
           <Select id="budget" name="budget" defaultValue="" className="w-44">
             <option value="">No ceiling</option>
-            <option value="1">₹ — street level</option>
-            <option value="2">₹₹ — easy</option>
-            <option value="3">₹₹₹ — a proper night</option>
+            <option value="1">₹ - street level</option>
+            <option value="2">₹₹ - easy</option>
+            <option value="3">₹₹₹ - a proper night</option>
           </Select>
         </div>
         <Button type="submit">Plan my weekend</Button>
