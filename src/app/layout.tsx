@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import Script from "next/script";
 import "./globals.css";
+
+const GA_MEASUREMENT_ID = "G-SY3XQJ0R3S";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -61,6 +64,17 @@ export default function RootLayout({
         {children}
         <Analytics />
       </body>
+      {/* Google tag (gtag.js) */}
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA_MEASUREMENT_ID}');`}
+      </Script>
     </html>
   );
 }
