@@ -10,6 +10,18 @@ export type RepairContext = {
 };
 
 /**
+ * Thrown when structured output still fails schema validation after the one
+ * corrective pass. Carries a clean message (not a raw ZodError) so callers can
+ * catch it and present a friendly error instead of crashing the request.
+ */
+export class AIValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AIValidationError";
+  }
+}
+
+/**
  * Runs a structured-output generation and validates it against `schema`.
  *
  * LLM structured-output modes (OpenAI json_schema, Anthropic tool_use) do not
@@ -31,8 +43,13 @@ export async function parseWithRepair<T>(
     previousJson: JSON.stringify(candidate),
     error: z.prettifyError(first.error),
   });
-  // Second pass is the last word — a still-invalid result throws as before.
-  return schema.parse(repaired);
+  const second = schema.safeParse(repaired);
+  if (second.success) return second.data;
+  // Two failed passes is the last word. Surface a typed, clean error instead
+  // of a raw ZodError so callers can catch it and degrade gracefully.
+  throw new AIValidationError(
+    `Model output failed schema validation after one repair attempt: ${z.prettifyError(second.error)}`,
+  );
 }
 
 /**

@@ -172,13 +172,19 @@ export async function recommend(
   let candidates = matches ?? [];
   if (candidates.length === 0 && area) {
     // Area filter can over-constrain; retry city-wide before giving up.
-    const { data: retry } = await supabase.rpc("match_places", {
-      query_embedding: JSON.stringify(combined),
-      match_count: CANDIDATES,
-      filter_city: "delhi",
-      filter_area: null,
-      max_price_level: intent.budget_max,
-    });
+    const { data: retry, error: retryError } = await supabase.rpc(
+      "match_places",
+      {
+        query_embedding: JSON.stringify(combined),
+        match_count: CANDIDATES,
+        filter_city: "delhi",
+        filter_area: null,
+        max_price_level: intent.budget_max,
+      },
+    );
+    if (retryError) {
+      throw new Error(`match_places retry failed: ${retryError.message}`);
+    }
     candidates = retry ?? [];
   }
   const tonightPromise = fetchTonight(supabase);
