@@ -156,6 +156,32 @@ export function JoinFlow({
 
   return (
     <div className="flex flex-1 flex-col">
+      {step === 2 && (
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setStep(1);
+          }}
+          className="mb-3 inline-flex items-center gap-1.5 self-start text-sm text-ink-dim transition-colors hover:text-ink"
+        >
+          <svg
+            width={16}
+            height={16}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M19 12H5" />
+            <path d="m12 19-7-7 7-7" />
+          </svg>
+          Back
+        </button>
+      )}
       <StepDots step={step} />
       <div className="mt-6 rounded-card border border-line bg-surface/80 p-6 backdrop-blur-sm sm:p-8">
         <AnimatePresence mode="wait">

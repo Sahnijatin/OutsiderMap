@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,6 +26,12 @@ export default async function EditPlacePage({
 
   return (
     <main className="flex flex-col gap-6">
+      <Link
+        href="/admin/places"
+        className="voice transition-colors hover:text-ink"
+      >
+        ← Places
+      </Link>
       <div className="flex flex-col gap-1">
         <h1 className="font-display text-3xl">{place.name}</h1>
         <p className="font-mono text-xs text-ink-dim">
