@@ -6,9 +6,23 @@ import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { TurnstileWidget } from "@/components/security/turnstile-widget";
+import type { LocationValue } from "@/components/map/location-picker";
 import { submitApplication } from "./actions";
+
+// Browser-only (mapbox-gl needs window); loaded on the client like the R3F hero.
+const LocationPicker = dynamic(
+  () =>
+    import("@/components/map/location-picker").then((m) => m.LocationPicker),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 w-full animate-pulse rounded-xl border border-line bg-surface" />
+    ),
+  },
+);
 
 type Utm = {
   source: string | null;
@@ -48,6 +62,10 @@ type FormState = {
   instagram: string;
   referredBy: string;
   spotArea: string;
+  spotLandmark: string;
+  spotLat: string;
+  spotLng: string;
+  spotLabel: string;
   spotDescription: string;
 };
 
@@ -61,6 +79,10 @@ const EMPTY: FormState = {
   instagram: "",
   referredBy: "",
   spotArea: "",
+  spotLandmark: "",
+  spotLat: "",
+  spotLng: "",
+  spotLabel: "",
   spotDescription: "",
 };
 
@@ -73,10 +95,12 @@ const stepVariants = {
 export function JoinFlow({
   defaultReferral,
   turnstileSiteKey,
+  mapboxToken,
   utm,
 }: {
   defaultReferral: string;
   turnstileSiteKey: string | null;
+  mapboxToken: string | null;
   utm: Utm;
 }) {
   const [step, setStep] = useState<Step>(1);
@@ -121,6 +145,10 @@ export function JoinFlow({
       data.set("instagram", form.instagram);
       data.set("referredBy", form.referredBy);
       data.set("spotArea", form.spotArea);
+      data.set("spotLandmark", form.spotLandmark);
+      data.set("spotLat", form.spotLat);
+      data.set("spotLng", form.spotLng);
+      data.set("spotLabel", form.spotLabel);
       data.set("spotDescription", form.spotDescription);
       if (photo) data.set("spotPhoto", photo);
       data.set("turnstileToken", turnstileToken ?? "");
@@ -210,6 +238,7 @@ export function JoinFlow({
                 submitting={submitting}
                 error={error}
                 onSubmit={submit}
+                mapboxToken={mapboxToken}
                 turnstileSiteKey={turnstileSiteKey}
                 turnstileReady={!turnstileSiteKey || turnstileToken !== null}
                 onTurnstileToken={setTurnstileToken}
@@ -380,6 +409,7 @@ function StepStandOut({
   submitting,
   error,
   onSubmit,
+  mapboxToken,
   turnstileSiteKey,
   turnstileReady,
   onTurnstileToken,
@@ -392,10 +422,17 @@ function StepStandOut({
   submitting: boolean;
   error: string | null;
   onSubmit: () => void;
+  mapboxToken: string | null;
   turnstileSiteKey: string | null;
   turnstileReady: boolean;
   onTurnstileToken: (token: string | null) => void;
 }) {
+  function handleLocation(loc: LocationValue) {
+    set("spotLat", String(loc.lat));
+    set("spotLng", String(loc.lng));
+    if (loc.label) set("spotLabel", loc.label);
+    if (loc.area) set("spotArea", loc.area);
+  }
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-3">
@@ -432,15 +469,58 @@ function StepStandOut({
 
         <PhotoInput photo={photo} setPhoto={setPhoto} />
 
-        <Field label="Where is it" htmlFor="spotArea">
+        {mapboxToken ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-ink">Where is it</p>
+            <LocationPicker
+              token={mapboxToken}
+              value={
+                form.spotLat && form.spotLng
+                  ? {
+                      lat: Number(form.spotLat),
+                      lng: Number(form.spotLng),
+                      label: form.spotLabel || undefined,
+                    }
+                  : null
+              }
+              onChange={handleLocation}
+            />
+            <Field label="Area / neighbourhood" htmlFor="spotArea">
+              <Input
+                id="spotArea"
+                value={form.spotArea}
+                onChange={(e) => set("spotArea", e.target.value)}
+                placeholder="Auto-filled from the map - edit if needed"
+                maxLength={120}
+              />
+            </Field>
+          </div>
+        ) : (
+          <Field label="Where is it" htmlFor="spotArea">
+            <Input
+              id="spotArea"
+              value={form.spotArea}
+              onChange={(e) => set("spotArea", e.target.value)}
+              placeholder="Area or neighbourhood"
+              maxLength={120}
+            />
+          </Field>
+        )}
+
+        <Field
+          label="Landmark or how to find it"
+          htmlFor="spotLandmark"
+          hint="Optional - unmarked door, above a shop, which gate, the floor…"
+        >
           <Input
-            id="spotArea"
-            value={form.spotArea}
-            onChange={(e) => set("spotArea", e.target.value)}
-            placeholder="Area or neighbourhood"
-            maxLength={120}
+            id="spotLandmark"
+            value={form.spotLandmark}
+            onChange={(e) => set("spotLandmark", e.target.value)}
+            placeholder="e.g. unmarked black door above the paan shop"
+            maxLength={300}
           />
         </Field>
+
         <Field
           label="What makes it the one"
           htmlFor="spotDescription"

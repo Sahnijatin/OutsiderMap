@@ -39,6 +39,10 @@ const ApplicationSchema = z.object({
   instagram: z.string().trim().max(60).optional(),
   referredBy: z.string().trim().max(24).optional(),
   spotArea: z.string().trim().max(120).optional(),
+  spotLandmark: z.string().trim().max(300).optional(),
+  spotLabel: z.string().trim().max(200).optional(),
+  spotLat: z.coerce.number().min(-90).max(90).optional(),
+  spotLng: z.coerce.number().min(-180).max(180).optional(),
   spotDescription: z.string().trim().max(1000).optional(),
   utmSource: z.string().trim().max(200).optional(),
   utmMedium: z.string().trim().max(200).optional(),
@@ -138,6 +142,11 @@ export async function submitApplication(
     instagram: (formData.get("instagram") as string) || undefined,
     referredBy: (formData.get("referredBy") as string) || undefined,
     spotArea: (formData.get("spotArea") as string) || undefined,
+    spotLandmark: (formData.get("spotLandmark") as string) || undefined,
+    spotLabel: (formData.get("spotLabel") as string) || undefined,
+    // Empty -> undefined so z.coerce.number doesn't turn "" into 0,0.
+    spotLat: (formData.get("spotLat") as string) || undefined,
+    spotLng: (formData.get("spotLng") as string) || undefined,
     spotDescription: (formData.get("spotDescription") as string) || undefined,
     utmSource: (formData.get("utmSource") as string) || undefined,
     utmMedium: (formData.get("utmMedium") as string) || undefined,
@@ -258,12 +267,15 @@ export async function submitApplication(
   const description = input.spotDescription;
   if (description && description.length >= 10) {
     try {
-      const spotPlaceId = await insertDroppedSpot(
-        admin,
-        input.spotArea ?? null,
+      const spotPlaceId = await insertDroppedSpot(admin, {
+        area: input.spotArea ?? null,
         description,
-        formData.get("spotPhoto"),
-      );
+        landmark: input.spotLandmark ?? null,
+        label: input.spotLabel ?? null,
+        lat: input.spotLat ?? null,
+        lng: input.spotLng ?? null,
+        photo: formData.get("spotPhoto"),
+      });
       // Replace a spot from a previous application so re-applying doesn't
       // accumulate orphaned submissions (FK is on delete set null). Keep it if
       // an editor already published it (no longer an unreviewed submission).
@@ -338,15 +350,23 @@ export async function submitApplication(
   return { ok: true, referralCode };
 }
 
+type DroppedSpot = {
+  area: string | null;
+  description: string;
+  landmark: string | null;
+  label: string | null;
+  lat: number | null;
+  lng: number | null;
+  photo: FormDataEntryValue | null;
+};
+
 async function insertDroppedSpot(
   admin: AdminClient,
-  area: string | null,
-  description: string,
-  photo: FormDataEntryValue | null,
+  spot: DroppedSpot,
 ): Promise<string> {
   const id = randomUUID();
   const slugBase =
-    (area ?? "spot")
+    (spot.label ?? spot.area ?? "spot")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "")
@@ -358,6 +378,7 @@ async function insertDroppedSpot(
   // via service role. A bad/failed upload must not block the submission, so we
   // degrade to no image.
   let imagePath: string | null = null;
+  const photo = spot.photo;
   if (photo instanceof File && photo.size > 0 && photo.size <= MAX_IMAGE_BYTES) {
     const ext = await sniffImageExt(photo);
     if (ext) {
@@ -369,14 +390,24 @@ async function insertDroppedSpot(
     }
   }
 
+  // Coordinates only when both are present (the map gives them as a pair).
+  const hasCoords = spot.lat !== null && spot.lng !== null;
+  const name =
+    spot.label?.slice(0, 120) ||
+    (spot.area ? `Spot in ${spot.area}`.slice(0, 120) : "Untitled spot");
+
   const { data, error } = await admin
     .from("places")
     .insert({
       id,
       slug,
-      name: area ? `Spot in ${area}`.slice(0, 120) : "Untitled spot",
-      area,
-      description,
+      name,
+      area: spot.area,
+      lat: hasCoords ? spot.lat : null,
+      lng: hasCoords ? spot.lng : null,
+      // "How to find it" goes in editor_note for the reviewing admin.
+      editor_note: spot.landmark,
+      description: spot.description,
       image_path: imagePath,
       source: "submitted",
       is_published: false,

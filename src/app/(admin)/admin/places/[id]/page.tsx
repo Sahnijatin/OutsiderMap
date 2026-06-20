@@ -38,7 +38,10 @@ export default async function EditPlacePage({
           {place.slug} · {place.source}
         </p>
       </div>
-      <PlaceForm place={place} />
+      <PlaceForm
+        place={place}
+        mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null}
+      />
     </main>
   );
 }

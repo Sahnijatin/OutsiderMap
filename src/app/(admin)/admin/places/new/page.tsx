@@ -18,7 +18,7 @@ export default async function NewPlacePage() {
         ← Places
       </Link>
       <h1 className="font-display text-3xl">New place</h1>
-      <PlaceForm />
+      <PlaceForm mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null} />
     </main>
   );
 }

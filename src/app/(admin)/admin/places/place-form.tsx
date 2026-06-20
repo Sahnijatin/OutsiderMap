@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import type { Tables } from "@/types/database";
+import { PlaceLocation } from "./place-location";
 import { deletePlace, upsertPlace } from "./actions";
 
 const CATEGORIES = [
@@ -10,7 +11,13 @@ const CATEGORIES = [
   "chai", "experience", "viewpoint",
 ];
 
-export function PlaceForm({ place }: { place?: Tables<"places"> }) {
+export function PlaceForm({
+  place,
+  mapboxToken,
+}: {
+  place?: Tables<"places">;
+  mapboxToken: string | null;
+}) {
   return (
     <form action={upsertPlace} className="flex max-w-2xl flex-col gap-5">
       {place && <input type="hidden" name="id" value={place.id} />}
@@ -78,6 +85,12 @@ export function PlaceForm({ place }: { place?: Tables<"places"> }) {
           defaultValue={place?.editor_note ?? ""}
         />
       </Field>
+
+      <PlaceLocation
+        token={mapboxToken}
+        lat={place?.lat ?? null}
+        lng={place?.lng ?? null}
+      />
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field
