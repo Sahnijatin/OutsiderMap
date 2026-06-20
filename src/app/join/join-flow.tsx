@@ -12,7 +12,7 @@ import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import type { LocationValue } from "@/components/map/location-picker";
 import { submitApplication } from "./actions";
 
-// Browser-only (mapbox-gl needs window); loaded on the client like the R3F hero.
+// Browser-only (Google Maps needs window); loaded on the client like the R3F hero.
 const LocationPicker = dynamic(
   () =>
     import("@/components/map/location-picker").then((m) => m.LocationPicker),
@@ -95,12 +95,12 @@ const stepVariants = {
 export function JoinFlow({
   defaultReferral,
   turnstileSiteKey,
-  mapboxToken,
+  googleMapsApiKey,
   utm,
 }: {
   defaultReferral: string;
   turnstileSiteKey: string | null;
-  mapboxToken: string | null;
+  googleMapsApiKey: string | null;
   utm: Utm;
 }) {
   const [step, setStep] = useState<Step>(1);
@@ -238,7 +238,7 @@ export function JoinFlow({
                 submitting={submitting}
                 error={error}
                 onSubmit={submit}
-                mapboxToken={mapboxToken}
+                googleMapsApiKey={googleMapsApiKey}
                 turnstileSiteKey={turnstileSiteKey}
                 turnstileReady={!turnstileSiteKey || turnstileToken !== null}
                 onTurnstileToken={setTurnstileToken}
@@ -409,7 +409,7 @@ function StepStandOut({
   submitting,
   error,
   onSubmit,
-  mapboxToken,
+  googleMapsApiKey,
   turnstileSiteKey,
   turnstileReady,
   onTurnstileToken,
@@ -422,7 +422,7 @@ function StepStandOut({
   submitting: boolean;
   error: string | null;
   onSubmit: () => void;
-  mapboxToken: string | null;
+  googleMapsApiKey: string | null;
   turnstileSiteKey: string | null;
   turnstileReady: boolean;
   onTurnstileToken: (token: string | null) => void;
@@ -469,11 +469,11 @@ function StepStandOut({
 
         <PhotoInput photo={photo} setPhoto={setPhoto} />
 
-        {mapboxToken ? (
+        {googleMapsApiKey ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-ink">Where is it</p>
             <LocationPicker
-              token={mapboxToken}
+              token={googleMapsApiKey}
               value={
                 form.spotLat && form.spotLng
                   ? {

@@ -13,10 +13,10 @@ const CATEGORIES = [
 
 export function PlaceForm({
   place,
-  mapboxToken,
+  googleMapsApiKey,
 }: {
   place?: Tables<"places">;
-  mapboxToken: string | null;
+  googleMapsApiKey: string | null;
 }) {
   return (
     <form action={upsertPlace} className="flex max-w-2xl flex-col gap-5">
@@ -87,7 +87,7 @@ export function PlaceForm({
       </Field>
 
       <PlaceLocation
-        token={mapboxToken}
+        token={googleMapsApiKey}
         lat={place?.lat ?? null}
         lng={place?.lng ?? null}
       />

@@ -1,8 +1,10 @@
 "use client";
 
-import "mapbox-gl/dist/mapbox-gl.css";
-import mapboxgl from "mapbox-gl";
+import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
 import { useEffect, useRef, useState } from "react";
+
+// setOptions must run once before the first importLibrary; guard across mounts.
+let configured = false;
 
 export type LocationValue = {
   lat: number;
@@ -11,34 +13,78 @@ export type LocationValue = {
   area?: string;
 };
 
-/** [lng, lat] — Connaught Place, central Delhi. */
-const DELHI: [number, number] = [77.2167, 28.6315];
+/** Connaught Place, central Delhi. */
+const DELHI = { lat: 28.6315, lng: 77.2167 };
 
-type GeoFeature = {
+type Suggestion = {
   id: string;
-  place_name: string;
   text: string;
-  center: [number, number]; // [lng, lat]
-  context?: { id: string; text: string }[];
+  prediction: google.maps.places.PlacePrediction;
 };
 
-/** Best neighbourhood/locality label from a geocoder feature's context. */
-function neighbourhoodFrom(feature: GeoFeature): string | undefined {
-  const ctx = feature.context ?? [];
-  const hood = ctx.find(
-    (c) => c.id.startsWith("neighborhood") || c.id.startsWith("locality"),
+/** Dark, low-chrome map style (no Map ID / Cloud styling required). */
+const DARK_STYLE: google.maps.MapTypeStyle[] = [
+  { elementType: "geometry", stylers: [{ color: "#16120e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#9b9183" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0c0a08" }] },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#2b241c" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9b9183" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#0c0a08" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9b9183" }],
+  },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#1e1914" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  {
+    featureType: "administrative",
+    elementType: "geometry",
+    stylers: [{ color: "#2b241c" }],
+  },
+];
+
+function areaFromComponents(
+  components?: google.maps.places.AddressComponent[],
+): string | undefined {
+  const find = (t: string) =>
+    components?.find((c) => c.types.includes(t))?.longText ?? undefined;
+  return (
+    find("sublocality_level_1") ?? find("neighborhood") ?? find("locality")
   );
-  const place = ctx.find((c) => c.id.startsWith("place"));
-  return hood?.text ?? place?.text ?? feature.text;
 }
 
-const GEOCODE = "https://api.mapbox.com/geocoding/v5/mapbox.places";
+function areaFromGeocode(
+  components: google.maps.GeocoderAddressComponent[],
+): string | undefined {
+  const find = (t: string) =>
+    components.find((c) => c.types.includes(t))?.long_name;
+  return (
+    find("sublocality_level_1") ??
+    find("neighborhood") ??
+    find("locality") ??
+    find("administrative_area_level_2")
+  );
+}
 
 /**
- * Dark, brand-styled map with a place-search bar and a draggable pin. Search
- * is a convenience; the draggable pin (drag or tap the map) is the fallback for
- * unlisted spots. Reports the chosen point up via onChange. Uses mapbox-gl
- * imperatively (load this via next/dynamic ssr:false — it needs window).
+ * Dark, brand-styled Google map with Places search and a draggable pin. Search
+ * is a convenience (best venue/address coverage for India); the draggable pin
+ * (drag or tap the map) is the fallback for unlisted spots. Reports the chosen
+ * point up via onChange. Load this via next/dynamic ssr:false — it needs
+ * window. `token` is the Google Maps API key.
  */
 export function LocationPicker({
   token,
@@ -50,33 +96,43 @@ export function LocationPicker({
   onChange: (next: LocationValue) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markerRef = useRef<mapboxgl.Marker | null>(null);
-  // Keep the latest onChange without re-running the map-init effect.
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const placesRef = useRef<google.maps.PlacesLibrary | null>(null);
+  const sessionRef = useRef<google.maps.places.AutocompleteSessionToken | null>(
+    null,
+  );
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
   });
 
   const [query, setQuery] = useState(value?.label ?? "");
-  const [results, setResults] = useState<GeoFeature[]>([]);
+  const [results, setResults] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
 
-  async function reverseGeocode(lng: number, lat: number) {
-    // Emit coordinates immediately; refine the label/area asynchronously.
+  function placeMarker(lat: number, lng: number) {
+    const map = mapRef.current;
+    const marker = markerRef.current;
+    if (!map || !marker) return;
+    marker.setPosition({ lat, lng });
+    marker.setMap(map);
+  }
+
+  async function reverseGeocode(lat: number, lng: number) {
     onChangeRef.current({ lat, lng });
     try {
-      const res = await fetch(
-        `${GEOCODE}/${lng},${lat}.json?access_token=${token}&types=poi,address,place&limit=1`,
-      );
-      const data = await res.json();
-      const f: GeoFeature | undefined = data.features?.[0];
-      if (f) {
+      const geocoder = geocoderRef.current;
+      if (!geocoder) return;
+      const { results: r } = await geocoder.geocode({ location: { lat, lng } });
+      const first = r[0];
+      if (first) {
         onChangeRef.current({
           lat,
           lng,
-          label: f.place_name,
-          area: neighbourhoodFrom(f),
+          label: first.formatted_address,
+          area: areaFromGeocode(first.address_components),
         });
       }
     } catch {
@@ -84,39 +140,74 @@ export function LocationPicker({
     }
   }
 
-  // Initialise the map once.
+  // Initialise the map + libraries once.
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    mapboxgl.accessToken = token;
-    const start: [number, number] = value ? [value.lng, value.lat] : DELHI;
+    let cancelled = false;
+    if (!configured) {
+      setOptions({ key: token, v: "weekly" });
+      configured = true;
+    }
 
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: "mapbox://styles/mapbox/dark-v11",
-      center: start,
-      zoom: value ? 14 : 10,
-    });
-    mapRef.current = map;
+    void (async () => {
+      const [maps, markerLib, geocoding, places] = await Promise.all([
+        importLibrary("maps"),
+        importLibrary("marker"),
+        importLibrary("geocoding"),
+        importLibrary("places"),
+      ]);
+      if (cancelled || !containerRef.current || mapRef.current) return;
+      const { Map } = maps;
+      const { Marker } = markerLib;
 
-    const accent =
-      getComputedStyle(document.documentElement)
-        .getPropertyValue("--color-accent")
-        .trim() || "#f0a431";
-    const marker = new mapboxgl.Marker({ color: accent, draggable: true });
-    if (value) marker.setLngLat([value.lng, value.lat]).addTo(map);
-    markerRef.current = marker;
+      placesRef.current = places;
+      geocoderRef.current = new geocoding.Geocoder();
+      const start = value ? { lat: value.lat, lng: value.lng } : DELHI;
 
-    marker.on("dragend", () => {
-      const { lng, lat } = marker.getLngLat();
-      void reverseGeocode(lng, lat);
-    });
-    map.on("click", (e) => {
-      marker.setLngLat(e.lngLat).addTo(map);
-      void reverseGeocode(e.lngLat.lng, e.lngLat.lat);
-    });
+      const map = new Map(containerRef.current, {
+        center: start,
+        zoom: value ? 15 : 11,
+        styles: DARK_STYLE,
+        clickableIcons: false,
+        disableDefaultUI: true,
+        zoomControl: true,
+        gestureHandling: "greedy",
+      });
+      mapRef.current = map;
+
+      const accent =
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--color-accent")
+          .trim() || "#f0a431";
+      const marker = new Marker({
+        draggable: true,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 9,
+          fillColor: accent,
+          fillOpacity: 1,
+          strokeColor: "#0c0a08",
+          strokeWeight: 2,
+        },
+      });
+      if (value) {
+        marker.setPosition(start);
+        marker.setMap(map);
+      }
+      markerRef.current = marker;
+
+      marker.addListener("dragend", () => {
+        const pos = marker.getPosition();
+        if (pos) void reverseGeocode(pos.lat(), pos.lng());
+      });
+      map.addListener("click", (e: google.maps.MapMouseEvent) => {
+        if (!e.latLng) return;
+        placeMarker(e.latLng.lat(), e.latLng.lng());
+        void reverseGeocode(e.latLng.lat(), e.latLng.lng());
+      });
+    })();
 
     return () => {
-      map.remove();
+      cancelled = true;
       mapRef.current = null;
       markerRef.current = null;
     };
@@ -124,44 +215,65 @@ export function LocationPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // Debounced forward search. State is only set inside the async timeout (never
-  // synchronously in the effect body); the dropdown render is gated on query
-  // length so stale results don't show for a short query.
+  // Debounced autocomplete. State is only set inside the async timeout.
   useEffect(() => {
     if (query.trim().length < 3) return;
     const id = setTimeout(async () => {
+      const places = placesRef.current;
+      if (!places) return;
       try {
-        const c = mapRef.current?.getCenter();
-        const prox = c ? `&proximity=${c.lng},${c.lat}` : "";
-        const res = await fetch(
-          `${GEOCODE}/${encodeURIComponent(query)}.json?access_token=${token}&country=in&limit=5&types=poi,address,place,locality,neighborhood${prox}`,
-        );
-        const data = await res.json();
-        setResults(data.features ?? []);
+        if (!sessionRef.current) {
+          sessionRef.current = new places.AutocompleteSessionToken();
+        }
+        const { suggestions } =
+          await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input: query,
+            sessionToken: sessionRef.current,
+            includedRegionCodes: ["in"],
+            locationBias: mapRef.current?.getBounds() ?? undefined,
+          });
+        const mapped: Suggestion[] = suggestions
+          .map((s) => s.placePrediction)
+          .filter((p): p is google.maps.places.PlacePrediction => p !== null)
+          .map((p) => ({
+            id: p.placeId,
+            text: p.text.text,
+            prediction: p,
+          }));
+        setResults(mapped);
         setOpen(true);
       } catch {
         setResults([]);
       }
     }, 300);
     return () => clearTimeout(id);
-  }, [query, token]);
+  }, [query]);
 
-  function select(f: GeoFeature) {
-    const [lng, lat] = f.center;
-    setQuery(f.place_name);
+  async function select(s: Suggestion) {
+    setQuery(s.text);
     setOpen(false);
-    const map = mapRef.current;
-    const marker = markerRef.current;
-    if (map && marker) {
-      marker.setLngLat([lng, lat]).addTo(map);
-      map.flyTo({ center: [lng, lat], zoom: 15 });
+    try {
+      const place = s.prediction.toPlace();
+      await place.fetchFields({
+        fields: ["location", "displayName", "formattedAddress", "addressComponents"],
+      });
+      const loc = place.location;
+      if (!loc) return;
+      const lat = loc.lat();
+      const lng = loc.lng();
+      placeMarker(lat, lng);
+      mapRef.current?.panTo({ lat, lng });
+      mapRef.current?.setZoom(16);
+      onChangeRef.current({
+        lat,
+        lng,
+        label: place.displayName ?? place.formattedAddress ?? s.text,
+        area: areaFromComponents(place.addressComponents ?? undefined),
+      });
+    } finally {
+      // A session ends when a place is selected; start a fresh one next time.
+      sessionRef.current = null;
     }
-    onChangeRef.current({
-      lat,
-      lng,
-      label: f.place_name,
-      area: neighbourhoodFrom(f),
-    });
   }
 
   return (
@@ -178,15 +290,15 @@ export function LocationPicker({
         />
         {open && query.trim().length >= 3 && results.length > 0 && (
           <ul className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-xl border border-line bg-raise shadow-lg">
-            {results.map((f) => (
-              <li key={f.id}>
+            {results.map((s) => (
+              <li key={s.id}>
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => select(f)}
+                  onClick={() => select(s)}
                   className="block w-full px-4 py-2.5 text-left text-sm text-ink-dim transition-colors hover:bg-surface hover:text-ink"
                 >
-                  {f.place_name}
+                  {s.text}
                 </button>
               </li>
             ))}
