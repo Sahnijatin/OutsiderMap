@@ -25,6 +25,11 @@ be closed.
       - `NEXT_PUBLIC_APP_URL` — used to build absolute links in those emails
         (referral share link, admin review link). Set it to the production
         domain.
+      - `NEXT_PUBLIC_MAPBOX_TOKEN` — powers the map + location search on the
+        "drop a spot" form and the admin place editor. Get a free public token
+        from the Mapbox dashboard (restrict it to `outsidermap.com`). If unset,
+        those surfaces fall back to plain text/number inputs. Redeploy after
+        setting it (it's `NEXT_PUBLIC`, baked at build time).
 
 ## Content & decisions
 
