@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,6 +26,12 @@ export default async function EditEventPage({
 
   return (
     <main className="flex flex-col gap-6">
+      <Link
+        href="/admin/events"
+        className="voice transition-colors hover:text-ink"
+      >
+        ← Events
+      </Link>
       <h1 className="font-display text-3xl">{event.title}</h1>
       <EventForm event={event} />
     </main>
