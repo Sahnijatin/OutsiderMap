@@ -91,7 +91,12 @@ async function sniffImageExt(
   return null;
 }
 
-export type ApplicationResult = { ok: true; referralCode: string };
+export type ApplicationResult = {
+  ok: true;
+  referralCode: string;
+  /** True when this email was already on the list (no new write/email). */
+  alreadyJoined?: boolean;
+};
 
 /**
  * Persists a waitlist application. Runs with the service role (the visitor is
@@ -151,6 +156,22 @@ export async function submitApplication(
     .select("id, referral_code, spot_place_id")
     .eq("email", input.email)
     .maybeSingle();
+
+  // One signup per email. Whitelisted test addresses may re-submit freely
+  // (re-writes + re-sends emails); everyone else is bounced to their existing
+  // code with no duplicate row or email.
+  const testEmails = (serverEnv().WAITLIST_TEST_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const isTestEmail = testEmails.includes(input.email);
+  if (existing && !isTestEmail) {
+    return {
+      ok: true,
+      referralCode: existing.referral_code,
+      alreadyJoined: true,
+    };
+  }
 
   const instagram = input.instagram
     ? input.instagram.replace(/^@+/, "").trim() || null
