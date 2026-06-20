@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { after } from "next/server";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { serverEnv } from "@/lib/env";
 import {
@@ -9,6 +10,8 @@ import {
   applicantWelcomeEmail,
 } from "@/lib/email/templates";
 import { sendEmail } from "@/lib/email/resend";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+import { verifyTurnstile } from "@/lib/security/turnstile";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -37,6 +40,12 @@ const ApplicationSchema = z.object({
   referredBy: z.string().trim().max(24).optional(),
   spotArea: z.string().trim().max(120).optional(),
   spotDescription: z.string().trim().max(1000).optional(),
+  utmSource: z.string().trim().max(200).optional(),
+  utmMedium: z.string().trim().max(200).optional(),
+  utmCampaign: z.string().trim().max(200).optional(),
+  utmTerm: z.string().trim().max(200).optional(),
+  utmContent: z.string().trim().max(200).optional(),
+  referrer: z.string().trim().max(500).optional(),
 });
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -93,6 +102,27 @@ export type ApplicationResult = { ok: true; referralCode: string };
 export async function submitApplication(
   formData: FormData,
 ): Promise<ApplicationResult> {
+  // Identify the caller for rate limiting / Turnstile (anonymous endpoint).
+  const hdrs = await headers();
+  const ip =
+    (hdrs.get("x-forwarded-for") ?? "").split(",")[0].trim() || null;
+
+  // Shed abuse before doing any work: cap submissions per IP, then verify the
+  // bot-check token. Both no-op when their env isn't configured.
+  const allowed = await checkRateLimit(`waitlist:${ip ?? "unknown"}`, 5, 600);
+  if (!allowed) {
+    throw new Error(
+      "Too many attempts from here. Wait a few minutes and try again.",
+    );
+  }
+  const humanOk = await verifyTurnstile(
+    (formData.get("turnstileToken") as string) || null,
+    ip,
+  );
+  if (!humanOk) {
+    throw new Error("Verification failed. Refresh the page and try again.");
+  }
+
   const input = ApplicationSchema.parse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
@@ -104,6 +134,12 @@ export async function submitApplication(
     referredBy: (formData.get("referredBy") as string) || undefined,
     spotArea: (formData.get("spotArea") as string) || undefined,
     spotDescription: (formData.get("spotDescription") as string) || undefined,
+    utmSource: (formData.get("utmSource") as string) || undefined,
+    utmMedium: (formData.get("utmMedium") as string) || undefined,
+    utmCampaign: (formData.get("utmCampaign") as string) || undefined,
+    utmTerm: (formData.get("utmTerm") as string) || undefined,
+    utmContent: (formData.get("utmContent") as string) || undefined,
+    referrer: (formData.get("referrer") as string) || undefined,
   });
 
   const admin = createAdminClient();
@@ -139,6 +175,20 @@ export async function submitApplication(
     updated_at: new Date().toISOString(),
   };
 
+  // First-touch attribution: only stamp UTM/referrer on the initial signup, so
+  // a later re-apply (e.g. typing the URL directly) doesn't wipe the campaign
+  // that originally drove them.
+  const attribution = existing
+    ? {}
+    : {
+        utm_source: input.utmSource ?? null,
+        utm_medium: input.utmMedium ?? null,
+        utm_campaign: input.utmCampaign ?? null,
+        utm_term: input.utmTerm ?? null,
+        utm_content: input.utmContent ?? null,
+        referrer: input.referrer ?? null,
+      };
+
   // 1) Write the waitlist row first - being on the list is the primary goal,
   //    so it must succeed before we touch anything else. Spot link (if any)
   //    is preserved here and updated in step 2. On the (astronomically rare)
@@ -148,7 +198,7 @@ export async function submitApplication(
     const { error } = await admin
       .from("waitlist")
       .upsert(
-        { ...baseRow, referral_code: referralCode },
+        { ...baseRow, ...attribution, referral_code: referralCode },
         { onConflict: "email" },
       );
     if (!error) {

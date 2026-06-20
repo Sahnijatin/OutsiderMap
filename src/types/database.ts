@@ -385,6 +385,12 @@ export type Database = {
           referred_by: string | null;
           spot_place_id: string | null;
           status: "pending" | "accepted" | "rejected";
+          utm_source: string | null;
+          utm_medium: string | null;
+          utm_campaign: string | null;
+          utm_term: string | null;
+          utm_content: string | null;
+          referrer: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -401,6 +407,12 @@ export type Database = {
           referred_by?: string | null;
           spot_place_id?: string | null;
           status?: "pending" | "accepted" | "rejected";
+          utm_source?: string | null;
+          utm_medium?: string | null;
+          utm_campaign?: string | null;
+          utm_term?: string | null;
+          utm_content?: string | null;
+          referrer?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -417,6 +429,12 @@ export type Database = {
           referred_by?: string | null;
           spot_place_id?: string | null;
           status?: "pending" | "accepted" | "rejected";
+          utm_source?: string | null;
+          utm_medium?: string | null;
+          utm_campaign?: string | null;
+          utm_term?: string | null;
+          utm_content?: string | null;
+          referrer?: string | null;
           created_at?: string;
           updated_at?: string;
         };

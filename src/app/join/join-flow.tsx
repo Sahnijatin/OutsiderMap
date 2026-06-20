@@ -6,7 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import { submitApplication } from "./actions";
+
+type Utm = {
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  term: string | null;
+  content: string | null;
+};
 
 declare global {
   interface Window {
@@ -60,7 +69,15 @@ const stepVariants = {
   exit: { opacity: 0, y: -12 },
 };
 
-export function JoinFlow({ defaultReferral }: { defaultReferral: string }) {
+export function JoinFlow({
+  defaultReferral,
+  turnstileSiteKey,
+  utm,
+}: {
+  defaultReferral: string;
+  turnstileSiteKey: string | null;
+  utm: Utm;
+}) {
   const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState<FormState>({
     ...EMPTY,
@@ -69,6 +86,7 @@ export function JoinFlow({ defaultReferral }: { defaultReferral: string }) {
   const [photo, setPhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   // Authoritative code is set from the server response on success.
   const [serverCode, setServerCode] = useState<string | null>(null);
   const previewCode = useMemo(() => previewReferralCode(), []);
@@ -86,6 +104,10 @@ export function JoinFlow({ defaultReferral }: { defaultReferral: string }) {
 
   async function submit() {
     if (submitting) return;
+    if (turnstileSiteKey && !turnstileToken) {
+      setError("Hang on a second while we verify you're human, then try again.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -101,6 +123,16 @@ export function JoinFlow({ defaultReferral }: { defaultReferral: string }) {
       data.set("spotArea", form.spotArea);
       data.set("spotDescription", form.spotDescription);
       if (photo) data.set("spotPhoto", photo);
+      data.set("turnstileToken", turnstileToken ?? "");
+      data.set("utmSource", utm.source ?? "");
+      data.set("utmMedium", utm.medium ?? "");
+      data.set("utmCampaign", utm.campaign ?? "");
+      data.set("utmTerm", utm.term ?? "");
+      data.set("utmContent", utm.content ?? "");
+      data.set(
+        "referrer",
+        typeof document !== "undefined" ? document.referrer : "",
+      );
 
       const result = await submitApplication(data);
       setServerCode(result.referralCode);
@@ -149,6 +181,9 @@ export function JoinFlow({ defaultReferral }: { defaultReferral: string }) {
                 submitting={submitting}
                 error={error}
                 onSubmit={submit}
+                turnstileSiteKey={turnstileSiteKey}
+                turnstileReady={!turnstileSiteKey || turnstileToken !== null}
+                onTurnstileToken={setTurnstileToken}
               />
             )}
             {step === 3 && <StepDone code={code} />}
@@ -317,6 +352,9 @@ function StepStandOut({
   submitting,
   error,
   onSubmit,
+  turnstileSiteKey,
+  turnstileReady,
+  onTurnstileToken,
 }: {
   code: string;
   form: FormState;
@@ -326,6 +364,9 @@ function StepStandOut({
   submitting: boolean;
   error: string | null;
   onSubmit: () => void;
+  turnstileSiteKey: string | null;
+  turnstileReady: boolean;
+  onTurnstileToken: (token: string | null) => void;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -388,6 +429,10 @@ function StepStandOut({
         </Field>
       </section>
 
+      {turnstileSiteKey && (
+        <TurnstileWidget siteKey={turnstileSiteKey} onToken={onTurnstileToken} />
+      )}
+
       {error && (
         <p className="text-sm text-danger" role="alert">
           {error}
@@ -399,7 +444,7 @@ function StepStandOut({
           type="button"
           size="lg"
           className="w-full"
-          disabled={submitting}
+          disabled={submitting || !turnstileReady}
           onClick={onSubmit}
         >
           {submitting ? "Sending…" : "Put me forward"}
@@ -407,7 +452,7 @@ function StepStandOut({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={submitting}
+          disabled={submitting || !turnstileReady}
           className="text-sm text-ink-dim transition-colors hover:text-ink disabled:opacity-50"
         >
           Skip - just put my name down
