@@ -92,7 +92,11 @@ function SignInFormInner() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        // No query string on the redirect: Supabase matches redirectTo against
+        // the allow-listed Redirect URLs, and a trailing ?next=... makes that
+        // match unreliable (it then falls back to the Site URL root). The
+        // callback defaults to /now, which is where post-login should land.
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     if (error) {
