@@ -13,7 +13,7 @@ export default async function WaitlistPage() {
   const { data: applicants } = await admin
     .from("waitlist")
     .select(
-      "id, first_name, last_name, email, phone, gender, city, instagram, referral_code, referred_by, spot_place_id, status, created_at",
+      "id, first_name, last_name, email, phone, gender, city, instagram, referral_code, referred_by, spot_place_id, status, utm_source, utm_campaign, created_at",
     )
     .order("created_at", { ascending: false });
 
@@ -77,6 +77,13 @@ export default async function WaitlistPage() {
                 <span className="text-ink-dim">
                   Referred by{" "}
                   <span className="font-mono text-ink">{a.referred_by}</span>
+                </span>
+              )}
+              {a.utm_source && (
+                <span className="text-ink-dim">
+                  via{" "}
+                  <span className="text-ink">{a.utm_source}</span>
+                  {a.utm_campaign ? ` / ${a.utm_campaign}` : ""}
                 </span>
               )}
               {a.spot_place_id && (
