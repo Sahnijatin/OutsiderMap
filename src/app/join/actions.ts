@@ -175,20 +175,6 @@ export async function submitApplication(
     updated_at: new Date().toISOString(),
   };
 
-  // First-touch attribution: only stamp UTM/referrer on the initial signup, so
-  // a later re-apply (e.g. typing the URL directly) doesn't wipe the campaign
-  // that originally drove them.
-  const attribution = existing
-    ? {}
-    : {
-        utm_source: input.utmSource ?? null,
-        utm_medium: input.utmMedium ?? null,
-        utm_campaign: input.utmCampaign ?? null,
-        utm_term: input.utmTerm ?? null,
-        utm_content: input.utmContent ?? null,
-        referrer: input.referrer ?? null,
-      };
-
   // 1) Write the waitlist row first - being on the list is the primary goal,
   //    so it must succeed before we touch anything else. Spot link (if any)
   //    is preserved here and updated in step 2. On the (astronomically rare)
@@ -198,7 +184,7 @@ export async function submitApplication(
     const { error } = await admin
       .from("waitlist")
       .upsert(
-        { ...baseRow, ...attribution, referral_code: referralCode },
+        { ...baseRow, referral_code: referralCode },
         { onConflict: "email" },
       );
     if (!error) {
@@ -213,6 +199,34 @@ export async function submitApplication(
   }
   if (!saved) {
     throw new Error("Couldn't reserve a referral code. Please try again.");
+  }
+
+  // 1b) First-touch attribution. Deliberately a separate, best-effort write so
+  //     the core signup can never be blocked by it - e.g. if the utm_* columns
+  //     (migration 0005) haven't been applied yet, the update just no-ops.
+  //     Only stamped on the initial signup so a re-apply can't overwrite it.
+  const hasAttribution =
+    input.utmSource ||
+    input.utmMedium ||
+    input.utmCampaign ||
+    input.utmTerm ||
+    input.utmContent ||
+    input.referrer;
+  if (!existing && hasAttribution) {
+    const { error: attrError } = await admin
+      .from("waitlist")
+      .update({
+        utm_source: input.utmSource ?? null,
+        utm_medium: input.utmMedium ?? null,
+        utm_campaign: input.utmCampaign ?? null,
+        utm_term: input.utmTerm ?? null,
+        utm_content: input.utmContent ?? null,
+        referrer: input.referrer ?? null,
+      })
+      .eq("email", input.email);
+    if (attrError) {
+      console.error("UTM attribution skipped:", attrError.message);
+    }
   }
 
   // 2) Optional spot drop -> submissions queue. Best-effort and only after the
