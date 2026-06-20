@@ -1,0 +1,48 @@
+# Applies new Supabase migrations to production automatically.
+#
+# Triggers when a change under supabase/migrations/ lands on main (i.e. when a
+# PR that adds a migration is merged), so schema deploys alongside the code that
+# needs it. Can also be run manually from the Actions tab (workflow_dispatch).
+#
+# One-time setup:
+#   1. Add three repo secrets (Settings -> Secrets and variables -> Actions):
+#        SUPABASE_ACCESS_TOKEN  - Supabase account -> Access Tokens
+#        SUPABASE_DB_PASSWORD   - Project Settings -> Database (connection info)
+#        SUPABASE_PROJECT_ID    - the project ref (bhzuqawppkhwgmktazdp)
+#   2. Baseline the migrations you already applied by hand, so the CLI doesn't
+#      try to re-run them (run locally once):
+#        npx supabase link --project-ref <ref>
+#        npx supabase migration repair --status applied \
+#          00000000000001 00000000000002 00000000000003 \
+#          00000000000004 00000000000005
+#      After that, `db push` only ever applies brand-new migration files.
+
+name: Deploy DB migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+  workflow_dispatch: {}
+
+# Never run two migration deploys at once.
+concurrency:
+  group: db-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link project
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+      - name: Apply migrations
+        run: supabase db push
