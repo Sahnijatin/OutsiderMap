@@ -11,13 +11,13 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
+    "@googlemaps/js-api-loader": "^2.1.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
     "@vercel/analytics": "^2.0.1",
     "lucide-react": "^1.17.0",
-    "mapbox-gl": "^3.25.0",
     "motion": "^12.40.0",
     "next": "16.2.9",
     "openai": "^6.42.0",
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/google.maps": "^3.65.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

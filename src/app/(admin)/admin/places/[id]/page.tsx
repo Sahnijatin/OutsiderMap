@@ -40,7 +40,7 @@ export default async function EditPlacePage({
       </div>
       <PlaceForm
         place={place}
-        mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null}
+        googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null}
       />
     </main>
   );

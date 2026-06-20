@@ -34,7 +34,7 @@ export default async function JoinPage({
   // renders without full env validation. Null disables the widget.
   const turnstileSiteKey =
     process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null;
-  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null;
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null;
 
   return (
     <main className="relative min-h-dvh overflow-hidden">
@@ -53,7 +53,7 @@ export default async function JoinPage({
         <JoinFlow
           defaultReferral={defaultReferral}
           turnstileSiteKey={turnstileSiteKey}
-          mapboxToken={mapboxToken}
+          googleMapsApiKey={googleMapsApiKey}
           utm={utm}
         />
       </div>

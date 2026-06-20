@@ -18,7 +18,9 @@ export default async function NewPlacePage() {
         ← Places
       </Link>
       <h1 className="font-display text-3xl">New place</h1>
-      <PlaceForm mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null} />
+      <PlaceForm
+        googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null}
+      />
     </main>
   );
 }
