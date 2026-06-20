@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
+import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -35,7 +36,7 @@ function previewReferralCode() {
   return `OUT-${code}`;
 }
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2;
 
 type FormState = {
   firstName: string;
@@ -87,10 +88,9 @@ export function JoinFlow({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  // Authoritative code is set from the server response on success.
-  const [serverCode, setServerCode] = useState<string | null>(null);
-  const previewCode = useMemo(() => previewReferralCode(), []);
-  const code = serverCode ?? previewCode;
+  const router = useRouter();
+  // Preview code shown in step 2; the thank-you page shows the authoritative one.
+  const code = useMemo(() => previewReferralCode(), []);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -135,18 +135,21 @@ export function JoinFlow({
       );
 
       const result = await submitApplication(data);
-      setServerCode(result.referralCode);
-      // Conversion signal for GA4 / Google Ads (the base tag is in the layout).
-      window.gtag?.("event", "generate_lead", {
-        method: "waitlist",
-        dropped_spot: form.spotDescription.trim().length >= 10,
-      });
-      setStep(3);
+      // Only a genuinely new signup is a conversion.
+      if (!result.alreadyJoined) {
+        window.gtag?.("event", "generate_lead", {
+          method: "waitlist",
+          dropped_spot: form.spotDescription.trim().length >= 10,
+        });
+      }
+      const params = new URLSearchParams({ ref: result.referralCode });
+      if (result.alreadyJoined) params.set("again", "1");
+      router.push(`/thank-you?${params.toString()}`);
+      // Keep the button in its sending state while navigating away.
     } catch {
       setError(
         "Something went wrong sending that in. Give it a second and try again.",
       );
-    } finally {
       setSubmitting(false);
     }
   }
@@ -186,7 +189,6 @@ export function JoinFlow({
                 onTurnstileToken={setTurnstileToken}
               />
             )}
-            {step === 3 && <StepDone code={code} />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -198,9 +200,9 @@ function StepDots({ step }: { step: Step }) {
   return (
     <div
       className="flex items-center gap-2"
-      aria-label={`Step ${step} of 3`}
+      aria-label={`Step ${step} of 2`}
     >
-      {[1, 2, 3].map((n) => (
+      {[1, 2].map((n) => (
         <span
           key={n}
           className={cn(
@@ -462,47 +464,6 @@ function StepStandOut({
   );
 }
 
-function StepDone({ code }: { code: string }) {
-  return (
-    <div className="flex flex-col items-center gap-5 py-2 text-center">
-      <span className="flex size-14 items-center justify-center rounded-full bg-accent text-night">
-        <CheckIcon />
-      </span>
-      <p className="voice">Application in.</p>
-      <h1 className="font-display text-4xl leading-[1.05] sm:text-5xl">
-        We&rsquo;ll be in touch.
-      </h1>
-      <p className="max-w-sm text-sm leading-relaxed text-ink-dim">
-        We&rsquo;re going through every application. The first 100 outsiders get
-        early access to every spot, every drop, and every area before anyone
-        else sees it.
-      </p>
-
-      <div className="w-full rounded-card border border-line bg-night/40 p-5 text-left">
-        <p className="voice mb-2">Your referral code</p>
-        <CodeRow code={code} variant="link" />
-        <p className="mt-3 text-sm text-ink-dim">
-          Share it. Every friend who applies with this puts you closer to
-          getting picked.
-        </p>
-      </div>
-
-      <p className="text-sm text-ink-dim">
-        Follow{" "}
-        <a
-          href="https://instagram.com/outsidermap"
-          target="_blank"
-          rel="noreferrer"
-          className="text-accent hover:underline"
-        >
-          @outsidermap
-        </a>
-        . Hidden spots dropping every day until we open.
-      </p>
-    </div>
-  );
-}
-
 /** Shows the code with a copy button. `variant` decides whether the button
  *  copies the bare code or a full referral link. */
 function CodeRow({ code, variant }: { code: string; variant: "code" | "link" }) {
@@ -627,20 +588,3 @@ function CameraIcon() {
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg
-      width={26}
-      height={26}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.4}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
