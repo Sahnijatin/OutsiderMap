@@ -57,6 +57,21 @@ function button(label: string, href: string) {
   )}</a>`;
 }
 
+/** A small share-link pill (WhatsApp / X / Telegram) for the referral row. */
+function sharePill(
+  label: string,
+  href: string,
+  bg: string,
+  color: string,
+  border = false,
+) {
+  return `<a href="${escapeHtml(
+    href,
+  )}" style="display:inline-block;background:${bg};color:${color};font-family:${SANS};font-weight:600;font-size:13px;text-decoration:none;padding:10px 18px;border-radius:999px;${
+    border ? `border:1px solid ${C.line};` : ""
+  }">${escapeHtml(label)}</a>`;
+}
+
 function shell(inner: string, preheader: string) {
   return `<!doctype html>
 <html lang="en">
@@ -95,6 +110,16 @@ export function applicantWelcomeEmail(args: {
 }) {
   const name = escapeHtml(args.firstName);
   const code = escapeHtml(args.referralCode);
+
+  // Real share targets (email can't open a native share sheet, so we give one
+  // deep link per platform). Message + link are pre-filled.
+  const msg = `I just joined the OutsiderMap waitlist - the first 100 outsiders get early access. Use my code ${args.referralCode}:`;
+  const encMsg = encodeURIComponent(msg);
+  const encUrl = encodeURIComponent(args.shareUrl);
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${msg} ${args.shareUrl}`)}`;
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encMsg}&url=${encUrl}`;
+  const telegramUrl = `https://t.me/share/url?url=${encUrl}&text=${encMsg}`;
+
   const inner = `
 <tr><td style="padding:8px 40px 36px;">
 ${eyebrow("Application in")}
@@ -107,7 +132,14 @@ ${paragraph(
 <div style="font-family:${MONO};font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:${C.inkDim};">Your referral code</div>
 <div style="font-family:${MONO};font-size:24px;letter-spacing:0.22em;color:${C.accent};margin-top:8px;">${code}</div>
 <div style="font-family:${SANS};font-size:14px;color:${C.inkDim};margin-top:10px;">Share it - every friend who applies with your code moves you up the list.</div>
-<div style="margin-top:18px;">${button("Share your code", args.shareUrl)}</div>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0 0;">
+<tr>
+<td style="padding-right:8px;">${sharePill("WhatsApp", whatsappUrl, "#25D366", "#0c0a08")}</td>
+<td style="padding-right:8px;">${sharePill("X", twitterUrl, "transparent", C.ink, true)}</td>
+<td>${sharePill("Telegram", telegramUrl, "transparent", C.ink, true)}</td>
+</tr>
+</table>
+<div style="font-family:${SANS};font-size:13px;color:${C.inkDim};margin-top:14px;">Or copy your link:<br /><span style="color:${C.ink};word-break:break-all;">${escapeHtml(args.shareUrl)}</span></div>
 </td></tr>
 </table>
 ${paragraph(

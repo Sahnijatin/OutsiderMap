@@ -15,18 +15,8 @@ export function MarketingNav() {
           >
             How it works
           </Link>
-          <Link
-            href="/pricing"
-            className="hidden text-sm text-ink-dim transition-colors hover:text-ink sm:block"
-          >
-            Pricing
-          </Link>
-          <Link
-            href="/sign-in"
-            className="hidden text-sm text-ink-dim transition-colors hover:text-ink sm:block"
-          >
-            Sign in
-          </Link>
+          {/* Sign in & Pricing are intentionally hidden pre-launch — the
+              routes still work by direct URL while we build behind the scenes. */}
           <ButtonLink href="/join" variant="primary" size="sm">
             Join waitlist
           </ButtonLink>

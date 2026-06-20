@@ -9,14 +9,12 @@ export function MarketingFooter() {
           <span className="voice">For every city · Delhi first</span>
         </div>
         <div className="flex items-center gap-6 text-sm text-ink-dim">
+          {/* Sign in & Pricing hidden pre-launch; routes remain reachable by URL. */}
           <Link href="/#how" className="transition-colors hover:text-ink">
             How it works
           </Link>
-          <Link href="/pricing" className="transition-colors hover:text-ink">
-            Pricing
-          </Link>
-          <Link href="/sign-in" className="transition-colors hover:text-ink">
-            Sign in
+          <Link href="/join" className="transition-colors hover:text-ink">
+            Join waitlist
           </Link>
         </div>
         <p className="font-mono text-xs text-ink-dim/60">
