@@ -1,8 +1,10 @@
 import "server-only";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAI, getEmbeddings } from "@/lib/ai";
 import { isOpenNow, openStatusLabel, nowInIST } from "@/lib/places/hours";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
 import { TasteDimensionsSchema } from "@/lib/taste/profile";
 import {
   QueryIntentSchema,
@@ -126,17 +128,26 @@ const StoredQuizSchema = z.object({
 export async function recommend(
   userId: string,
   query: string,
+  client?: SupabaseClient<Database>,
 ): Promise<RecommendResult> {
-  const supabase = await createClient();
+  // The caller may pass a user-scoped client (e.g. a bearer-token client from
+  // the mobile API); default to the cookie-based client for web callers.
+  const supabase = client ?? (await createClient());
   const ai = getAI();
 
-  // Taste profile + intent extraction + (the intent feeds the embedding,
-  // so taste fetch and intent run in parallel).
-  const [tasteRow, intent] = await Promise.all([
+  // Taste profile + consent + intent extraction run in parallel (the intent
+  // feeds the query embedding downstream).
+  const [tasteRow, profileRow, intent] = await Promise.all([
     supabase
       .from("taste_profiles")
       .select("taste_summary, embedding, quiz_answers")
       .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => data),
+    supabase
+      .from("profiles")
+      .select("personalization_enabled")
+      .eq("id", userId)
       .maybeSingle()
       .then(({ data }) => data),
     ai.extract({
@@ -150,8 +161,16 @@ export async function recommend(
     }),
   ]);
 
-  const tasteEmbedding = parseStoredEmbedding(tasteRow?.embedding);
-  const dimensions = StoredQuizSchema.safeParse(tasteRow?.quiz_answers);
+  // Consent: when personalization is off, answer from the query + context only
+  // (no stored taste vector, summary, or anchors).
+  const personalize = profileRow?.personalization_enabled !== false;
+  const tasteEmbedding = personalize
+    ? parseStoredEmbedding(tasteRow?.embedding)
+    : null;
+  const tasteSummary = personalize ? tasteRow?.taste_summary : null;
+  const dimensions = personalize
+    ? StoredQuizSchema.safeParse(tasteRow?.quiz_answers)
+    : StoredQuizSchema.safeParse({});
 
   const [queryEmbedding] = await getEmbeddings().embed([
     intentToEmbeddingText(query, intent),
@@ -234,8 +253,7 @@ export async function recommend(
           `Time: ${timeLabel}`,
           `Ask (untrusted): <ask>${query}</ask>`,
           `Parsed intent: ${JSON.stringify(intent)}`,
-          tasteRow?.taste_summary &&
-            `Taste profile: ${tasteRow.taste_summary}`,
+          tasteSummary && `Taste profile: ${tasteSummary}`,
           dimensions.success && dimensions.data.dimensions
             ? `Anchors: ${dimensions.data.dimensions.anchors.join(" | ")}`
             : null,

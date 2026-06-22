@@ -16,6 +16,33 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+/** Experience kinds in the catalog (see places.kind). */
+export type PlaceKind =
+  | "spot"
+  | "cafe"
+  | "nightlife"
+  | "workshop"
+  | "historical"
+  | "cultural"
+  | "event";
+
+/** Interaction taxonomy feeding the learning loop (see interaction_events). */
+export type InteractionEventType =
+  | "query"
+  | "view"
+  | "save"
+  | "unsave"
+  | "rate"
+  | "visit"
+  | "dismiss"
+  | "plan_add"
+  | "rec_click"
+  | "start"
+  | "complete"
+  | "bucket_add"
+  | "story_view"
+  | "dwell";
+
 export type Database = {
   public: {
     Tables: {
@@ -26,6 +53,7 @@ export type Database = {
           avatar_url: string | null;
           home_area: string | null;
           is_admin: boolean;
+          personalization_enabled: boolean;
           onboarding_completed_at: string | null;
           created_at: string;
         };
@@ -35,6 +63,7 @@ export type Database = {
           avatar_url?: string | null;
           home_area?: string | null;
           is_admin?: boolean;
+          personalization_enabled?: boolean;
           onboarding_completed_at?: string | null;
           created_at?: string;
         };
@@ -44,6 +73,7 @@ export type Database = {
           avatar_url?: string | null;
           home_area?: string | null;
           is_admin?: boolean;
+          personalization_enabled?: boolean;
           onboarding_completed_at?: string | null;
           created_at?: string;
         };
@@ -132,6 +162,9 @@ export type Database = {
           embedding: string | null;
           is_published: boolean;
           source: "curated" | "submitted";
+          kind: PlaceKind;
+          is_chain: boolean;
+          story: Json;
           created_at: string;
           updated_at: string;
         };
@@ -154,6 +187,9 @@ export type Database = {
           embedding?: string | null;
           is_published?: boolean;
           source?: "curated" | "submitted";
+          kind?: PlaceKind;
+          is_chain?: boolean;
+          story?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -176,6 +212,9 @@ export type Database = {
           embedding?: string | null;
           is_published?: boolean;
           source?: "curated" | "submitted";
+          kind?: PlaceKind;
+          is_chain?: boolean;
+          story?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -257,18 +296,21 @@ export type Database = {
           user_id: string;
           place_id: string;
           note: string | null;
+          status: "saved" | "started" | "completed";
           created_at: string;
         };
         Insert: {
           user_id: string;
           place_id: string;
           note?: string | null;
+          status?: "saved" | "started" | "completed";
           created_at?: string;
         };
         Update: {
           user_id?: string;
           place_id?: string;
           note?: string | null;
+          status?: "saved" | "started" | "completed";
           created_at?: string;
         };
         Relationships: [
@@ -285,16 +327,7 @@ export type Database = {
         Row: {
           id: number;
           user_id: string;
-          event_type:
-            | "query"
-            | "view"
-            | "save"
-            | "unsave"
-            | "rate"
-            | "visit"
-            | "dismiss"
-            | "plan_add"
-            | "rec_click";
+          event_type: InteractionEventType;
           place_id: string | null;
           event_id: string | null;
           payload: Json;
@@ -303,16 +336,7 @@ export type Database = {
         Insert: {
           id?: never;
           user_id: string;
-          event_type:
-            | "query"
-            | "view"
-            | "save"
-            | "unsave"
-            | "rate"
-            | "visit"
-            | "dismiss"
-            | "plan_add"
-            | "rec_click";
+          event_type: InteractionEventType;
           place_id?: string | null;
           event_id?: string | null;
           payload?: Json;
@@ -321,16 +345,7 @@ export type Database = {
         Update: {
           id?: never;
           user_id?: string;
-          event_type?:
-            | "query"
-            | "view"
-            | "save"
-            | "unsave"
-            | "rate"
-            | "visit"
-            | "dismiss"
-            | "plan_add"
-            | "rec_click";
+          event_type?: InteractionEventType;
           place_id?: string | null;
           event_id?: string | null;
           payload?: Json;
@@ -384,13 +399,18 @@ export type Database = {
           referral_code: string;
           referred_by: string | null;
           spot_place_id: string | null;
-          status: "pending" | "accepted" | "rejected";
+          status: "pending" | "accepted" | "rejected" | "waitlisted";
           utm_source: string | null;
           utm_medium: string | null;
           utm_campaign: string | null;
           utm_term: string | null;
           utm_content: string | null;
           referrer: string | null;
+          selfie_path: string | null;
+          photo_paths: string[];
+          reviewed_at: string | null;
+          reviewer_note: string | null;
+          consent_personal_data: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -406,13 +426,18 @@ export type Database = {
           referral_code: string;
           referred_by?: string | null;
           spot_place_id?: string | null;
-          status?: "pending" | "accepted" | "rejected";
+          status?: "pending" | "accepted" | "rejected" | "waitlisted";
           utm_source?: string | null;
           utm_medium?: string | null;
           utm_campaign?: string | null;
           utm_term?: string | null;
           utm_content?: string | null;
           referrer?: string | null;
+          selfie_path?: string | null;
+          photo_paths?: string[];
+          reviewed_at?: string | null;
+          reviewer_note?: string | null;
+          consent_personal_data?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -428,13 +453,18 @@ export type Database = {
           referral_code?: string;
           referred_by?: string | null;
           spot_place_id?: string | null;
-          status?: "pending" | "accepted" | "rejected";
+          status?: "pending" | "accepted" | "rejected" | "waitlisted";
           utm_source?: string | null;
           utm_medium?: string | null;
           utm_campaign?: string | null;
           utm_term?: string | null;
           utm_content?: string | null;
           referrer?: string | null;
+          selfie_path?: string | null;
+          photo_paths?: string[];
+          reviewed_at?: string | null;
+          reviewer_note?: string | null;
+          consent_personal_data?: boolean;
           created_at?: string;
           updated_at?: string;
         };

@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getAI } from "@/lib/ai";
-import { getUser } from "@/lib/auth";
+import { getApiContext } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { openStatusLabel } from "@/lib/places/hours";
-import { createClient } from "@/lib/supabase/server";
 
 const BodySchema = z.object({
   slug: z.string().min(1).max(200),
@@ -14,18 +14,23 @@ const WHY_SYSTEM = `You are OutsiderMap's voice: a Delhi friend with perfect tas
 
 /** Streams the personalized "why this place, for you, right now". */
 export async function POST(request: NextRequest) {
-  const user = await getUser();
-  if (!user) {
+  const ctx = await getApiContext(request);
+  if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const { user, supabase } = ctx;
 
-  const parsed = BodySchema.safeParse(await request.json());
+  const allowed = await checkRateLimit(`why:${user.id}`, 30, 60);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+
+  const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
   const { slug, query } = parsed.data;
 
-  const supabase = await createClient();
   const [{ data: place }, { data: taste }] = await Promise.all([
     supabase
       .from("places")

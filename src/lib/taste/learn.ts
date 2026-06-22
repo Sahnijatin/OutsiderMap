@@ -19,7 +19,11 @@ import {
 export const RECOMPUTE_EVERY = 10;
 
 const EVENT_WEIGHTS: Record<string, number> = {
+  // 'complete' is the gold signal - they actually did the experience.
+  complete: 5,
+  start: 3,
   save: 3,
+  bucket_add: 3,
   visit: 2,
   rate: 2,
   plan_add: 2,
