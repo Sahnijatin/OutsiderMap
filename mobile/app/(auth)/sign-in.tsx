@@ -2,8 +2,15 @@ import { useState } from "react";
 import { View, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { MotiView } from "moti";
 import { supabase } from "@/lib/supabase";
+import {
+  appleAvailable,
+  googleConfigured,
+  signInWithApple,
+  signInWithGoogle,
+} from "@/lib/oauth";
 import { colors, space } from "@/theme";
 import { Text, Eyebrow } from "@/ui/Text";
 import { Input } from "@/ui/Input";
@@ -42,6 +49,18 @@ export default function SignIn() {
     setLoading(false);
     if (error) setError(error.message);
     // On success, the session listener in SessionProvider routes onward.
+  }
+
+  async function social(fn: () => Promise<boolean>) {
+    setError(null);
+    setLoading(true);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sign-in failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -109,6 +128,34 @@ export default function SignIn() {
                 </Text>
               </Pressable>
             )}
+
+            {step === "email" && (appleAvailable() || googleConfigured) && (
+              <View style={styles.social}>
+                <View style={styles.divider}>
+                  <View style={styles.rule} />
+                  <Text variant="small" style={styles.or}>or</Text>
+                  <View style={styles.rule} />
+                </View>
+
+                {appleAvailable() && (
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                    cornerRadius={999}
+                    style={styles.appleBtn}
+                    onPress={() => social(signInWithApple)}
+                  />
+                )}
+
+                {googleConfigured && (
+                  <Button
+                    label="Continue with Google"
+                    variant="ghost"
+                    onPress={() => social(signInWithGoogle)}
+                  />
+                )}
+              </View>
+            )}
           </View>
         </View>
 
@@ -135,6 +182,11 @@ const styles = StyleSheet.create({
   form: { marginTop: space.xxl, gap: space.lg },
   error: { color: colors.danger },
   link: { textAlign: "center", color: colors.inkDim },
+  social: { marginTop: space.sm, gap: space.md },
+  divider: { flexDirection: "row", alignItems: "center", gap: space.md, marginVertical: space.sm },
+  rule: { flex: 1, height: 1, backgroundColor: colors.line },
+  or: { color: colors.inkDim },
+  appleBtn: { height: 52, width: "100%" },
   apply: { padding: space.xl, alignItems: "center" },
   applyText: { color: colors.inkDim },
   applyEm: { color: colors.accent },

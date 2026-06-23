@@ -7,21 +7,35 @@
     "scheme": "outsidermap",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.outsidermap.app",
       "usesAppleSignIn": true
     },
     "android": {
-      "package": "com.outsidermap.app"
+      "package": "com.outsidermap.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0c0a08"
+      }
     },
     "plugins": [
       "expo-router",
       "expo-font",
       "expo-web-browser",
+      "expo-dev-client",
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_REVERSED_IOS_CLIENT_ID"
+        }
+      ],
       [
         "expo-splash-screen",
         {
+          "image": "./assets/splash-icon.png",
           "backgroundColor": "#0c0a08",
           "resizeMode": "contain"
         }
