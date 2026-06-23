@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "OutsiderMap",
+    "slug": "outsidermap",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "outsidermap",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.outsidermap.app",
+      "usesAppleSignIn": true
+    },
+    "android": {
+      "package": "com.outsidermap.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0c0a08",
+          "resizeMode": "contain"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
