@@ -1,7 +1,10 @@
 # OutsiderMap — Project Plan
 
-> The durable product + technical plan for the ground-up rebuild. Update this
-> document as decisions change; it is the single source of truth.
+> **Partly superseded (2026-06-26).** This is the original web-first plan. The
+> product has since pivoted to a mobile-first, invite-only "curated experiences"
+> model (see `OutsiderMap_Vision.docx`). For current build status and remaining
+> work, see **`DEVELOPMENT.md`**. The architecture and data-model sections below
+> remain accurate; the roadmap/monetization framing is historical.
 
 ## 1. The Problem
 
