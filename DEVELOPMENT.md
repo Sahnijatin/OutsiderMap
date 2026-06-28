@@ -91,6 +91,11 @@ Today the catalog is one hand-written `data/places.delhi.json`. The vision needs
 an **ingestion + curation pipeline**. This is the single biggest gap between idea
 and product, and the gating constraint on retention.
 
+> **Full technical design: [`docs/DATA_PIPELINE.md`](./docs/DATA_PIPELINE.md)** —
+> schema (`source_records`, `ingest_candidates`), the connector contract, entity
+> resolution, the AI curation classifier, the publish gate, the crowdsource loop,
+> and a phased build plan.
+
 **Decision: we go all-in on coverage.** Aggregate from District, BookMyShow /
 Insider, Google, venue Instagrams, and everywhere else. Treat aggregated data as
 **coverage and leads**; taste and publishability are enforced downstream. (Risk
