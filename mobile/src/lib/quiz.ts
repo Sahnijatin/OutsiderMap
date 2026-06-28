@@ -1,11 +1,8 @@
 /**
- * The onboarding quiz. Seven questions, two minutes, version 1 of the
- * taste profile. Shared by the onboarding UI and the extraction prompt -
- * no server-only import here.
+ * Mirrors the web quiz (src/lib/taste/quiz.ts) so the answer keys line up with
+ * the backend's answersToText / extraction. Keep in sync when the web quiz
+ * changes (currently QUIZ_VERSION 2).
  */
-
-export const QUIZ_VERSION = 2;
-
 export type QuizQuestion = {
   id: string;
   kind: "single" | "multi" | "text";
@@ -99,33 +96,15 @@ export const QUIZ: QuizQuestion[] = [
     kind: "text",
     eyebrow: "07 / evidence",
     title: "Describe a recent perfect night - out or in.",
-    hint: "Plain words. Where you were, what you ate, who was there, why it worked. This is the part we read closely.",
+    hint: "Plain words. Where you were, what you ate, who was there, why it worked.",
   },
   {
     id: "loves",
     kind: "text",
     eyebrow: "08 / anchors",
     title: "Name a few places or experiences you already love.",
-    hint: "Two or three is plenty - the spot, the dish, the night out, the ritual. These are the strongest read on your taste.",
+    hint: "Two or three is plenty - the spot, the dish, the ritual. The strongest read on your taste.",
   },
 ];
 
 export type QuizAnswers = Record<string, string | string[]>;
-
-/** Renders answers as readable lines for the LLM prompts. */
-export function answersToText(answers: QuizAnswers) {
-  return QUIZ.map((q) => {
-    const raw = answers[q.id];
-    if (raw == null || raw === "" || (Array.isArray(raw) && raw.length === 0)) {
-      return `${q.title}\n- (skipped)`;
-    }
-    if (q.kind === "text") {
-      return `${q.title}\n- ${raw}`;
-    }
-    const values = Array.isArray(raw) ? raw : [raw];
-    const labels = values.map(
-      (v) => q.options?.find((o) => o.value === v)?.label ?? v,
-    );
-    return `${q.title}\n- ${labels.join(", ")}`;
-  }).join("\n\n");
-}

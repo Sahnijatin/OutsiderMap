@@ -9,63 +9,16 @@ import {
   extractTasteDimensions,
   writeTasteSummary,
 } from "@/lib/taste/profile";
+import { AnswersSchema, runOnboarding } from "@/lib/taste/onboarding";
 import { QUIZ_VERSION, type QuizAnswers } from "@/lib/taste/quiz";
-
-const AnswersSchema = z.record(
-  z.string(),
-  z.union([z.string().max(2000), z.array(z.string().max(200)).max(20)]),
-);
 
 export async function completeOnboarding(rawAnswers: QuizAnswers) {
   const user = await requireUser();
   const answers = AnswersSchema.parse(rawAnswers);
   const supabase = await createClient();
 
-  // Persist the raw answers first - the AI pipeline must never be able to
-  // lose a finished quiz.
-  const { data: existing } = await supabase
-    .from("taste_profiles")
-    .select("version")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { error: saveError } = await supabase.from("taste_profiles").upsert({
-    user_id: user.id,
-    quiz_answers: { version: QUIZ_VERSION, answers },
-    version: existing ? existing.version + 1 : 1,
-    updated_at: new Date().toISOString(),
-  });
-  if (saveError) {
-    throw new Error(`Could not save your answers: ${saveError.message}`);
-  }
-
-  // Profile pipeline: structured read → summary → embedding. Failures here
-  // degrade gracefully - the profile page shows a "still reading you" state
-  // and the pipeline can be retried from there.
-  try {
-    const dimensions = await extractTasteDimensions(answers);
-    const [summary, embedding] = await Promise.all([
-      writeTasteSummary(answers, dimensions),
-      embedTaste(dimensions),
-    ]);
-
-    await supabase
-      .from("taste_profiles")
-      .update({
-        quiz_answers: { version: QUIZ_VERSION, answers, dimensions },
-        taste_summary: summary,
-        embedding: JSON.stringify(embedding),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", user.id);
-  } catch (error) {
-    console.error("Taste pipeline failed during onboarding:", error);
-  }
-
-  await supabase
-    .from("profiles")
-    .update({ onboarding_completed_at: new Date().toISOString() })
-    .eq("id", user.id);
+  // Shared pipeline (also used by POST /api/onboarding for mobile).
+  await runOnboarding(supabase, user.id, answers);
 
   redirect("/profile?welcome=1");
 }
