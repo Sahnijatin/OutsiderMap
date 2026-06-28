@@ -81,8 +81,11 @@ Baselines: web `tsc`/`lint`/`build` green; `mobile tsc` green.
    (`src/app/(admin)/admin/places/place-form.tsx` + `actions.ts`) doesn't expose
    `kind` / `is_chain` / `story`; no **member-vetting queue UI** (selfie review,
    approve/reject/waitlist); no **selfie capture** in `/join`.
-6. **Catalog content** — seed real non-chain experiences with `kind` + story
-   media (today `data/places.delhi.json` is restaurant-shaped, no stories).
+6. **Catalog content** — _dataset ready_: `data/experiences.delhi.json` has 12
+   curated non-chain experiences with kinds + story cards, and
+   `scripts/seed-places.mjs` now seeds them (with generated covers). **Run it
+   against the live DB:** `… npm run seed`. Still to do: more breadth + real
+   photo/video story media.
 7. **Final brand art** + **store prep** — Sign in with Apple compliance, privacy
    policy + nutrition labels, a pre-approved demo account for invite-only review,
    TestFlight / Play internal testing.
