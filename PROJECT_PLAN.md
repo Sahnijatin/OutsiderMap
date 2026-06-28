@@ -1,10 +1,9 @@
-# OutsiderMap — Project Plan
+# OutsiderMap — Project Plan (HISTORICAL)
 
-> **Partly superseded (2026-06-26).** This is the original web-first plan. The
-> product has since pivoted to a mobile-first, invite-only "curated experiences"
-> model (see `OutsiderMap_Vision.docx`). For current build status and remaining
-> work, see **`DEVELOPMENT.md`**. The architecture and data-model sections below
-> remain accurate; the roadmap/monetization framing is historical.
+> **Superseded (2026-06-28).** This is the original web-first plan. **The current
+> project plan and north star is `DEVELOPMENT.md`** — read that. This file is
+> kept only for history. The architecture and data-model sections below remain
+> accurate; the product framing, roadmap, and monetization are historical.
 
 ## 1. The Problem
 
