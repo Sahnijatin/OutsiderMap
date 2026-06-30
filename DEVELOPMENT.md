@@ -8,7 +8,8 @@
 > **Note:** `PROJECT_PLAN.md` is the *original* plan and is partly superseded by
 > the vision pivot — trust this file for current status.
 
-_Last updated: 2026-06-26 · active branch: `claude/repo-review-adekxp` (PR #17)_
+_Last updated: 2026-06-30 · active branch: `claude/development-file-review-ro7ybf`_
+_PR #17 is merged into `main`; the work below builds on it._
 
 ---
 
@@ -69,9 +70,9 @@ Baselines: web `tsc`/`lint`/`build` green; `mobile tsc` green.
 
 1. **Apply migrations to live Supabase** — merge PR #17 (runs the migrate
    action) or `workflow_dispatch`; confirm the one-time `0001–0005` baseline
-   repair was done.
+   repair was done. ⏸️ **On hold** (by decision).
 2. **End-to-end API test** vs live DB — bearer scoping, 401s, rate-limit,
-   `is_chain` exclusion.
+   `is_chain` exclusion. ⏸️ **On hold** (by decision, gated on #1).
 3. **Run the app on a device** — experience pass: 60fps, animations, haptics,
    story gestures, streamed why; iterate on polish.
 4. **Social-auth credentials** — Apple provider in Supabase; Google OAuth clients
@@ -86,6 +87,56 @@ Baselines: web `tsc`/`lint`/`build` green; `mobile tsc` green.
 7. **Final brand art** + **store prep** — Sign in with Apple compliance, privacy
    policy + nutrition labels, a pre-approved demo account for invite-only review,
    TestFlight / Play internal testing.
+
+---
+
+## Admin authoring + vetting UI — subphase plan (item #5)
+
+Item #5 is the largest unblocked workstream. The `0006`/`0007` columns and the
+TypeScript types (`src/types/database.ts`) already exist, so this is pure
+additive UI/action code that compiles and builds without the live DB. Each
+subphase is small and independently verifiable (`tsc --noEmit && lint && build`
+green before moving on). Suggested order: **A1 → A2 → B1 → B2 → B3 → A3 → B4**.
+
+> ⚠️ Runtime caveat: the `experience-media` and `member-vetting` buckets don't
+> exist until migrations `0006`/`0007` are applied (item #1, on hold), so
+> upload/read behavior can only be *functionally* verified once the DB is
+> unlocked. All subphases still build and typecheck now.
+
+### Workstream A — place → experience authoring
+
+(`src/app/(admin)/admin/places/place-form.tsx` + `actions.ts` — today expose
+neither `kind`, `is_chain`, nor `story`.)
+
+- **A1 · scalar fields `kind` + `is_chain`** — `kind` `<Select>` (7 enum values)
+  + `is_chain` checkbox, mirroring the existing `category`/`is_published`
+  patterns; extend the Zod `FormSchema` and `row` mapping in `actions.ts`.
+- **A2 · story plumbing (raw JSON)** — a `story` JSON `<Textarea>` like the
+  existing `hours`/`best_for` fields, parsed via `parseJsonField` into the
+  `story` column. A trusted stopgap that makes the column writable.
+- **A3 · rich story editor + media upload** — client component for ordered story
+  cards (add/remove/reorder; media file + `media_type` + caption); upload media
+  to the `experience-media` bucket (reuse the magic-byte sniff from
+  `join/actions.ts`, extended for video); assemble the `story` jsonb. Replaces
+  the A2 textarea once proven.
+
+### Workstream B — member vetting
+
+(No selfie capture in `/join`; no vetting queue UI.)
+
+- **B1 · shared private-media helper** — signed-URL reader for the private
+  `member-vetting` bucket + a reusable sniff/upload helper. Built first because
+  B2 (write) and B3 (read) both depend on it.
+- **B2 · `/join` selfie + photos capture** — extend `join-flow.tsx` with selfie
+  capture + photo inputs + an explicit consent checkbox; extend
+  `submitApplication` to upload to the private bucket and set `selfie_path`,
+  `photo_paths`, `consent_personal_data`. Strictly additive and gated behind
+  consent — the existing waitlist write must still succeed unchanged.
+- **B3 · vetting queue (read-only)** — extend `admin/waitlist/page.tsx` to select
+  the new fields and render signed-URL thumbnails via B1. No mutations yet.
+- **B4 · vetting actions** — approve / reject / waitlist server actions
+  (`status` + `reviewed_at` + `reviewer_note`), wired to buttons; input
+  constrained to the four allowed statuses.
 
 ---
 
