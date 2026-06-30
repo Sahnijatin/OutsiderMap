@@ -141,6 +141,34 @@ neither `kind`, `is_chain`, nor `story`.)
 
 ---
 
+## Autonomous (code-only) development steps
+
+Steps that can be built end-to-end in code and verified by `tsc`/`lint`/`build`
+with **no manual work** (no live-DB clicks, credentials, device, real media, or
+store actions). The API + mobile already consume `kind`/`story`/`is_chain`
+(experiences API filters on `?kind=`; the mobile story screen renders cards), so
+these outputs already have somewhere to land.
+
+1. ⏳ **Catalog content model in the seed (#6)** — add `kind` / `is_chain` /
+   `story` to `data/places.delhi.json` and teach `scripts/seed-places.mjs` to
+   upsert them (running the seed against the DB stays gated by item #1).
+2. **DPDP consent-purge endpoint** — backend route that purges a user's data on
+   request (profile, interactions, saved places, vetting media).
+3. **Experience filters in mobile** — kind chips on the feed/experiences list
+   (API already accepts `?kind=`).
+4. **In-app companion voice (backend)** — second-voice generation via the
+   existing `src/lib/ai/adapters/*`; no new provider creds.
+5. **Push-notification data layer** — migration for `device_tokens` + register
+   /unregister API + frequency-cap logic (the sender needs APNs/FCM creds, so
+   that part stays deferred).
+6. **Skia upgrade of ConvergenceField** — mobile-only animation refactor.
+7. **Test harness** — add a runner (e.g. Vitest) + unit tests for
+   `buildStoryCards`, the media sniff/upload/signing helpers, and consent-gating.
+
+Excluded (need manual work): apply migrations (#1), E2E vs live DB (#2), device
+run (#3), OAuth creds (#4), real catalog media, final brand art, store
+submission, the payments-vs-vision decision.
+
 ## Deferred (Phase 2+, by decision)
 
 - Proactive **push notifications** (device tokens + sender + frequency caps).

@@ -1,6 +1,8 @@
 [
   {
     "slug": "karims-jama-masjid",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Karim's",
     "city": "delhi",
     "area": "Old Delhi",
@@ -24,6 +26,8 @@
   },
   {
     "slug": "al-jawahar-old-delhi",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Al Jawahar",
     "city": "delhi",
     "area": "Old Delhi",
@@ -47,6 +51,8 @@
   },
   {
     "slug": "paranthe-wali-gali",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Paranthe Wali Gali",
     "city": "delhi",
     "area": "Old Delhi",
@@ -70,6 +76,8 @@
   },
   {
     "slug": "natraj-dahi-bhalla",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Natraj Dahi Bhalla Corner",
     "city": "delhi",
     "area": "Old Delhi",
@@ -93,6 +101,8 @@
   },
   {
     "slug": "old-famous-jalebi-wala",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Old Famous Jalebi Wala",
     "city": "delhi",
     "area": "Old Delhi",
@@ -116,6 +126,8 @@
   },
   {
     "slug": "kuremal-mohan-lal-kulfi",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Kuremal Mohan Lal Kulfi Wale",
     "city": "delhi",
     "area": "Old Delhi",
@@ -139,6 +151,8 @@
   },
   {
     "slug": "jama-masjid-sunrise",
+    "kind": "historical",
+    "is_chain": false,
     "name": "Jama Masjid at Sunrise",
     "city": "delhi",
     "area": "Old Delhi",
@@ -162,6 +176,8 @@
   },
   {
     "slug": "daryaganj-sunday-book-market",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Daryaganj Sunday Book Market (Mahila Haat)",
     "city": "delhi",
     "area": "Old Delhi",
@@ -185,6 +201,8 @@
   },
   {
     "slug": "khari-baoli-spice-market",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Khari Baoli Spice Market",
     "city": "delhi",
     "area": "Old Delhi",
@@ -208,6 +226,8 @@
   },
   {
     "slug": "kake-di-hatti-chandni-chowk",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Kake Di Hatti",
     "city": "delhi",
     "area": "Old Delhi",
@@ -231,6 +251,8 @@
   },
   {
     "slug": "haji-mohd-hussain-fried-chicken",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Haji Mohd. Hussain Fried Chicken",
     "city": "delhi",
     "area": "Old Delhi",
@@ -254,6 +276,8 @@
   },
   {
     "slug": "lala-babu-chaat-bhandar",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Lala Babu Chaat Bhandar",
     "city": "delhi",
     "area": "Old Delhi",
@@ -277,6 +301,8 @@
   },
   {
     "slug": "ved-prakash-lemon-wale",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Pandit Ved Prakash Lemon Wale",
     "city": "delhi",
     "area": "Old Delhi",
@@ -300,6 +326,8 @@
   },
   {
     "slug": "gianis-di-hatti-chandni-chowk",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Giani's Di Hatti",
     "city": "delhi",
     "area": "Old Delhi",
@@ -323,6 +351,8 @@
   },
   {
     "slug": "indian-coffee-house-cp",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Indian Coffee House",
     "city": "delhi",
     "area": "Connaught Place",
@@ -346,6 +376,8 @@
   },
   {
     "slug": "triveni-terrace-cafe",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Triveni Terrace Cafe",
     "city": "delhi",
     "area": "Connaught Place",
@@ -369,6 +401,8 @@
   },
   {
     "slug": "oxford-bookstore-cp",
+    "kind": "cultural",
+    "is_chain": false,
     "name": "Oxford Bookstore",
     "city": "delhi",
     "area": "Connaught Place",
@@ -392,6 +426,8 @@
   },
   {
     "slug": "agrasen-ki-baoli",
+    "kind": "historical",
+    "is_chain": false,
     "name": "Agrasen ki Baoli",
     "city": "delhi",
     "area": "Connaught Place",
@@ -415,6 +451,8 @@
   },
   {
     "slug": "wengers-deli-cp",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Wenger's",
     "city": "delhi",
     "area": "Connaught Place",
@@ -438,6 +476,8 @@
   },
   {
     "slug": "depauls-cold-coffee-janpath",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Depaul's",
     "city": "delhi",
     "area": "Connaught Place",
@@ -461,6 +501,8 @@
   },
   {
     "slug": "kake-da-hotel-cp",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Kake Da Hotel",
     "city": "delhi",
     "area": "Connaught Place",
@@ -484,6 +526,8 @@
   },
   {
     "slug": "saravana-bhavan-cp",
+    "kind": "spot",
+    "is_chain": true,
     "name": "Saravana Bhavan",
     "city": "delhi",
     "area": "Connaught Place",
@@ -507,6 +551,8 @@
   },
   {
     "slug": "cafe-lota-crafts-museum",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Cafe Lota",
     "city": "delhi",
     "area": "Connaught Place",
@@ -530,6 +576,8 @@
   },
   {
     "slug": "kitty-su-the-lalit",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Kitty Su",
     "city": "delhi",
     "area": "Connaught Place",
@@ -553,6 +601,8 @@
   },
   {
     "slug": "24-7-restaurant-the-lalit",
+    "kind": "spot",
+    "is_chain": false,
     "name": "24/7 Restaurant at The Lalit",
     "city": "delhi",
     "area": "Connaught Place",
@@ -576,6 +626,8 @@
   },
   {
     "slug": "unplugged-courtyard-cp",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Unplugged Courtyard",
     "city": "delhi",
     "area": "Connaught Place",
@@ -599,6 +651,8 @@
   },
   {
     "slug": "big-chill-khan-market",
+    "kind": "spot",
+    "is_chain": true,
     "name": "The Big Chill Cafe",
     "city": "delhi",
     "area": "Khan Market",
@@ -622,6 +676,8 @@
   },
   {
     "slug": "bahrisons-booksellers",
+    "kind": "cultural",
+    "is_chain": false,
     "name": "Bahrisons Booksellers",
     "city": "delhi",
     "area": "Khan Market",
@@ -645,6 +701,8 @@
   },
   {
     "slug": "khan-chacha-khan-market",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Khan Chacha",
     "city": "delhi",
     "area": "Khan Market",
@@ -668,6 +726,8 @@
   },
   {
     "slug": "cafe-turtle-khan-market",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Cafe Turtle",
     "city": "delhi",
     "area": "Khan Market",
@@ -691,6 +751,8 @@
   },
   {
     "slug": "perch-khan-market",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Perch Wine & Coffee Bar",
     "city": "delhi",
     "area": "Khan Market",
@@ -714,6 +776,8 @@
   },
   {
     "slug": "gulati-pandara-road",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Gulati, Pandara Road",
     "city": "delhi",
     "area": "Khan Market",
@@ -737,6 +801,8 @@
   },
   {
     "slug": "havemore-pandara-road",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Have More, Pandara Road",
     "city": "delhi",
     "area": "Khan Market",
@@ -760,6 +826,8 @@
   },
   {
     "slug": "ngma-india-gate",
+    "kind": "cultural",
+    "is_chain": false,
     "name": "National Gallery of Modern Art",
     "city": "delhi",
     "area": "Khan Market",
@@ -783,6 +851,8 @@
   },
   {
     "slug": "summer-house-cafe-hauz-khas",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Summer House Cafe",
     "city": "delhi",
     "area": "Hauz Khas",
@@ -806,6 +876,8 @@
   },
   {
     "slug": "hauz-khas-social",
+    "kind": "nightlife",
+    "is_chain": true,
     "name": "Hauz Khas Social",
     "city": "delhi",
     "area": "Hauz Khas",
@@ -829,6 +901,8 @@
   },
   {
     "slug": "toddy-shop-hkv",
+    "kind": "spot",
+    "is_chain": false,
     "name": "The Toddy Shop",
     "city": "delhi",
     "area": "Hauz Khas",
@@ -852,6 +926,8 @@
   },
   {
     "slug": "kunzum-travel-cafe-hkv",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Kunzum Travel Cafe",
     "city": "delhi",
     "area": "Hauz Khas",
@@ -875,6 +951,8 @@
   },
   {
     "slug": "auro-kitchen-bar-hauz-khas",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "auro kitchen & bar",
     "city": "delhi",
     "area": "Hauz Khas",
@@ -898,6 +976,8 @@
   },
   {
     "slug": "deer-park-hauz-khas",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Deer Park",
     "city": "delhi",
     "area": "Hauz Khas",
@@ -921,6 +1001,8 @@
   },
   {
     "slug": "hauz-khas-fort-lake",
+    "kind": "historical",
+    "is_chain": false,
     "name": "Hauz Khas Fort & Lake",
     "city": "delhi",
     "area": "Hauz Khas",
@@ -944,6 +1026,8 @@
   },
   {
     "slug": "coast-cafe-hkv",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Coast Cafe",
     "city": "delhi",
     "area": "Hauz Khas",
@@ -967,6 +1051,8 @@
   },
   {
     "slug": "naivedyam-hauz-khas",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Naivedyam",
     "city": "delhi",
     "area": "Hauz Khas",
@@ -990,6 +1076,8 @@
   },
   {
     "slug": "potbelly-rooftop-shahpur-jat",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Potbelly Rooftop Cafe",
     "city": "delhi",
     "area": "Shahpur Jat",
@@ -1013,6 +1101,8 @@
   },
   {
     "slug": "flipside-cafe-shahpur-jat",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Flipside Cafe",
     "city": "delhi",
     "area": "Shahpur Jat",
@@ -1036,6 +1126,8 @@
   },
   {
     "slug": "greenr-cafe-shahpur-jat",
+    "kind": "cafe",
+    "is_chain": true,
     "name": "Greenr Cafe",
     "city": "delhi",
     "area": "Shahpur Jat",
@@ -1059,6 +1151,8 @@
   },
   {
     "slug": "dada-jungi-house-lane-walk",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Dada Jungi House Lane",
     "city": "delhi",
     "area": "Shahpur Jat",
@@ -1082,6 +1176,8 @@
   },
   {
     "slug": "blue-tokai-champa-gali",
+    "kind": "cafe",
+    "is_chain": true,
     "name": "Blue Tokai Coffee Roasters, Champa Gali",
     "city": "delhi",
     "area": "Champa Gali",
@@ -1105,6 +1201,8 @@
   },
   {
     "slug": "jugmug-thela-champa-gali",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Jugmug Thela",
     "city": "delhi",
     "area": "Champa Gali",
@@ -1128,6 +1226,8 @@
   },
   {
     "slug": "champa-gali-lane-walk",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Champa Gali Lane",
     "city": "delhi",
     "area": "Champa Gali",
@@ -1151,6 +1251,8 @@
   },
   {
     "slug": "devans-south-coffee-house",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Devans South Indian Coffee & Tea",
     "city": "delhi",
     "area": "Lodhi Colony",
@@ -1174,6 +1276,8 @@
   },
   {
     "slug": "lodhi-art-district",
+    "kind": "cultural",
+    "is_chain": false,
     "name": "Lodhi Art District",
     "city": "delhi",
     "area": "Lodhi Colony",
@@ -1197,6 +1301,8 @@
   },
   {
     "slug": "lodhi-garden",
+    "kind": "historical",
+    "is_chain": false,
     "name": "Lodhi Garden",
     "city": "delhi",
     "area": "Lodhi Colony",
@@ -1220,6 +1326,8 @@
   },
   {
     "slug": "jamun-meharchand-market",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Jamun",
     "city": "delhi",
     "area": "Lodhi Colony",
@@ -1243,6 +1351,8 @@
   },
   {
     "slug": "visual-arts-gallery-ihc",
+    "kind": "cultural",
+    "is_chain": false,
     "name": "India Habitat Centre - Visual Arts Gallery",
     "city": "delhi",
     "area": "Lodhi Colony",
@@ -1266,6 +1376,8 @@
   },
   {
     "slug": "indian-accent-the-lodhi",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Indian Accent",
     "city": "delhi",
     "area": "Lodhi Colony",
@@ -1289,6 +1401,8 @@
   },
   {
     "slug": "mehrauli-archaeological-park",
+    "kind": "historical",
+    "is_chain": false,
     "name": "Mehrauli Archaeological Park",
     "city": "delhi",
     "area": "Mehrauli",
@@ -1312,6 +1426,8 @@
   },
   {
     "slug": "dramz-mehrauli",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Dramz Whiskey Bar & Lounge",
     "city": "delhi",
     "area": "Mehrauli",
@@ -1335,6 +1451,8 @@
   },
   {
     "slug": "olive-bar-kitchen-mehrauli",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Olive Bar & Kitchen",
     "city": "delhi",
     "area": "Mehrauli",
@@ -1358,6 +1476,8 @@
   },
   {
     "slug": "the-grammar-room-mehrauli",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "The Grammar Room",
     "city": "delhi",
     "area": "Mehrauli",
@@ -1381,6 +1501,8 @@
   },
   {
     "slug": "depot48-gk2",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Depot48",
     "city": "delhi",
     "area": "Greater Kailash",
@@ -1404,6 +1526,8 @@
   },
   {
     "slug": "sidecar-gk2",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Sidecar",
     "city": "delhi",
     "area": "Greater Kailash",
@@ -1427,6 +1551,8 @@
   },
   {
     "slug": "fig-and-maple-gk2",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Fig & Maple",
     "city": "delhi",
     "area": "Greater Kailash",
@@ -1450,6 +1576,8 @@
   },
   {
     "slug": "diva-gk2",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Diva",
     "city": "delhi",
     "area": "Greater Kailash",
@@ -1473,6 +1601,8 @@
   },
   {
     "slug": "kiran-nadar-museum-saket",
+    "kind": "cultural",
+    "is_chain": false,
     "name": "Kiran Nadar Museum of Art",
     "city": "delhi",
     "area": "Saket",
@@ -1496,6 +1626,8 @@
   },
   {
     "slug": "mahabelly-saket",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Mahabelly",
     "city": "delhi",
     "area": "Saket",
@@ -1519,6 +1651,8 @@
   },
   {
     "slug": "rose-cafe-saket",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Rose Cafe",
     "city": "delhi",
     "area": "Saket",
@@ -1542,6 +1676,8 @@
   },
   {
     "slug": "pco-vasant-vihar",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "PCO",
     "city": "delhi",
     "area": "Vasant Kunj",
@@ -1565,6 +1701,8 @@
   },
   {
     "slug": "cafe-delhi-heights-vasant-kunj",
+    "kind": "spot",
+    "is_chain": true,
     "name": "Cafe Delhi Heights",
     "city": "delhi",
     "area": "Vasant Kunj",
@@ -1588,6 +1726,8 @@
   },
   {
     "slug": "roshan-di-kulfi-karol-bagh",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Roshan Di Kulfi",
     "city": "delhi",
     "area": "Karol Bagh",
@@ -1611,6 +1751,8 @@
   },
   {
     "slug": "may-day-bookstore",
+    "kind": "cultural",
+    "is_chain": false,
     "name": "May Day Bookstore & Cafe",
     "city": "delhi",
     "area": "Karol Bagh",
@@ -1634,6 +1776,8 @@
   },
   {
     "slug": "ashok-and-ashok-meat-dhaba",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Ashok & Ashok Meat Dhaba",
     "city": "delhi",
     "area": "Karol Bagh",
@@ -1657,6 +1801,8 @@
   },
   {
     "slug": "gaffar-market-karol-bagh",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Gaffar Market",
     "city": "delhi",
     "area": "Karol Bagh",
@@ -1680,6 +1826,8 @@
   },
   {
     "slug": "moolchand-parathewala",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Moolchand Parathewala",
     "city": "delhi",
     "area": "Lajpat Nagar",
@@ -1703,6 +1851,8 @@
   },
   {
     "slug": "lajpat-nagar-central-market",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Lajpat Nagar Central Market",
     "city": "delhi",
     "area": "Lajpat Nagar",
@@ -1726,6 +1876,8 @@
   },
   {
     "slug": "dolma-aunty-momos",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Dolma Aunty Momos",
     "city": "delhi",
     "area": "Lajpat Nagar",
@@ -1749,6 +1901,8 @@
   },
   {
     "slug": "kabul-delhi-afghan-lajpat",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Kabul Delhi Restaurant",
     "city": "delhi",
     "area": "Lajpat Nagar",
@@ -1772,6 +1926,13 @@
   },
   {
     "slug": "nizamuddin-dargah-qawwali",
+    "kind": "cultural",
+    "is_chain": false,
+    "story": [
+      { "media_type": "image", "caption": "Thursday evening. The qawwals tune up as the dargah fills with regulars." },
+      { "media_type": "image", "caption": "Sit on the marble, leave your shoes at the gate, let the harmonium start." },
+      { "media_type": "image", "caption": "Stay past the first song. The room opens up somewhere in the second." }
+    ],
     "name": "Hazrat Nizamuddin Dargah Qawwali",
     "city": "delhi",
     "area": "Nizamuddin",
@@ -1795,6 +1956,8 @@
   },
   {
     "slug": "sunder-nursery",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Sunder Nursery",
     "city": "delhi",
     "area": "Nizamuddin",
@@ -1818,6 +1981,13 @@
   },
   {
     "slug": "humayuns-tomb-nizamuddin",
+    "kind": "historical",
+    "is_chain": false,
+    "story": [
+      { "media_type": "image", "caption": "The first garden-tomb on the subcontinent — the blueprint the Taj would borrow." },
+      { "media_type": "image", "caption": "Come at opening. The lawns are empty, the light is low, and the dome glows." },
+      { "media_type": "image", "caption": "Walk the char-bagh quarters out to the edges most visitors never reach." }
+    ],
     "name": "Humayun's Tomb",
     "city": "delhi",
     "area": "Nizamuddin",
@@ -1841,6 +2011,8 @@
   },
   {
     "slug": "ghalib-kabab-corner",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Ghalib Kabab Corner",
     "city": "delhi",
     "area": "Nizamuddin",
@@ -1864,6 +2036,8 @@
   },
   {
     "slug": "comesum-nizamuddin",
+    "kind": "spot",
+    "is_chain": true,
     "name": "Comesum, Nizamuddin Railway Station",
     "city": "delhi",
     "area": "Nizamuddin",
@@ -1887,6 +2061,8 @@
   },
   {
     "slug": "ama-cafe-majnu-ka-tilla",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "AMA Cafe",
     "city": "delhi",
     "area": "Majnu ka Tilla",
@@ -1910,6 +2086,8 @@
   },
   {
     "slug": "tee-dee-majnu-ka-tilla",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Tee Dee Restaurant",
     "city": "delhi",
     "area": "Majnu ka Tilla",
@@ -1933,6 +2111,8 @@
   },
   {
     "slug": "rigo-restaurant-majnu-ka-tilla",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Rigo Restaurant",
     "city": "delhi",
     "area": "Majnu ka Tilla",
@@ -1956,6 +2136,8 @@
   },
   {
     "slug": "yamuna-ghat-sunrise",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Yamuna Ghat at Sunrise",
     "city": "delhi",
     "area": "Majnu ka Tilla",
@@ -1979,6 +2161,8 @@
   },
   {
     "slug": "sita-ram-diwan-chand",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Sita Ram Diwan Chand",
     "city": "delhi",
     "area": "Paharganj",
@@ -2002,6 +2186,8 @@
   },
   {
     "slug": "sams-cafe-paharganj",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Sam's Cafe",
     "city": "delhi",
     "area": "Paharganj",
@@ -2025,6 +2211,8 @@
   },
   {
     "slug": "main-bazaar-paharganj",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Main Bazaar, Paharganj",
     "city": "delhi",
     "area": "Paharganj",
@@ -2048,6 +2236,8 @@
   },
   {
     "slug": "tadka-paharganj",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Tadka 4986",
     "city": "delhi",
     "area": "Paharganj",
@@ -2071,6 +2261,8 @@
   },
   {
     "slug": "ek-bar-defence-colony",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Ek Bar",
     "city": "delhi",
     "area": "Defence Colony",
@@ -2094,6 +2286,8 @@
   },
   {
     "slug": "sagar-ratna-defence-colony",
+    "kind": "spot",
+    "is_chain": true,
     "name": "Sagar Ratna",
     "city": "delhi",
     "area": "Defence Colony",
@@ -2117,6 +2311,8 @@
   },
   {
     "slug": "swagath-defence-colony",
+    "kind": "spot",
+    "is_chain": true,
     "name": "Swagath",
     "city": "delhi",
     "area": "Defence Colony",
@@ -2140,6 +2336,8 @@
   },
   {
     "slug": "piano-man-jazz-club",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "The Piano Man Jazz Club",
     "city": "delhi",
     "area": "Green Park",
@@ -2163,6 +2361,8 @@
   },
   {
     "slug": "evergreen-sweet-house-green-park",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Evergreen Sweet House",
     "city": "delhi",
     "area": "Green Park",
@@ -2186,6 +2386,8 @@
   },
   {
     "slug": "dilli-haat-ina",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Dilli Haat, INA",
     "city": "delhi",
     "area": "Green Park",
@@ -2209,6 +2411,8 @@
   },
   {
     "slug": "sarojini-nagar-market",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Sarojini Nagar Market",
     "city": "delhi",
     "area": "Green Park",
@@ -2232,6 +2436,8 @@
   },
   {
     "slug": "aiims-night-chai-stalls",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "AIIMS Gate Night Chai Stalls",
     "city": "delhi",
     "area": "Green Park",
@@ -2255,6 +2461,8 @@
   },
   {
     "slug": "chache-di-hatti-kamla-nagar",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Chache Di Hatti",
     "city": "delhi",
     "area": "Kamla Nagar",
@@ -2278,6 +2486,8 @@
   },
   {
     "slug": "bille-di-hatti-kamla-nagar",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Bille Di Hatti",
     "city": "delhi",
     "area": "Kamla Nagar",
@@ -2301,6 +2511,8 @@
   },
   {
     "slug": "qds-tandoori-momos-kamla-nagar",
+    "kind": "spot",
+    "is_chain": false,
     "name": "QD's Restaurant",
     "city": "delhi",
     "area": "Kamla Nagar",
@@ -2324,6 +2536,8 @@
   },
   {
     "slug": "big-yellow-door-kamla-nagar",
+    "kind": "cafe",
+    "is_chain": false,
     "name": "Big Yellow Door",
     "city": "delhi",
     "area": "Kamla Nagar",
@@ -2347,6 +2561,8 @@
   },
   {
     "slug": "food-exchange-novotel-aerocity",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Food Exchange, Novotel Aerocity",
     "city": "delhi",
     "area": "Aerocity",
@@ -2370,6 +2586,8 @@
   },
   {
     "slug": "mr-choy-worldmark-aerocity",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Mr. Choy, Worldmark",
     "city": "delhi",
     "area": "Aerocity",
@@ -2393,6 +2611,8 @@
   },
   {
     "slug": "toy-room-aerocity",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Toy Room",
     "city": "delhi",
     "area": "Aerocity",
@@ -2416,6 +2636,8 @@
   },
   {
     "slug": "garam-dharam-cyber-hub",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Garam Dharam, Cyber Hub",
     "city": "delhi",
     "area": "Gurgaon",
@@ -2439,6 +2661,8 @@
   },
   {
     "slug": "museo-camera-gurgaon",
+    "kind": "cultural",
+    "is_chain": false,
     "name": "Museo Camera Centre for the Photographic Arts",
     "city": "delhi",
     "area": "Gurgaon",
@@ -2462,6 +2686,8 @@
   },
   {
     "slug": "whisky-samba-gurgaon",
+    "kind": "nightlife",
+    "is_chain": false,
     "name": "Whisky Samba",
     "city": "delhi",
     "area": "Gurgaon",
@@ -2485,6 +2711,8 @@
   },
   {
     "slug": "brahmaputra-market-noida",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Brahmaputra Market, Sector 29",
     "city": "delhi",
     "area": "Noida",
@@ -2508,6 +2736,8 @@
   },
   {
     "slug": "atta-market-noida",
+    "kind": "spot",
+    "is_chain": false,
     "name": "Atta Market, Sector 18",
     "city": "delhi",
     "area": "Noida",

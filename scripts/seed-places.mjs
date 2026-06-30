@@ -30,7 +30,7 @@ function requireEnv(name) {
 function embeddingText(place) {
   const bestFor = place.best_for ?? {};
   return [
-    `${place.name} — ${place.category} in ${place.area}, Delhi.`,
+    `${place.name} — ${place.category} (${place.kind ?? "spot"}) in ${place.area}, Delhi.`,
     `Vibe: ${place.vibe_tags.join(", ")}.`,
     place.description,
     place.editor_note,
@@ -76,6 +76,11 @@ for (let i = 0; i < places.length; i += BATCH_SIZE) {
     lat: place.lat,
     lng: place.lng,
     category: place.category,
+    // Experience model (migration 0006): default kind to 'spot', never-surface
+    // chains to false, and story to an empty card list when omitted.
+    kind: place.kind ?? "spot",
+    is_chain: place.is_chain ?? false,
+    story: place.story ?? [],
     price_level: place.price_level,
     vibe_tags: place.vibe_tags,
     description: place.description,
