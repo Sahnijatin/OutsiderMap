@@ -109,6 +109,9 @@ export function JoinFlow({
     referredBy: defaultReferral,
   });
   const [photo, setPhoto] = useState<File | null>(null);
+  const [selfie, setSelfie] = useState<File | null>(null);
+  const [vettingPhotos, setVettingPhotos] = useState<File[]>([]);
+  const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -151,6 +154,13 @@ export function JoinFlow({
       data.set("spotLabel", form.spotLabel);
       data.set("spotDescription", form.spotDescription);
       if (photo) data.set("spotPhoto", photo);
+      // Vetting media is only sent when the applicant has explicitly consented;
+      // the server also refuses to store it without consent.
+      if (consent) {
+        data.set("consentPersonalData", "on");
+        if (selfie) data.set("selfie", selfie);
+        for (const p of vettingPhotos) data.append("vettingPhotos", p);
+      }
       data.set("turnstileToken", turnstileToken ?? "");
       data.set("utmSource", utm.source ?? "");
       data.set("utmMedium", utm.medium ?? "");
@@ -235,6 +245,12 @@ export function JoinFlow({
                 set={set}
                 photo={photo}
                 setPhoto={setPhoto}
+                selfie={selfie}
+                setSelfie={setSelfie}
+                vettingPhotos={vettingPhotos}
+                setVettingPhotos={setVettingPhotos}
+                consent={consent}
+                setConsent={setConsent}
                 submitting={submitting}
                 error={error}
                 onSubmit={submit}
@@ -406,6 +422,12 @@ function StepStandOut({
   set,
   photo,
   setPhoto,
+  selfie,
+  setSelfie,
+  vettingPhotos,
+  setVettingPhotos,
+  consent,
+  setConsent,
   submitting,
   error,
   onSubmit,
@@ -419,6 +441,12 @@ function StepStandOut({
   set: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   photo: File | null;
   setPhoto: (f: File | null) => void;
+  selfie: File | null;
+  setSelfie: (f: File | null) => void;
+  vettingPhotos: File[];
+  setVettingPhotos: (f: File[]) => void;
+  consent: boolean;
+  setConsent: (v: boolean) => void;
   submitting: boolean;
   error: string | null;
   onSubmit: () => void;
@@ -537,6 +565,15 @@ function StepStandOut({
         </Field>
       </section>
 
+      <VettingSection
+        selfie={selfie}
+        setSelfie={setSelfie}
+        vettingPhotos={vettingPhotos}
+        setVettingPhotos={setVettingPhotos}
+        consent={consent}
+        setConsent={setConsent}
+      />
+
       {turnstileSiteKey && (
         <TurnstileWidget siteKey={turnstileSiteKey} onToken={onTurnstileToken} />
       )}
@@ -649,6 +686,119 @@ function PhotoInput({
   );
 }
 
+function VettingSection({
+  selfie,
+  setSelfie,
+  vettingPhotos,
+  setVettingPhotos,
+  consent,
+  setConsent,
+}: {
+  selfie: File | null;
+  setSelfie: (f: File | null) => void;
+  vettingPhotos: File[];
+  setVettingPhotos: (f: File[]) => void;
+  consent: boolean;
+  setConsent: (v: boolean) => void;
+}) {
+  const selfiePreview = useMemo(
+    () => (selfie ? URL.createObjectURL(selfie) : null),
+    [selfie],
+  );
+
+  return (
+    <section className="flex flex-col gap-4 rounded-card border border-line bg-night/40 p-5">
+      <div className="flex items-center gap-2.5">
+        <ShieldIcon />
+        <h2 className="font-medium">Verify it&rsquo;s really you.</h2>
+      </div>
+      <p className="text-sm text-ink-dim">
+        We&rsquo;re invite-only and real-people-only. A quick selfie - and a few
+        photos if you like - helps us know you&rsquo;re you. Optional, but it
+        moves you up our list.
+      </p>
+
+      <label className="flex cursor-pointer items-start gap-3 text-sm">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => {
+            const next = e.target.checked;
+            setConsent(next);
+            // Withdrawing consent clears anything already picked.
+            if (!next) {
+              setSelfie(null);
+              setVettingPhotos([]);
+            }
+          }}
+          className="mt-0.5 size-4 shrink-0 accent-(--color-accent)"
+        />
+        <span className="text-ink-dim">
+          I agree to OutsiderMap securely storing my selfie and photos to verify
+          my application. They&rsquo;re private to the review team and never
+          shown publicly.
+        </span>
+      </label>
+
+      {consent && (
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-ink">Your selfie</p>
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-surface px-4 py-6 text-center transition-colors hover:border-ink-dim">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                capture="user"
+                className="sr-only"
+                onChange={(e) => setSelfie(e.target.files?.[0] ?? null)}
+              />
+              {selfiePreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={selfiePreview}
+                  alt="Selfie preview"
+                  className="max-h-40 w-auto rounded-lg object-cover"
+                />
+              ) : (
+                <>
+                  <CameraIcon />
+                  <span className="text-sm text-ink-dim">Take a selfie</span>
+                </>
+              )}
+              {selfie && (
+                <span className="text-xs text-ink-dim/70">tap to retake</span>
+              )}
+            </label>
+          </div>
+
+          <Field
+            label="A few more photos · optional"
+            htmlFor="vettingPhotos"
+            hint="Up to 5 - you out and about, your world. Helps us picture you."
+          >
+            <input
+              id="vettingPhotos"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              className="block w-full text-sm text-ink-dim file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:text-ink hover:file:border-ink-dim"
+              onChange={(e) =>
+                setVettingPhotos(Array.from(e.target.files ?? []).slice(0, 5))
+              }
+            />
+          </Field>
+          {vettingPhotos.length > 0 && (
+            <p className="text-xs text-ink-dim/70">
+              {vettingPhotos.length} photo
+              {vettingPhotos.length > 1 ? "s" : ""} selected
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /* ---- Inline icons (lucide-react isn't used in this codebase) ------------- */
 
 function iconProps(extra?: string) {
@@ -681,6 +831,15 @@ function PinIcon() {
     <svg {...iconProps()} aria-hidden>
       <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
       <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg {...iconProps()} aria-hidden>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+      <path d="m9 12 2 2 4-4" />
     </svg>
   );
 }
