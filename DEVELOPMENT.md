@@ -158,8 +158,10 @@ these outputs already have somewhere to land.
 3. ✅ **Experience filters in mobile** — kind chips on the feed; selecting one
    switches to a filtered browse of `/api/experiences?kind=`, "All" shows the
    curated feed.
-4. **In-app companion voice (backend)** — second-voice generation via the
-   existing `src/lib/ai/adapters/*`; no new provider creds.
+4. ✅ **In-app companion voice (backend)** — `POST /api/experiences/[slug]/companion`
+   streams the witty second voice via the existing AI provider; persona lives in
+   `src/lib/ai/companion.ts` (a tunable default). Mobile `api.streamCompanion`
+   added; UI wiring is a follow-up.
 5. **Push-notification data layer** — migration for `device_tokens` + register
    /unregister API + frequency-cap logic (the sender needs APNs/FCM creds, so
    that part stays deferred).
