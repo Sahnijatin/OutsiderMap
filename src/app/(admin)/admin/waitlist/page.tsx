@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signVettingUrls } from "@/lib/vetting/media";
+import { reviewApplicant } from "./actions";
 
 export const metadata: Metadata = {
   title: "Admin · Waitlist",
@@ -190,11 +191,43 @@ export default async function WaitlistPage() {
                 )}
               </div>
 
-              {a.reviewer_note && (
-                <p className="rounded-lg border border-line bg-night/40 px-3 py-2 text-sm text-ink-dim">
-                  {a.reviewer_note}
-                </p>
-              )}
+              <form
+                action={reviewApplicant}
+                className="flex flex-col gap-2 border-t border-line pt-3"
+              >
+                <input type="hidden" name="id" value={a.id} />
+                <textarea
+                  name="reviewer_note"
+                  rows={2}
+                  defaultValue={a.reviewer_note ?? ""}
+                  placeholder="Reviewer note (optional)"
+                  maxLength={500}
+                  className="w-full rounded-lg border border-line bg-night/40 px-3 py-2 text-sm text-ink placeholder:text-ink-dim/60"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    name="status"
+                    value="accepted"
+                    className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm text-accent transition-colors hover:bg-accent/20"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    name="status"
+                    value="waitlisted"
+                    className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition-colors hover:bg-night/40"
+                  >
+                    Waitlist
+                  </button>
+                  <button
+                    name="status"
+                    value="rejected"
+                    className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-1.5 text-sm text-danger transition-colors hover:bg-danger/20"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </form>
             </li>
           );
         })}

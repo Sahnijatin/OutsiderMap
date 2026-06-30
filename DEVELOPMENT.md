@@ -26,7 +26,7 @@ exposed it over HTTP and built the app on top.
 | DB schema (migrations 0006/0007) | ✅ written, ⏳ not applied to live DB |
 | Expo mobile app | ✅ scaffolded + typechecks, ⏳ not run on a device |
 | Social auth (Apple + Google) | ✅ coded, ⏳ needs credentials + dev build |
-| Admin authoring + vetting UI | ❌ not built |
+| Admin authoring + vetting UI | 🟡 in progress — A1/A2 + B1–B4 done, A3 left |
 | Catalog content (experiences + stories) | ❌ not seeded |
 | Store readiness | ❌ not started |
 
@@ -108,35 +108,35 @@ green before moving on). Suggested order: **A1 → A2 → B1 → B2 → B3 → A
 (`src/app/(admin)/admin/places/place-form.tsx` + `actions.ts` — today expose
 neither `kind`, `is_chain`, nor `story`.)
 
-- **A1 · scalar fields `kind` + `is_chain`** — `kind` `<Select>` (7 enum values)
-  + `is_chain` checkbox, mirroring the existing `category`/`is_published`
+- ✅ **A1 · scalar fields `kind` + `is_chain`** — `kind` `<Select>` (7 enum
+  values) + `is_chain` checkbox, mirroring the existing `category`/`is_published`
   patterns; extend the Zod `FormSchema` and `row` mapping in `actions.ts`.
-- **A2 · story plumbing (raw JSON)** — a `story` JSON `<Textarea>` like the
-  existing `hours`/`best_for` fields, parsed via `parseJsonField` into the
+- ✅ **A2 · story plumbing (raw JSON)** — a `story` JSON `<Textarea>` like the
+  existing `hours`/`best_for` fields, parsed via `parseStoryField` into the
   `story` column. A trusted stopgap that makes the column writable.
-- **A3 · rich story editor + media upload** — client component for ordered story
-  cards (add/remove/reorder; media file + `media_type` + caption); upload media
-  to the `experience-media` bucket (reuse the magic-byte sniff from
-  `join/actions.ts`, extended for video); assemble the `story` jsonb. Replaces
+- ⏳ **A3 · rich story editor + media upload** — client component for ordered
+  story cards (add/remove/reorder; media file + `media_type` + caption); upload
+  media to the `experience-media` bucket (reuse the magic-byte sniff from
+  `vetting/media.ts`, extended for video); assemble the `story` jsonb. Replaces
   the A2 textarea once proven.
 
 ### Workstream B — member vetting
 
 (No selfie capture in `/join`; no vetting queue UI.)
 
-- **B1 · shared private-media helper** — signed-URL reader for the private
-  `member-vetting` bucket + a reusable sniff/upload helper. Built first because
-  B2 (write) and B3 (read) both depend on it.
-- **B2 · `/join` selfie + photos capture** — extend `join-flow.tsx` with selfie
-  capture + photo inputs + an explicit consent checkbox; extend
+- ✅ **B1 · shared private-media helper** (`src/lib/vetting/media.ts`) —
+  signed-URL reader for the private `member-vetting` bucket + a reusable
+  sniff/upload helper. Built first because B2 (write) and B3 (read) depend on it.
+- ✅ **B2 · `/join` selfie + photos capture** — extends `join-flow.tsx` with
+  selfie capture + photo inputs + an explicit consent checkbox; extends
   `submitApplication` to upload to the private bucket and set `selfie_path`,
-  `photo_paths`, `consent_personal_data`. Strictly additive and gated behind
-  consent — the existing waitlist write must still succeed unchanged.
-- **B3 · vetting queue (read-only)** — extend `admin/waitlist/page.tsx` to select
-  the new fields and render signed-URL thumbnails via B1. No mutations yet.
-- **B4 · vetting actions** — approve / reject / waitlist server actions
-  (`status` + `reviewed_at` + `reviewer_note`), wired to buttons; input
-  constrained to the four allowed statuses.
+  `photo_paths`, `consent_personal_data`. Strictly additive and consent-gated —
+  the existing waitlist write is unchanged.
+- ✅ **B3 · vetting queue (read-only)** — extends `admin/waitlist/page.tsx` to
+  select the new fields and render signed-URL thumbnails via B1. No mutations.
+- ✅ **B4 · vetting actions** — `reviewApplicant` server action
+  (`status` + `reviewed_at` + `reviewer_note`) wired to Accept/Waitlist/Reject
+  buttons; input constrained to the four allowed statuses.
 
 ---
 
