@@ -3,6 +3,7 @@ import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import type { PlaceKind, Tables } from "@/types/database";
 import { PlaceLocation } from "./place-location";
+import { StoryEditor } from "./story-editor";
 import { deletePlace, upsertPlace } from "./actions";
 
 const CATEGORIES = [
@@ -139,23 +140,7 @@ export function PlaceForm({
         </Field>
       </div>
 
-      <Field
-        label="Story (JSON)"
-        htmlFor="story"
-        hint='Ordered cards: [{"media_path":"…","media_type":"image","caption":"…"}]'
-      >
-        <Textarea
-          id="story"
-          name="story"
-          rows={4}
-          className="font-mono text-xs"
-          defaultValue={
-            place?.story && Array.isArray(place.story) && place.story.length > 0
-              ? JSON.stringify(place.story)
-              : ""
-          }
-        />
-      </Field>
+      <StoryEditor initial={place?.story} />
 
       <Field
         label="Image"

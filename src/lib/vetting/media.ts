@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
+import { IMAGE_EXT_MIME, sniffImageExt } from "@/lib/media/image";
 
 /**
  * Shared helpers for member-vetting media (selfies + photos).
@@ -21,50 +22,6 @@ export const MEMBER_VETTING_BUCKET = "member-vetting";
 
 /** Cap on a single vetting image. Applicants upload phone photos. */
 export const MAX_VETTING_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
-
-const EXT_MIME = {
-  jpg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-} as const;
-
-export type ImageExt = keyof typeof EXT_MIME;
-
-/**
- * Identifies an image by its magic bytes, not the client-supplied MIME type -
- * uploads are user-controlled, so we must not trust the caller's Content-Type.
- * Returns the canonical extension, or null if the bytes aren't an allowed image.
- */
-export async function sniffImageExt(file: File): Promise<ImageExt | null> {
-  const b = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-  // JPEG: FF D8 FF
-  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpg";
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
-  if (
-    b[0] === 0x89 &&
-    b[1] === 0x50 &&
-    b[2] === 0x4e &&
-    b[3] === 0x47 &&
-    b[4] === 0x0d &&
-    b[5] === 0x0a &&
-    b[6] === 0x1a &&
-    b[7] === 0x0a
-  )
-    return "png";
-  // WEBP: "RIFF"...."WEBP"
-  if (
-    b[0] === 0x52 &&
-    b[1] === 0x49 &&
-    b[2] === 0x46 &&
-    b[3] === 0x46 &&
-    b[8] === 0x57 &&
-    b[9] === 0x45 &&
-    b[10] === 0x42 &&
-    b[11] === 0x50
-  )
-    return "webp";
-  return null;
-}
 
 /**
  * Validates and uploads one image to the private member-vetting bucket under
@@ -87,7 +44,7 @@ export async function putVettingImage(
   const path = `${pathPrefix}.${ext}`;
   const { error } = await admin.storage
     .from(MEMBER_VETTING_BUCKET)
-    .upload(path, file, { contentType: EXT_MIME[ext], upsert: true });
+    .upload(path, file, { contentType: IMAGE_EXT_MIME[ext], upsert: true });
   if (error) throw new Error(`Vetting image upload failed: ${error.message}`);
   return path;
 }

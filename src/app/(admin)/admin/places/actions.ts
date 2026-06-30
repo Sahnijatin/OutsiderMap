@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { embedPlace } from "@/lib/places/embedding";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { uploadExperienceMedia } from "@/lib/media/experience";
 import { serverEnv } from "@/lib/env";
 import type { Json, TablesInsert } from "@/types/database";
 
@@ -26,16 +27,46 @@ function parseJsonField(raw: string, field: string): Json | null {
   }
 }
 
-// Story is an ordered array of cards ([{media_path, media_type, caption}]).
-// Empty input means "no story" (the column is NOT NULL default '[]'), and a
-// non-array is a clear authoring mistake we reject loudly rather than persist.
-function parseStoryField(raw: string): Json {
-  const parsed = parseJsonField(raw, "story");
-  if (parsed === null) return [];
-  if (!Array.isArray(parsed)) {
-    throw new Error("story must be a JSON array of cards");
+/**
+ * Builds the `story` jsonb from the editor's indexed form fields. Each card has
+ * a caption, a media type, an optional existing media_path (edits that keep the
+ * same media), and an optional newly-picked file (uploaded to experience-media).
+ * Cards in, story order out - the editor renders fields in display order.
+ * Cards that end up with no media are dropped.
+ */
+async function buildStoryCards(
+  admin: ReturnType<typeof createAdminClient>,
+  formData: FormData,
+  slug: string,
+): Promise<Json> {
+  const count = Number(formData.get("story_count") ?? 0);
+  if (!Number.isFinite(count) || count <= 0) return [];
+
+  const cards: Json[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const caption = ((formData.get(`story_${i}_caption`) as string) ?? "").trim();
+    let mediaPath = (formData.get(`story_${i}_media_path`) as string) || null;
+    let mediaType =
+      (formData.get(`story_${i}_media_type`) as string) === "video"
+        ? "video"
+        : "image";
+
+    const file = formData.get(`story_${i}_file`);
+    if (file instanceof File && file.size > 0) {
+      const uploaded = await uploadExperienceMedia(
+        admin,
+        `experiences/${slug}/card-${i}`,
+        file,
+      );
+      mediaPath = uploaded.mediaPath;
+      mediaType = uploaded.mediaType;
+    }
+
+    // A card with no media isn't a card; skip it.
+    if (!mediaPath) continue;
+    cards.push({ media_path: mediaPath, media_type: mediaType, caption });
   }
-  return parsed;
+  return cards;
 }
 
 const FormSchema = z.object({
@@ -64,7 +95,6 @@ const FormSchema = z.object({
   editor_note: z.string().optional(),
   hours: z.string().optional(),
   best_for: z.string().optional(),
-  story: z.string().optional(),
   is_published: z.coerce.boolean(),
 });
 
@@ -88,7 +118,6 @@ export async function upsertPlace(formData: FormData) {
     editor_note: (formData.get("editor_note") as string) ?? "",
     hours: (formData.get("hours") as string) ?? "",
     best_for: (formData.get("best_for") as string) ?? "",
-    story: (formData.get("story") as string) ?? "",
     is_published: formData.get("is_published") === "on",
   });
 
@@ -97,6 +126,7 @@ export async function upsertPlace(formData: FormData) {
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
+  const story = await buildStoryCards(admin, formData, slug);
 
   const row: TablesInsert<"places"> = {
     slug,
@@ -113,7 +143,7 @@ export async function upsertPlace(formData: FormData) {
     editor_note: input.editor_note?.trim() || null,
     hours: parseJsonField(input.hours ?? "", "hours"),
     best_for: parseJsonField(input.best_for ?? "", "best_for"),
-    story: parseStoryField(input.story ?? ""),
+    story,
     is_published: input.is_published,
     updated_at: new Date().toISOString(),
   };

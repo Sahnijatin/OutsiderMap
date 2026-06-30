@@ -26,7 +26,7 @@ exposed it over HTTP and built the app on top.
 | DB schema (migrations 0006/0007) | ✅ written, ⏳ not applied to live DB |
 | Expo mobile app | ✅ scaffolded + typechecks, ⏳ not run on a device |
 | Social auth (Apple + Google) | ✅ coded, ⏳ needs credentials + dev build |
-| Admin authoring + vetting UI | 🟡 in progress — A1/A2 + B1–B4 done, A3 left |
+| Admin authoring + vetting UI | ✅ built (A1–A3, B1–B4); ⏳ runtime needs buckets |
 | Catalog content (experiences + stories) | ❌ not seeded |
 | Store readiness | ❌ not started |
 
@@ -114,11 +114,12 @@ neither `kind`, `is_chain`, nor `story`.)
 - ✅ **A2 · story plumbing (raw JSON)** — a `story` JSON `<Textarea>` like the
   existing `hours`/`best_for` fields, parsed via `parseStoryField` into the
   `story` column. A trusted stopgap that makes the column writable.
-- ⏳ **A3 · rich story editor + media upload** — client component for ordered
-  story cards (add/remove/reorder; media file + `media_type` + caption); upload
-  media to the `experience-media` bucket (reuse the magic-byte sniff from
-  `vetting/media.ts`, extended for video); assemble the `story` jsonb. Replaces
-  the A2 textarea once proven.
+- ✅ **A3 · rich story editor + media upload** (`places/story-editor.tsx`) —
+  client component for ordered story cards (add/remove/reorder; media file +
+  `media_type` + caption); uploads media to the `experience-media` bucket via
+  `lib/media/experience.ts` (shared magic-byte image sniff in `lib/media/image.ts`,
+  plus an allowlisted video Content-Type); the action assembles the `story`
+  jsonb from indexed form fields. Replaces the A2 textarea.
 
 ### Workstream B — member vetting
 
