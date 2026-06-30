@@ -149,9 +149,9 @@ store actions). The API + mobile already consume `kind`/`story`/`is_chain`
 (experiences API filters on `?kind=`; the mobile story screen renders cards), so
 these outputs already have somewhere to land.
 
-1. ⏳ **Catalog content model in the seed (#6)** — add `kind` / `is_chain` /
-   `story` to `data/places.delhi.json` and teach `scripts/seed-places.mjs` to
-   upsert them (running the seed against the DB stays gated by item #1).
+1. ✅ **Catalog content model in the seed (#6)** — `kind` / `is_chain` / `story`
+   added to all 110 entries in `data/places.delhi.json`; `scripts/seed-places.mjs`
+   upserts them. Code done; running the seed against the DB stays gated by #1.
 2. **DPDP consent-purge endpoint** — backend route that purges a user's data on
    request (profile, interactions, saved places, vetting media).
 3. **Experience filters in mobile** — kind chips on the feed/experiences list
