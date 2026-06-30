@@ -155,8 +155,9 @@ these outputs already have somewhere to land.
 2. ✅ **DPDP consent-purge endpoint** — `DELETE /api/account` purges all personal
    data (events, saved places, weekend plans, subscription, taste profile,
    profile, waitlist row + private vetting media) and deletes the auth user.
-3. **Experience filters in mobile** — kind chips on the feed/experiences list
-   (API already accepts `?kind=`).
+3. ✅ **Experience filters in mobile** — kind chips on the feed; selecting one
+   switches to a filtered browse of `/api/experiences?kind=`, "All" shows the
+   curated feed.
 4. **In-app companion voice (backend)** — second-voice generation via the
    existing `src/lib/ai/adapters/*`; no new provider creds.
 5. **Push-notification data layer** — migration for `device_tokens` + register
