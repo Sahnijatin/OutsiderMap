@@ -152,8 +152,9 @@ these outputs already have somewhere to land.
 1. ✅ **Catalog content model in the seed (#6)** — `kind` / `is_chain` / `story`
    added to all 110 entries in `data/places.delhi.json`; `scripts/seed-places.mjs`
    upserts them. Code done; running the seed against the DB stays gated by #1.
-2. **DPDP consent-purge endpoint** — backend route that purges a user's data on
-   request (profile, interactions, saved places, vetting media).
+2. ✅ **DPDP consent-purge endpoint** — `DELETE /api/account` purges all personal
+   data (events, saved places, weekend plans, subscription, taste profile,
+   profile, waitlist row + private vetting media) and deletes the auth user.
 3. **Experience filters in mobile** — kind chips on the feed/experiences list
    (API already accepts `?kind=`).
 4. **In-app companion voice (backend)** — second-voice generation via the
