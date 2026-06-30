@@ -162,9 +162,11 @@ these outputs already have somewhere to land.
    streams the witty second voice via the existing AI provider; persona lives in
    `src/lib/ai/companion.ts` (a tunable default). Mobile `api.streamCompanion`
    added; UI wiring is a follow-up.
-5. **Push-notification data layer** — migration for `device_tokens` + register
-   /unregister API + frequency-cap logic (the sender needs APNs/FCM creds, so
-   that part stays deferred).
+5. ✅ **Push-notification data layer** — migration `0008` (`device_tokens` +
+   `notification_sends`), `POST`/`DELETE /api/notifications/token`, and
+   `lib/notifications/frequency.ts` (per-day + min-gap caps, fail-closed). Mobile
+   `api.registerPushToken`/`unregisterPushToken` added. The sender stays deferred
+   (needs APNs/FCM creds); migration run gated by #1.
 6. **Skia upgrade of ConvergenceField** — mobile-only animation refactor.
 7. **Test harness** — add a runner (e.g. Vitest) + unit tests for
    `buildStoryCards`, the media sniff/upload/signing helpers, and consent-gating.

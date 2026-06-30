@@ -478,6 +478,51 @@ export type Database = {
           },
         ];
       };
+      device_tokens: {
+        Row: {
+          token: string;
+          user_id: string;
+          platform: "ios" | "android";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          token: string;
+          user_id: string;
+          platform: "ios" | "android";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          token?: string;
+          user_id?: string;
+          platform?: "ios" | "android";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      notification_sends: {
+        Row: {
+          id: number;
+          user_id: string;
+          kind: string;
+          sent_at: string;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          kind: string;
+          sent_at?: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          kind?: string;
+          sent_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

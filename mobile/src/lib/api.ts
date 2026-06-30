@@ -107,6 +107,18 @@ export const api = {
       method: "POST",
       body: answers,
     }),
+
+  registerPushToken: (token: string, platform: "ios" | "android") =>
+    request<{ ok: true }>("/api/notifications/token", {
+      method: "POST",
+      body: { token, platform },
+    }),
+
+  unregisterPushToken: (token: string) =>
+    request<{ ok: true }>("/api/notifications/token", {
+      method: "DELETE",
+      body: { token },
+    }),
 };
 
 /**
