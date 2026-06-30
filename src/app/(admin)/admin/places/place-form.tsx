@@ -140,6 +140,24 @@ export function PlaceForm({
       </div>
 
       <Field
+        label="Story (JSON)"
+        htmlFor="story"
+        hint='Ordered cards: [{"media_path":"…","media_type":"image","caption":"…"}]'
+      >
+        <Textarea
+          id="story"
+          name="story"
+          rows={4}
+          className="font-mono text-xs"
+          defaultValue={
+            place?.story && Array.isArray(place.story) && place.story.length > 0
+              ? JSON.stringify(place.story)
+              : ""
+          }
+        />
+      </Field>
+
+      <Field
         label="Image"
         htmlFor="image"
         hint={place?.image_path ? `Current: ${place.image_path}` : "Optional"}

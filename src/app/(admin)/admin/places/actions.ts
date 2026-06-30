@@ -26,6 +26,18 @@ function parseJsonField(raw: string, field: string): Json | null {
   }
 }
 
+// Story is an ordered array of cards ([{media_path, media_type, caption}]).
+// Empty input means "no story" (the column is NOT NULL default '[]'), and a
+// non-array is a clear authoring mistake we reject loudly rather than persist.
+function parseStoryField(raw: string): Json {
+  const parsed = parseJsonField(raw, "story");
+  if (parsed === null) return [];
+  if (!Array.isArray(parsed)) {
+    throw new Error("story must be a JSON array of cards");
+  }
+  return parsed;
+}
+
 const FormSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1),
@@ -52,6 +64,7 @@ const FormSchema = z.object({
   editor_note: z.string().optional(),
   hours: z.string().optional(),
   best_for: z.string().optional(),
+  story: z.string().optional(),
   is_published: z.coerce.boolean(),
 });
 
@@ -75,6 +88,7 @@ export async function upsertPlace(formData: FormData) {
     editor_note: (formData.get("editor_note") as string) ?? "",
     hours: (formData.get("hours") as string) ?? "",
     best_for: (formData.get("best_for") as string) ?? "",
+    story: (formData.get("story") as string) ?? "",
     is_published: formData.get("is_published") === "on",
   });
 
@@ -99,6 +113,7 @@ export async function upsertPlace(formData: FormData) {
     editor_note: input.editor_note?.trim() || null,
     hours: parseJsonField(input.hours ?? "", "hours"),
     best_for: parseJsonField(input.best_for ?? "", "best_for"),
+    story: parseStoryField(input.story ?? ""),
     is_published: input.is_published,
     updated_at: new Date().toISOString(),
   };
