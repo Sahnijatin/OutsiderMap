@@ -167,7 +167,9 @@ these outputs already have somewhere to land.
    `lib/notifications/frequency.ts` (per-day + min-gap caps, fail-closed). Mobile
    `api.registerPushToken`/`unregisterPushToken` added. The sender stays deferred
    (needs APNs/FCM creds); migration run gated by #1.
-6. **Skia upgrade of ConvergenceField** — mobile-only animation refactor.
+6. ✅ **Skia upgrade of ConvergenceField** — reimplemented on `@shopify/react-native-skia`
+   (one GPU clock via reanimated derived values), same public API. Requires a dev
+   build now (Skia is native; visual result unverified without a device).
 7. ✅ **Test harness** — Vitest (`npm test`, isolated in `tests/`, `server-only`
    stubbed) + 22 unit tests covering `sniffImageExt`, the experience/vetting
    media upload + signing helpers, and the notification frequency caps. Wiring a
@@ -185,7 +187,9 @@ submission, the payments-vs-vision decision.
 - **Map + filters** surface (fast-follow).
 - **Payments / premium** reconciliation with the new vision.
 - DPDP **consent-purge** endpoint (right-to-delete).
-- **Skia** upgrade of the ConvergenceField (currently Reanimated/Moti).
+- ~~**Skia** upgrade of the ConvergenceField~~ ✅ done: one GPU clock drives the
+  field via reanimated derived values. Note: now requires a dev build (Skia is
+  native; the field no longer runs in Expo Go).
 
 ---
 
