@@ -62,8 +62,10 @@ async function buildStoryCards(
       mediaType = uploaded.mediaType;
     }
 
-    // A card with no media isn't a card; skip it.
-    if (!mediaPath) continue;
+    // Keep a card with media OR a caption - caption-only cards render over the
+    // hero image in the app (see the mobile experience reader). Drop only cards
+    // that are entirely empty.
+    if (!mediaPath && !caption) continue;
     cards.push({ media_path: mediaPath, media_type: mediaType, caption });
   }
   return cards;

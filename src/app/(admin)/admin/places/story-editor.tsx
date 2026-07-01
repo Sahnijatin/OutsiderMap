@@ -28,12 +28,15 @@ function parseInitial(value: Json | undefined): Card[] {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
     const obj = raw as Record<string, unknown>;
     const mediaPath = typeof obj.media_path === "string" ? obj.media_path : null;
-    if (!mediaPath) continue;
+    const caption = typeof obj.caption === "string" ? obj.caption : "";
+    // Retain caption-only cards (they render over the hero image in the app);
+    // drop only entirely-empty entries.
+    if (!mediaPath && !caption) continue;
     cards.push({
-      key: `existing-${cards.length}-${mediaPath}`,
+      key: `existing-${cards.length}-${mediaPath ?? "caption"}`,
       mediaPath,
       mediaType: obj.media_type === "video" ? "video" : "image",
-      caption: typeof obj.caption === "string" ? obj.caption : "",
+      caption,
       file: null,
     });
   }
