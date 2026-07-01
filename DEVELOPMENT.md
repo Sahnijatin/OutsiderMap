@@ -168,8 +168,10 @@ these outputs already have somewhere to land.
    `api.registerPushToken`/`unregisterPushToken` added. The sender stays deferred
    (needs APNs/FCM creds); migration run gated by #1.
 6. **Skia upgrade of ConvergenceField** — mobile-only animation refactor.
-7. **Test harness** — add a runner (e.g. Vitest) + unit tests for
-   `buildStoryCards`, the media sniff/upload/signing helpers, and consent-gating.
+7. ✅ **Test harness** — Vitest (`npm test`, isolated in `tests/`, `server-only`
+   stubbed) + 22 unit tests covering `sniffImageExt`, the experience/vetting
+   media upload + signing helpers, and the notification frequency caps. Wiring a
+   lint/build/test CI workflow is an optional follow-up.
 
 Excluded (need manual work): apply migrations (#1), E2E vs live DB (#2), device
 run (#3), OAuth creds (#4), real catalog media, final brand art, store
