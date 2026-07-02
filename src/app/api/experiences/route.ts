@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getApiContext } from "@/lib/api-auth";
 import { isOpenNow, openStatusLabel } from "@/lib/places/hours";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import type { PlaceKind } from "@/types/database";
 
 /**
@@ -15,6 +16,11 @@ export async function GET(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const allowed = await checkRateLimit(`experiences:${ctx.user.id}`, 120, 60);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const params = request.nextUrl.searchParams;

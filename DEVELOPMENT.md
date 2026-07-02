@@ -8,7 +8,7 @@
 > **Note:** `PROJECT_PLAN.md` is the *original* plan and is partly superseded by
 > the vision pivot — trust this file for current status.
 
-_Last updated: 2026-06-26 · active branch: `claude/repo-review-adekxp` (PR #17)_
+_Last updated: 2026-07-02 · PR #17 merged 2026-06-28 (migrate action ran green — 0006/0007 are live)_
 
 ---
 
@@ -21,13 +21,14 @@ exposed it over HTTP and built the app on top.
 
 | Area | State |
 |---|---|
-| Backend HTTP API | ✅ built, ⏳ not tested against live DB |
-| DB schema (migrations 0006/0007) | ✅ written, ⏳ not applied to live DB |
-| Expo mobile app | ✅ scaffolded + typechecks, ⏳ not run on a device |
+| Backend HTTP API | ✅ built (+ `/api/bucket`, per-user rate limits on every route), ⏳ not tested against live DB |
+| DB schema (migrations 0006/0007) | ✅ **applied to live DB** (migrate action ran green on the PR #17 merge) |
+| Expo mobile app | ✅ scaffolded + typechecks + bundles, ⏳ not run on a device |
 | Social auth (Apple + Google) | ✅ coded, ⏳ needs credentials + dev build |
-| Admin authoring + vetting UI | ❌ not built |
-| Catalog content (experiences + stories) | ❌ not seeded |
-| Store readiness | ❌ not started |
+| Admin authoring + vetting UI | ❌ not built (PR #20 starts it: `kind` + `is_chain` in the place form) |
+| Catalog content (experiences + stories) | ❌ not seeded (PR #18 has 12 experiences ready) |
+| CI (typecheck/lint/build, web + mobile) | ✅ `.github/workflows/ci.yml` |
+| Store readiness | ❌ not started (`mobile/eas.json` build profiles now exist) |
 
 ---
 
@@ -67,9 +68,8 @@ Baselines: web `tsc`/`lint`/`build` green; `mobile tsc` green.
 
 ## Phase 1 — remaining
 
-1. **Apply migrations to live Supabase** — merge PR #17 (runs the migrate
-   action) or `workflow_dispatch`; confirm the one-time `0001–0005` baseline
-   repair was done.
+1. ~~**Apply migrations to live Supabase**~~ ✅ Done — PR #17 merged 2026-06-28;
+   the migrate action completed successfully (`0006`/`0007` are live).
 2. **End-to-end API test** vs live DB — bearer scoping, 401s, rate-limit,
    `is_chain` exclusion.
 3. **Run the app on a device** — experience pass: 60fps, animations, haptics,
