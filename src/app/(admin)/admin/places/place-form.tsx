@@ -1,14 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
-import type { Tables } from "@/types/database";
+import type { PlaceKind, Tables } from "@/types/database";
 import { PlaceLocation } from "./place-location";
+import { StoryEditor } from "./story-editor";
 import { deletePlace, upsertPlace } from "./actions";
 
 const CATEGORIES = [
   "cafe", "restaurant", "bar", "club", "street-food", "dessert", "bakery",
   "bookstore", "gallery", "park", "market", "music-venue", "late-night-eats",
   "chai", "experience", "viewpoint",
+];
+
+// Experience kinds (places.kind, migration 0006). Keep in sync with PlaceKind.
+const KINDS: PlaceKind[] = [
+  "spot", "cafe", "nightlife", "workshop", "historical", "cultural", "event",
 ];
 
 export function PlaceForm({
@@ -42,6 +48,19 @@ export function PlaceForm({
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field
+          label="Kind"
+          htmlFor="kind"
+          hint="The experience type the app surfaces"
+        >
+          <Select id="kind" name="kind" defaultValue={place?.kind ?? "spot"}>
+            {KINDS.map((k) => (
+              <option key={k} value={k}>
+                {k}
               </option>
             ))}
           </Select>
@@ -121,6 +140,8 @@ export function PlaceForm({
         </Field>
       </div>
 
+      <StoryEditor initial={place?.story} />
+
       <Field
         label="Image"
         htmlFor="image"
@@ -128,6 +149,16 @@ export function PlaceForm({
       >
         <Input id="image" name="image" type="file" accept="image/*" />
       </Field>
+
+      <label className="flex items-center gap-3 text-sm">
+        <input
+          type="checkbox"
+          name="is_chain"
+          defaultChecked={place?.is_chain ?? false}
+          className="size-4 accent-(--color-accent)"
+        />
+        Chain - never surfaced in recommendations
+      </label>
 
       <label className="flex items-center gap-3 text-sm">
         <input

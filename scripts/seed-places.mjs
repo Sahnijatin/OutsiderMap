@@ -167,7 +167,7 @@ for (let i = 0; i < catalog.length; i += BATCH_SIZE) {
         embedding: JSON.stringify(data[j].embedding),
         is_published: true,
         source: "curated",
-        is_chain: false,
+        is_chain: place.is_chain ?? false,
         updated_at: new Date().toISOString(),
       };
       if (place.kind) row.kind = place.kind;

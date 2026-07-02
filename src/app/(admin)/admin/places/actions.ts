@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { embedPlace } from "@/lib/places/embedding";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { uploadExperienceMedia } from "@/lib/media/experience";
 import { serverEnv } from "@/lib/env";
 import type { Json, TablesInsert } from "@/types/database";
 
@@ -26,6 +27,50 @@ function parseJsonField(raw: string, field: string): Json | null {
   }
 }
 
+/**
+ * Builds the `story` jsonb from the editor's indexed form fields. Each card has
+ * a caption, a media type, an optional existing media_path (edits that keep the
+ * same media), and an optional newly-picked file (uploaded to experience-media).
+ * Cards in, story order out - the editor renders fields in display order.
+ * Cards that end up with no media are dropped.
+ */
+async function buildStoryCards(
+  admin: ReturnType<typeof createAdminClient>,
+  formData: FormData,
+  slug: string,
+): Promise<Json> {
+  const count = Number(formData.get("story_count") ?? 0);
+  if (!Number.isFinite(count) || count <= 0) return [];
+
+  const cards: Json[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const caption = ((formData.get(`story_${i}_caption`) as string) ?? "").trim();
+    let mediaPath = (formData.get(`story_${i}_media_path`) as string) || null;
+    let mediaType =
+      (formData.get(`story_${i}_media_type`) as string) === "video"
+        ? "video"
+        : "image";
+
+    const file = formData.get(`story_${i}_file`);
+    if (file instanceof File && file.size > 0) {
+      const uploaded = await uploadExperienceMedia(
+        admin,
+        `experiences/${slug}/card-${i}`,
+        file,
+      );
+      mediaPath = uploaded.mediaPath;
+      mediaType = uploaded.mediaType;
+    }
+
+    // Keep a card with media OR a caption - caption-only cards render over the
+    // hero image in the app (see the mobile experience reader). Drop only cards
+    // that are entirely empty.
+    if (!mediaPath && !caption) continue;
+    cards.push({ media_path: mediaPath, media_type: mediaType, caption });
+  }
+  return cards;
+}
+
 const FormSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1),
@@ -34,6 +79,18 @@ const FormSchema = z.object({
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
   category: z.string().trim().optional(),
+  kind: z
+    .enum([
+      "spot",
+      "cafe",
+      "nightlife",
+      "workshop",
+      "historical",
+      "cultural",
+      "event",
+    ])
+    .default("spot"),
+  is_chain: z.coerce.boolean(),
   price_level: z.coerce.number().int().min(1).max(4).optional(),
   vibe_tags: z.string().optional(),
   description: z.string().optional(),
@@ -55,6 +112,8 @@ export async function upsertPlace(formData: FormData) {
     lat: (formData.get("lat") as string) || undefined,
     lng: (formData.get("lng") as string) || undefined,
     category: (formData.get("category") as string) || undefined,
+    kind: (formData.get("kind") as string) || undefined,
+    is_chain: formData.get("is_chain") === "on",
     price_level: (formData.get("price_level") as string) || undefined,
     vibe_tags: (formData.get("vibe_tags") as string) ?? "",
     description: (formData.get("description") as string) ?? "",
@@ -69,6 +128,7 @@ export async function upsertPlace(formData: FormData) {
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
+  const story = await buildStoryCards(admin, formData, slug);
 
   const row: TablesInsert<"places"> = {
     slug,
@@ -77,12 +137,15 @@ export async function upsertPlace(formData: FormData) {
     lat: input.lat ?? null,
     lng: input.lng ?? null,
     category: input.category ?? null,
+    kind: input.kind,
+    is_chain: input.is_chain,
     price_level: input.price_level ?? null,
     vibe_tags: vibeTags,
     description: input.description?.trim() || null,
     editor_note: input.editor_note?.trim() || null,
     hours: parseJsonField(input.hours ?? "", "hours"),
     best_for: parseJsonField(input.best_for ?? "", "best_for"),
+    story,
     is_published: input.is_published,
     updated_at: new Date().toISOString(),
   };

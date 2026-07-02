@@ -25,9 +25,9 @@ exposed it over HTTP and built the app on top.
 | DB schema (migrations 0006/0007) | ✅ **applied to live DB** (migrate action ran green on the PR #17 merge) |
 | Expo mobile app | ✅ scaffolded + typechecks + bundles, ⏳ not run on a device |
 | Social auth (Apple + Google) | ✅ coded, ⏳ needs credentials + dev build |
-| Admin authoring + vetting UI | ❌ not built (PR #20 starts it: `kind` + `is_chain` in the place form) |
-| Catalog content (experiences + stories) | ❌ not seeded (PR #18 has 12 experiences ready) |
-| CI (typecheck/lint/build, web + mobile) | ✅ `.github/workflows/ci.yml` |
+| Admin authoring + vetting UI | ✅ built (A1–A3, B1–B4); buckets exist (0006/0007 live), ⏳ untested at runtime |
+| Catalog content (experiences + stories) | ✅ dataset ready (`data/experiences.delhi.json`, 12), ⏳ `npm run seed` not yet run against live DB |
+| CI (typecheck/lint/test/build, web + mobile) | ✅ `.github/workflows/ci.yml` |
 | Store readiness | ❌ not started (`mobile/eas.json` build profiles now exist) |
 
 ---
@@ -71,16 +71,14 @@ Baselines: web `tsc`/`lint`/`build` green; `mobile tsc` green.
 1. ~~**Apply migrations to live Supabase**~~ ✅ Done — PR #17 merged 2026-06-28;
    the migrate action completed successfully (`0006`/`0007` are live).
 2. **End-to-end API test** vs live DB — bearer scoping, 401s, rate-limit,
-   `is_chain` exclusion.
+   `is_chain` exclusion. **Unblocked** (migrations are live).
 3. **Run the app on a device** — experience pass: 60fps, animations, haptics,
    story gestures, streamed why; iterate on polish.
 4. **Social-auth credentials** — Apple provider in Supabase; Google OAuth clients
    + Supabase config; reversed iOS client id in `mobile/app.json`; build a dev
    client (`npx expo run:ios`).
-5. **Admin authoring gaps (web)** — the place form
-   (`src/app/(admin)/admin/places/place-form.tsx` + `actions.ts`) doesn't expose
-   `kind` / `is_chain` / `story`; no **member-vetting queue UI** (selfie review,
-   approve/reject/waitlist); no **selfie capture** in `/join`.
+5. ~~**Admin authoring gaps (web)**~~ ✅ Built (subphases A1–A3, B1–B4 below);
+   ⏳ verify upload/read flows against the live buckets at runtime.
 6. **Catalog content** — _dataset ready_: `data/experiences.delhi.json` has 12
    curated non-chain experiences with kinds + story cards, and
    `scripts/seed-places.mjs` now seeds them (with generated covers). **Run it
@@ -92,6 +90,94 @@ Baselines: web `tsc`/`lint`/`build` green; `mobile tsc` green.
 
 ---
 
+## Admin authoring + vetting UI — subphase plan (item #5)
+
+Item #5 is the largest unblocked workstream. The `0006`/`0007` columns and the
+TypeScript types (`src/types/database.ts`) already exist, so this is pure
+additive UI/action code that compiles and builds without the live DB. Each
+subphase is small and independently verifiable (`tsc --noEmit && lint && build`
+green before moving on). Suggested order: **A1 → A2 → B1 → B2 → B3 → A3 → B4**.
+
+> Migrations `0006`/`0007` are applied, so the `experience-media` and
+> `member-vetting` buckets exist — upload/read behavior can now be functionally
+> verified against the live DB. All subphases build and typecheck.
+
+### Workstream A — place → experience authoring
+
+(`src/app/(admin)/admin/places/place-form.tsx` + `actions.ts` — today expose
+neither `kind`, `is_chain`, nor `story`.)
+
+- ✅ **A1 · scalar fields `kind` + `is_chain`** — `kind` `<Select>` (7 enum
+  values) + `is_chain` checkbox, mirroring the existing `category`/`is_published`
+  patterns; extend the Zod `FormSchema` and `row` mapping in `actions.ts`.
+- ✅ **A2 · story plumbing (raw JSON)** — a `story` JSON `<Textarea>` like the
+  existing `hours`/`best_for` fields, parsed via `parseStoryField` into the
+  `story` column. A trusted stopgap that makes the column writable.
+- ✅ **A3 · rich story editor + media upload** (`places/story-editor.tsx`) —
+  client component for ordered story cards (add/remove/reorder; media file +
+  `media_type` + caption); uploads media to the `experience-media` bucket via
+  `lib/media/experience.ts` (shared magic-byte image sniff in `lib/media/image.ts`,
+  plus an allowlisted video Content-Type); the action assembles the `story`
+  jsonb from indexed form fields. Replaces the A2 textarea.
+
+### Workstream B — member vetting
+
+(No selfie capture in `/join`; no vetting queue UI.)
+
+- ✅ **B1 · shared private-media helper** (`src/lib/vetting/media.ts`) —
+  signed-URL reader for the private `member-vetting` bucket + a reusable
+  sniff/upload helper. Built first because B2 (write) and B3 (read) depend on it.
+- ✅ **B2 · `/join` selfie + photos capture** — extends `join-flow.tsx` with
+  selfie capture + photo inputs + an explicit consent checkbox; extends
+  `submitApplication` to upload to the private bucket and set `selfie_path`,
+  `photo_paths`, `consent_personal_data`. Strictly additive and consent-gated —
+  the existing waitlist write is unchanged.
+- ✅ **B3 · vetting queue (read-only)** — extends `admin/waitlist/page.tsx` to
+  select the new fields and render signed-URL thumbnails via B1. No mutations.
+- ✅ **B4 · vetting actions** — `reviewApplicant` server action
+  (`status` + `reviewed_at` + `reviewer_note`) wired to Accept/Waitlist/Reject
+  buttons; input constrained to the four allowed statuses.
+
+---
+
+## Autonomous (code-only) development steps
+
+Steps that can be built end-to-end in code and verified by `tsc`/`lint`/`build`
+with **no manual work** (no live-DB clicks, credentials, device, real media, or
+store actions). The API + mobile already consume `kind`/`story`/`is_chain`
+(experiences API filters on `?kind=`; the mobile story screen renders cards), so
+these outputs already have somewhere to land.
+
+1. ✅ **Catalog content model in the seed (#6)** — `kind` / `is_chain` / `story`
+   added to all 110 entries in `data/places.delhi.json`; `scripts/seed-places.mjs`
+   upserts them. Code done; running the seed against the DB stays gated by #1.
+2. ✅ **DPDP consent-purge endpoint** — `DELETE /api/account` purges all personal
+   data (events, saved places, weekend plans, subscription, taste profile,
+   profile, waitlist row + private vetting media) and deletes the auth user.
+3. ✅ **Experience filters in mobile** — kind chips on the feed; selecting one
+   switches to a filtered browse of `/api/experiences?kind=`, "All" shows the
+   curated feed.
+4. ✅ **In-app companion voice (backend)** — `POST /api/experiences/[slug]/companion`
+   streams the witty second voice via the existing AI provider; persona lives in
+   `src/lib/ai/companion.ts` (a tunable default). Mobile `api.streamCompanion`
+   added; UI wiring is a follow-up.
+5. ✅ **Push-notification data layer** — migration `0008` (`device_tokens` +
+   `notification_sends`), `POST`/`DELETE /api/notifications/token`, and
+   `lib/notifications/frequency.ts` (per-day + min-gap caps, fail-closed). Mobile
+   `api.registerPushToken`/`unregisterPushToken` added. The sender stays deferred
+   (needs APNs/FCM creds); migration run gated by #1.
+6. ✅ **Skia upgrade of ConvergenceField** — reimplemented on `@shopify/react-native-skia`
+   (one GPU clock via reanimated derived values), same public API. Requires a dev
+   build now (Skia is native; visual result unverified without a device).
+7. ✅ **Test harness** — Vitest (`npm test`, isolated in `tests/`, `server-only`
+   stubbed) + 22 unit tests covering `sniffImageExt`, the experience/vetting
+   media upload + signing helpers, and the notification frequency caps. Wiring a
+   lint/build/test CI workflow is an optional follow-up.
+
+Excluded (need manual work): apply migrations (#1), E2E vs live DB (#2), device
+run (#3), OAuth creds (#4), real catalog media, final brand art, store
+submission, the payments-vs-vision decision.
+
 ## Deferred (Phase 2+, by decision)
 
 - Proactive **push notifications** (device tokens + sender + frequency caps).
@@ -100,7 +186,9 @@ Baselines: web `tsc`/`lint`/`build` green; `mobile tsc` green.
 - **Map + filters** surface (fast-follow).
 - **Payments / premium** reconciliation with the new vision.
 - DPDP **consent-purge** endpoint (right-to-delete).
-- **Skia** upgrade of the ConvergenceField (currently Reanimated/Moti).
+- ~~**Skia** upgrade of the ConvergenceField~~ ✅ done: one GPU clock drives the
+  field via reanimated derived values. Note: now requires a dev build (Skia is
+  native; the field no longer runs in Expo Go).
 
 ---
 

@@ -13,6 +13,7 @@ import { sendEmail } from "@/lib/email/resend";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { verifyTurnstile } from "@/lib/security/turnstile";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { putVettingImage } from "@/lib/vetting/media";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -50,7 +51,12 @@ const ApplicationSchema = z.object({
   utmTerm: z.string().trim().max(200).optional(),
   utmContent: z.string().trim().max(200).optional(),
   referrer: z.string().trim().max(500).optional(),
+  // Explicit DPDP consent to store/process selfie + photos for vetting.
+  consentPersonalData: z.coerce.boolean().optional(),
 });
+
+// At most this many supplementary vetting photos are kept (beyond the selfie).
+const MAX_VETTING_PHOTOS = 5;
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
 const EXT_MIME: Record<"jpg" | "png" | "webp", string> = {
@@ -154,6 +160,7 @@ export async function submitApplication(
     utmTerm: (formData.get("utmTerm") as string) || undefined,
     utmContent: (formData.get("utmContent") as string) || undefined,
     referrer: (formData.get("referrer") as string) || undefined,
+    consentPersonalData: formData.get("consentPersonalData") === "on",
   });
 
   const admin = createAdminClient();
@@ -298,6 +305,55 @@ export async function submitApplication(
     } catch (error) {
       // Don't fail the application over a spot the curators can live without.
       console.error("Dropped-spot submission failed:", error);
+    }
+  }
+
+  // 2b) Member-vetting media -> PRIVATE member-vetting bucket. Only when the
+  //     applicant gave explicit DPDP consent; without it we never store the
+  //     selfie/photos. Like the spot drop, this is best-effort and runs after
+  //     the applicant is safely on the list, so a media failure can't block
+  //     signup. Each upload is individually guarded so consent is still
+  //     recorded even if a single image fails.
+  if (input.consentPersonalData) {
+    try {
+      const prefix = `vetting/${referralCode}`;
+      let selfiePath: string | null = null;
+      const selfie = formData.get("selfie");
+      if (selfie instanceof File && selfie.size > 0) {
+        try {
+          selfiePath = await putVettingImage(admin, `${prefix}/selfie`, selfie);
+        } catch (error) {
+          console.error("Vetting selfie upload failed:", error);
+        }
+      }
+
+      const photoPaths: string[] = [];
+      const photos = formData
+        .getAll("vettingPhotos")
+        .filter((p): p is File => p instanceof File && p.size > 0)
+        .slice(0, MAX_VETTING_PHOTOS);
+      for (let i = 0; i < photos.length; i += 1) {
+        try {
+          photoPaths.push(
+            await putVettingImage(admin, `${prefix}/photo-${i}`, photos[i]),
+          );
+        } catch (error) {
+          console.error("Vetting photo upload failed:", error);
+        }
+      }
+
+      await admin
+        .from("waitlist")
+        .update({
+          consent_personal_data: true,
+          selfie_path: selfiePath,
+          photo_paths: photoPaths,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("email", input.email);
+    } catch (error) {
+      // Never fail the application over vetting media the admin can re-request.
+      console.error("Vetting media step failed:", error);
     }
   }
 
