@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getApiContext } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { AnswersSchema, runOnboarding } from "@/lib/taste/onboarding";
 
 /**
@@ -10,6 +11,13 @@ export async function POST(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // The pipeline runs LLM extract + summary + embedding — the costliest
+  // endpoint per call, and one a member only legitimately hits a few times.
+  const allowed = await checkRateLimit(`onboarding:${ctx.user.id}`, 5, 3600);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const parsed = AnswersSchema.safeParse(

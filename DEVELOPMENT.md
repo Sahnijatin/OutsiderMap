@@ -4,7 +4,11 @@
 > designed, and what we build next. This supersedes `PROJECT_PLAN.md` (kept for
 > history). Update it as decisions land and work ships.
 >
-> _Last updated: 2026-06-28_
+> **Vision:** `OutsiderMap_Vision.docx` (curated *experiences*, proactive
+> suggestion, no chains, invite-only, in-app companion).
+>
+> _Last updated: 2026-07-02 · PRs #5/#17/#18/#20/#21/#22 merged; migrations
+> 0006/0007 live (migrate action green on the #17 merge)._
 
 ---
 
@@ -256,16 +260,17 @@ exposed it over HTTP and built the app on top.
 
 | Area | State |
 |---|---|
-| Backend HTTP API | ✅ built · ⏳ not tested against live DB |
-| DB schema (migrations 0006/0007) | ✅ written · ⏳ not applied to live DB |
-| Expo mobile app | ✅ scaffolded + typechecks · ⏳ not run on a device |
-| Social auth (Apple + Google) | ✅ coded · ⏳ needs credentials + dev build |
-| Admin authoring + vetting UI | ❌ not built |
-| Catalog content (experiences + stories) | ❌ not seeded |
+| Backend HTTP API | ✅ built (+ `/api/bucket`, `DELETE /api/account`, companion stream, push-token routes; per-user rate limits on every route), ⏳ not tested against live DB |
+| DB schema (migrations 0006/0007) | ✅ **applied to live DB** (migrate action ran green on the PR #17 merge); 0008 (push tables) merged — confirm the action ran |
+| Expo mobile app | ✅ scaffolded + typechecks + lints + bundles (iOS/Android), ⏳ not run on a device |
+| Social auth (Apple + Google) | ✅ coded, ⏳ needs credentials + dev build |
+| Admin authoring + vetting UI | ✅ built (A1–A3, B1–B4); buckets exist (0006/0007 live), ⏳ untested at runtime |
+| Catalog content (experiences + stories) | ✅ dataset ready (`data/experiences.delhi.json`, 12 + kinds/stories on all 110 places), ⏳ `npm run seed` not yet run against live DB |
+| CI (typecheck/lint/test/build, web + mobile) | ✅ `.github/workflows/ci.yml` (22 unit tests) |
 | **Data-ingestion pipeline** | ❌ not built (Section 4) |
 | **Adventurousness dial / bandit** | ❌ not built (Section 5.3) |
 | **People & belonging ring** | ❌ not built (Section 2, ring 3) |
-| Store readiness | ❌ not started |
+| Store readiness | ❌ not started (`mobile/eas.json` build profiles now exist) |
 
 **Done (PR #17):** bearer/cookie API auth + route handlers (`/api/now`,
 `/api/now/why` stream, `/api/onboarding`, `/api/interactions`, `/api/feed`,
@@ -280,20 +285,56 @@ brand art. Baselines green: web `tsc`/`lint`/`build`, `mobile tsc`.
 
 ### Phase 1 — remaining
 
-1. **Apply migrations to live Supabase** (merge runs migrate action / dispatch);
-   confirm one-time `0001–0005` baseline repair.
+1. ~~**Apply migrations to live Supabase**~~ ✅ 0006/0007 live (migrate action
+   green on the #17 merge). ⏳ Confirm the action also ran for 0008
+   (`device_tokens` / `notification_sends`, merged with the vetting PR).
 2. **End-to-end API test** vs live DB — bearer scoping, 401s, rate-limit,
-   `is_chain` exclusion.
+   `is_chain` exclusion. **Unblocked.**
 3. **Run on a device** — 60fps, animations, haptics, story gestures, streamed
-   why; polish.
+   why; polish. Note: ConvergenceField is now Skia (native) — needs a dev build,
+   no longer runs in Expo Go.
 4. **Social-auth credentials** — Apple provider in Supabase; Google OAuth
    clients + config; reversed iOS client id in `mobile/app.json`; dev client.
-5. **Admin authoring gaps** — expose `kind`/`is_chain`/`story` in the place form;
-   member-vetting queue UI; selfie capture in `/join`.
-6. **Catalog content** — seed real non-chain experiences with `kind` + story
-   media.
+5. ~~**Admin authoring gaps**~~ ✅ built — place form exposes
+   `kind`/`is_chain`/rich story editor with media upload (A1–A3); `/join` selfie
+   + photos capture, vetting queue with approve/reject/waitlist (B1–B4).
+   ⏳ Verify upload/read against the live buckets.
+6. **Catalog content** — ✅ dataset ready (12 experiences + kinds/stories on all
+   110 places; seeder handles covers). ⏳ **Run `npm run seed` against the live
+   DB.** Still to do: breadth + real photo/video story media.
 7. **Brand art + store prep** — Apple sign-in compliance, privacy policy +
    nutrition labels, pre-approved demo account, TestFlight / Play internal.
+
+### Recently landed (2026-07-02 merge train: #5, #18, #20, #21, #22)
+
+- **Admin authoring + vetting** — A1–A3 (kind/is_chain, story JSON, rich story
+  editor + `experience-media` upload) and B1–B4 (private-media helper, `/join`
+  selfie + consent capture, vetting queue, approve/reject/waitlist actions).
+- **Catalog** — `data/experiences.delhi.json` (12 curated experiences with story
+  cards); kinds/stories added across `data/places.delhi.json`; seeder generates
+  branded covers.
+- **Backend** — `GET /api/bucket`; `DELETE /api/account` (DPDP right-to-delete);
+  `POST /api/experiences/[slug]/companion` (streamed second voice);
+  push-token routes + migration `0008` + frequency caps (sender still deferred);
+  per-user rate limits on every member route.
+- **Mobile** — feed kind-filter chips; Skia ConvergenceField; bucket screen now
+  uses the API; working eslint; `.env.example`; `eas.json`; fixed `expo export`
+  on modern Node (dropped the no-op `expo-web-browser` plugin, added missing
+  `expo-asset`/`@babel/runtime`).
+- **Quality rails** — CI (web tsc/lint/test/build + mobile tsc/lint/Metro
+  bundle); Vitest harness with 22 unit tests; deps refreshed (Next 16.2.10,
+  React 19.2.7); brand book (`BRAND_BOOK.md` + PDF); dev skills vendored under
+  `.claude/skills/`.
+
+### Deferred (Phase 2+, by decision)
+
+- Proactive **push notification sender** (APNs/FCM creds + delivery worker;
+  the data layer + frequency caps are built).
+- **Companion UI wiring** in the experience screen (backend stream is live).
+- **Map + full filters** surface (kind chips shipped as the first slice).
+- **Payments / premium** reconciliation with the new vision.
+- Expo SDK 52 → 57 upgrade (five majors; do with a device in hand, before
+  store submission).
 
 ---
 
@@ -308,6 +349,7 @@ brand art. Baselines green: web `tsc`/`lint`/`build`, `mobile tsc`.
 | 2026-06-28 | **AI/ML sequencing:** LLM-as-ranker now; behavior-aware LTR/CF only after interaction volume; add a contextual bandit for the adventurousness/novelty dial; people-matching reuses the place embedding. |
 | 2026-06-28 | **North-star metric = Confident Answer Accept Rate + Stretch Success Rate**, not DAU. |
 | 2026-06-28 | **Invite-only is a growth mechanic** — N invites/member, referral/taste-lineage graph from day one. |
+| 2026-07-02 | **Merge train:** production pass (#22), seed dataset (#18), admin authoring + vetting + autonomous steps (#20), brand book (#5), vendored skills (#21), this plan (#19). Expo SDK 52→57 upgrade deliberately deferred until device testing. |
 
 ---
 

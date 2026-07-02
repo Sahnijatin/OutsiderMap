@@ -1,12 +1,18 @@
 /**
- * Seeds the curated Delhi places catalog with embeddings.
+ * Seeds the curated Delhi catalog with embeddings.
+ *
+ * Reads two files and upserts both:
+ *   - data/places.delhi.json       (restaurants/spots; default kind 'spot')
+ *   - data/experiences.delhi.json  (kinds + story cards: workshops, historical,
+ *                                   cultural, cafe, nightlife, ...)
  *
  * Usage:
  *   NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... OPENAI_API_KEY=... \
  *     node scripts/seed-places.mjs [--dry-run]
  *
- * Idempotent: upserts by slug, so edits to data/places.delhi.json can be
- * re-applied. Standalone on purpose — does not import src/ (server-only).
+ * Idempotent: upserts by slug, so edits can be re-applied. Standalone on
+ * purpose - does not import src/ (server-only). Branded cover art is generated
+ * for experiences when `sharp` is installed (best-effort; otherwise skipped).
  */
 
 import { readFile } from "node:fs/promises";
@@ -29,27 +35,42 @@ function requireEnv(name) {
 /** The text a place is matched on. Mirrors the taste/query embedding style. */
 function embeddingText(place) {
   const bestFor = place.best_for ?? {};
+  const story = Array.isArray(place.story)
+    ? place.story.map((c) => c.caption).filter(Boolean).join(" ")
+    : "";
   return [
-    `${place.name} — ${place.category} in ${place.area}, Delhi.`,
-    `Vibe: ${place.vibe_tags.join(", ")}.`,
+    `${place.name} - ${place.category ?? place.kind ?? "experience"} in ${place.area ?? "Delhi"}, Delhi.`,
+    place.kind && place.kind !== "spot" ? `Kind: ${place.kind}.` : null,
+    place.vibe_tags?.length ? `Vibe: ${place.vibe_tags.join(", ")}.` : null,
     place.description,
     place.editor_note,
-    `Best for moods: ${(bestFor.moods ?? []).join(", ")}.`,
-    `Best times: ${(bestFor.times ?? []).join(", ")}. Groups: ${(bestFor.group ?? []).join(", ")}.`,
-    `Price level ${place.price_level} of 4.`,
+    bestFor.moods?.length ? `Best for moods: ${bestFor.moods.join(", ")}.` : null,
+    bestFor.times?.length || bestFor.group?.length
+      ? `Best times: ${(bestFor.times ?? []).join(", ")}. Groups: ${(bestFor.group ?? []).join(", ")}.`
+      : null,
+    place.price_level ? `Price level ${place.price_level} of 4.` : null,
+    story ? `Story: ${story}` : null,
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-const places = JSON.parse(
-  await readFile(new URL("../data/places.delhi.json", import.meta.url), "utf8"),
+async function loadJson(relPath) {
+  return JSON.parse(
+    await readFile(new URL(`../${relPath}`, import.meta.url), "utf8"),
+  );
+}
+
+const places = await loadJson("data/places.delhi.json");
+const experiences = await loadJson("data/experiences.delhi.json");
+const catalog = [...places, ...experiences];
+console.log(
+  `Loaded ${places.length} places + ${experiences.length} experiences = ${catalog.length} rows`,
 );
-console.log(`Loaded ${places.length} places from data/places.delhi.json`);
 
 if (DRY_RUN) {
-  console.log("Dry run — first embedding text:\n");
-  console.log(embeddingText(places[0]));
+  console.log("\nDry run - sample experience embedding text:\n");
+  console.log(embeddingText(experiences[0]));
   process.exit(0);
 }
 
@@ -60,33 +81,101 @@ const supabase = createClient(
 );
 const openai = new OpenAI({ apiKey: requireEnv("OPENAI_API_KEY") });
 
+// Optional: branded cover art for experiences (skipped if sharp isn't installed).
+let sharp = null;
+try {
+  sharp = (await import("sharp")).default;
+} catch {
+  console.log("(sharp not installed - skipping generated cover art)");
+}
+
+/** Deterministic on-brand cover: amber halo + scattered lights on night. */
+function coverSvg(slug) {
+  let h = 0;
+  for (let i = 0; i < slug.length; i += 1) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
+  const W = 1200, H = 800, cx = W / 2, cy = H / 2;
+  const accent = h % 2 === 0 ? "#f0a431" : "#c87c1f";
+  const dots = Array.from({ length: 30 }, () => {
+    h = (h * 1103515245 + 12345) >>> 0;
+    const a = ((h % 1000) / 1000) * Math.PI * 2;
+    const r = 80 + (h % 360);
+    const x = cx + Math.cos(a) * r;
+    const y = cy + Math.sin(a) * r * 0.66;
+    const rad = 2 + (h % 5);
+    const op = (0.15 + ((h % 6) * 0.08)).toFixed(2);
+    return `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${rad}" fill="${accent}" opacity="${op}"/>`;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+    <rect width="${W}" height="${H}" fill="#0c0a08"/>
+    <defs><radialGradient id="g" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="${accent}" stop-opacity="0.42"/>
+      <stop offset="55%" stop-color="${accent}" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
+    </radialGradient></defs>
+    <ellipse cx="${cx}" cy="${cy}" rx="${W * 0.5}" ry="${H * 0.5}" fill="url(#g)"/>
+    ${dots}
+    <circle cx="${cx}" cy="${cy}" r="20" fill="${accent}"/>
+  </svg>`;
+}
+
+async function uploadCover(slug) {
+  if (!sharp) return null;
+  try {
+    const buf = await sharp(Buffer.from(coverSvg(slug))).png().toBuffer();
+    const path = `places/${slug}.png`;
+    const { error } = await supabase.storage
+      .from("place-images")
+      .upload(path, buf, { contentType: "image/png", upsert: true });
+    if (error) {
+      console.warn(`  cover upload failed (${slug}): ${error.message}`);
+      return null;
+    }
+    return path;
+  } catch (e) {
+    console.warn(`  cover gen failed (${slug}): ${e.message}`);
+    return null;
+  }
+}
+
 let upserted = 0;
-for (let i = 0; i < places.length; i += BATCH_SIZE) {
-  const batch = places.slice(i, i + BATCH_SIZE);
+for (let i = 0; i < catalog.length; i += BATCH_SIZE) {
+  const batch = catalog.slice(i, i + BATCH_SIZE);
   const { data } = await openai.embeddings.create({
     model: EMBEDDING_MODEL,
     input: batch.map(embeddingText),
   });
 
-  const rows = batch.map((place, j) => ({
-    slug: place.slug,
-    name: place.name,
-    city: place.city,
-    area: place.area,
-    lat: place.lat,
-    lng: place.lng,
-    category: place.category,
-    price_level: place.price_level,
-    vibe_tags: place.vibe_tags,
-    description: place.description,
-    editor_note: place.editor_note,
-    hours: place.hours,
-    best_for: place.best_for,
-    embedding: JSON.stringify(data[j].embedding),
-    is_published: true,
-    source: "curated",
-    updated_at: new Date().toISOString(),
-  }));
+  const rows = await Promise.all(
+    batch.map(async (place, j) => {
+      // Generate a cover only for the curated experiences (they have a `kind`),
+      // so we never overwrite a real image on the existing places.
+      const imagePath = place.kind ? await uploadCover(place.slug) : null;
+      const row = {
+        slug: place.slug,
+        name: place.name,
+        city: place.city ?? "delhi",
+        area: place.area ?? null,
+        lat: place.lat ?? null,
+        lng: place.lng ?? null,
+        category: place.category ?? null,
+        price_level: place.price_level ?? null,
+        vibe_tags: place.vibe_tags ?? [],
+        description: place.description ?? null,
+        editor_note: place.editor_note ?? null,
+        hours: place.hours ?? null,
+        best_for: place.best_for ?? null,
+        embedding: JSON.stringify(data[j].embedding),
+        is_published: true,
+        source: "curated",
+        is_chain: place.is_chain ?? false,
+        updated_at: new Date().toISOString(),
+      };
+      if (place.kind) row.kind = place.kind;
+      if (Array.isArray(place.story) && place.story.length) row.story = place.story;
+      if (imagePath) row.image_path = imagePath;
+      return row;
+    }),
+  );
 
   const { error } = await supabase
     .from("places")
@@ -96,7 +185,7 @@ for (let i = 0; i < places.length; i += BATCH_SIZE) {
     process.exit(1);
   }
   upserted += rows.length;
-  console.log(`Upserted ${upserted}/${places.length}`);
+  console.log(`Upserted ${upserted}/${catalog.length}`);
 }
 
 console.log("Done.");

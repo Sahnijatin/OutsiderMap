@@ -1,20 +1,45 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, ScrollView, RefreshControl, StyleSheet, ActivityIndicator } from "react-native";
+import {
+  View,
+  ScrollView,
+  RefreshControl,
+  StyleSheet,
+  ActivityIndicator,
+  Pressable,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MotiView } from "moti";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import type { FeedResult } from "@/lib/types";
+import type { Experience, FeedResult, PlaceKind } from "@/lib/types";
 import { colors, space } from "@/theme";
 import { Text, Eyebrow } from "@/ui/Text";
 import { Halo } from "@/ui/Halo";
 import { ExperienceCard } from "@/ui/ExperienceCard";
+
+// Filter chips. `null` is "All" (the curated feed); a kind switches to a flat,
+// filtered browse of /api/experiences?kind=.
+const KIND_FILTERS: { value: PlaceKind | null; label: string }[] = [
+  { value: null, label: "All" },
+  { value: "spot", label: "Spots" },
+  { value: "cafe", label: "Cafés" },
+  { value: "nightlife", label: "Nightlife" },
+  { value: "historical", label: "Historic" },
+  { value: "cultural", label: "Cultural" },
+  { value: "workshop", label: "Workshops" },
+  { value: "event", label: "Events" },
+];
 
 export default function Feed() {
   const { profile } = useSession();
   const [data, setData] = useState<FeedResult | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Filter state: the selected kind and its browse results (null = curated feed).
+  const [kind, setKind] = useState<PlaceKind | null>(null);
+  const [browse, setBrowse] = useState<Experience[] | null>(null);
+  const [browseLoading, setBrowseLoading] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -29,13 +54,43 @@ export default function Feed() {
     load();
   }, [load]);
 
+  // Load (or clear) the filtered browse list whenever the selected kind changes.
+  useEffect(() => {
+    if (!kind) {
+      setBrowse(null);
+      return;
+    }
+    let active = true;
+    setBrowseLoading(true);
+    setError(null);
+    api
+      .experiences({ kind, limit: 30 })
+      .then((r) => {
+        if (active) setBrowse(r.items);
+      })
+      .catch((e) => {
+        if (active)
+          setError(
+            e instanceof Error ? e.message : "Could not load that filter",
+          );
+      })
+      .finally(() => {
+        if (active) setBrowseLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [kind]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await load();
     setRefreshing(false);
   }, [load]);
 
-  const greeting = profile?.display_name ? `, ${profile.display_name.split(" ")[0]}` : "";
+  const greeting = profile?.display_name
+    ? `, ${profile.display_name.split(" ")[0]}`
+    : "";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -43,20 +98,63 @@ export default function Feed() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
         }
       >
         <Eyebrow>Outsidermap · tonight in delhi</Eyebrow>
-        <Text variant="title" style={styles.h1}>Where to{greeting}.</Text>
+        <Text variant="title" style={styles.h1}>
+          Where to{greeting}.
+        </Text>
 
-        {!data && !error && (
+        <KindChips selected={kind} onSelect={setKind} />
+
+        {!data && !error && !kind && (
           <View style={styles.loading}>
             <ActivityIndicator color={colors.accent} />
           </View>
         )}
-        {error && <Text variant="small" style={styles.error}>{error}</Text>}
+        {error && (
+          <Text variant="small" style={styles.error}>
+            {error}
+          </Text>
+        )}
 
-        {data && (
+        {/* Filtered browse view */}
+        {kind && (
+          <View style={styles.section}>
+            {browseLoading && (
+              <View style={styles.loading}>
+                <ActivityIndicator color={colors.accent} />
+              </View>
+            )}
+            {!browseLoading && browse && browse.length === 0 && (
+              <Text variant="small" style={styles.empty}>
+                Nothing here yet. Try another filter.
+              </Text>
+            )}
+            {!browseLoading && browse && (
+              <View style={{ gap: space.lg }}>
+                {browse.map((x, i) => (
+                  <MotiView
+                    key={x.id}
+                    from={{ opacity: 0, translateY: 12 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: "timing", duration: 320, delay: i * 40 }}
+                  >
+                    <ExperienceCard experience={x} />
+                  </MotiView>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Curated feed (only when no filter is active) */}
+        {!kind && data && (
           <>
             <Section title="For you">
               {data.forYou.map((x, i) => (
@@ -80,7 +178,9 @@ export default function Feed() {
               <Section title="Happening tonight">
                 {data.tonight.map((e) => (
                   <View key={e.id} style={styles.eventRow}>
-                    <Text variant="heading" numberOfLines={1}>{e.title}</Text>
+                    <Text variant="heading" numberOfLines={1}>
+                      {e.title}
+                    </Text>
                     <Text variant="small">
                       {[e.venue_name, e.area].filter(Boolean).join(" · ")}
                     </Text>
@@ -103,7 +203,48 @@ export default function Feed() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function KindChips({
+  selected,
+  onSelect,
+}: {
+  selected: PlaceKind | null;
+  onSelect: (k: PlaceKind | null) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.chips}
+      style={styles.chipScroll}
+    >
+      {KIND_FILTERS.map((f) => {
+        const active = f.value === selected;
+        return (
+          <Pressable
+            key={f.label}
+            onPress={() => onSelect(f.value)}
+            style={[styles.chip, active && styles.chipActive]}
+          >
+            <Text
+              variant="small"
+              style={[styles.chipText, active && styles.chipTextActive]}
+            >
+              {f.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <View style={styles.section}>
       <Eyebrow style={styles.sectionTitle}>{title}</Eyebrow>
@@ -121,6 +262,22 @@ const styles = StyleSheet.create({
   section: { marginTop: space.xxl },
   sectionTitle: { marginBottom: space.lg },
   empty: { paddingVertical: space.lg },
+  chipScroll: { marginTop: space.lg, marginHorizontal: -space.xl },
+  chips: { paddingHorizontal: space.xl, gap: space.sm },
+  chip: {
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+  },
+  chipActive: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
+  },
+  chipText: { color: colors.inkDim },
+  chipTextActive: { color: colors.night },
   eventRow: {
     backgroundColor: colors.surface,
     borderWidth: 1,

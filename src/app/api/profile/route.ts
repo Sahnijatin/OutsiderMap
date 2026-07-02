@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
  * The member's profile screen: the system's read on their taste (the wow
@@ -11,6 +12,11 @@ export async function GET(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const allowed = await checkRateLimit(`profile:${ctx.user.id}`, 60, 60);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const [{ data: profile }, { data: taste }] = await Promise.all([
@@ -37,6 +43,11 @@ export async function PATCH(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const allowed = await checkRateLimit(`profile:${ctx.user.id}`, 60, 60);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const parsed = PatchSchema.safeParse(await request.json().catch(() => null));

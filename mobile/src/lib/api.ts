@@ -1,6 +1,7 @@
 import { fetch as expoFetch } from "expo/fetch";
 import { supabase } from "@/lib/supabase";
 import type {
+  BucketItem,
   Experience,
   ExperienceDetail,
   FeedResult,
@@ -62,6 +63,8 @@ export const api = {
 
   feed: () => request<FeedResult>("/api/feed"),
 
+  bucket: () => request<{ items: BucketItem[] }>("/api/bucket"),
+
   experiences: (params: {
     kind?: string;
     area?: string;
@@ -107,6 +110,18 @@ export const api = {
       method: "POST",
       body: answers,
     }),
+
+  registerPushToken: (token: string, platform: "ios" | "android") =>
+    request<{ ok: true }>("/api/notifications/token", {
+      method: "POST",
+      body: { token, platform },
+    }),
+
+  unregisterPushToken: (token: string) =>
+    request<{ ok: true }>("/api/notifications/token", {
+      method: "DELETE",
+      body: { token },
+    }),
 };
 
 /**
@@ -128,6 +143,31 @@ export async function* streamWhy(
   });
   if (!res.ok || !res.body) {
     throw new Error(`why stream failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    yield decoder.decode(value, { stream: true });
+  }
+}
+
+/**
+ * Streams the in-app companion's witty aside for an experience. Same transport
+ * as streamWhy; the companion is about the place itself, so no query is needed.
+ */
+export async function* streamCompanion(slug: string): AsyncGenerator<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(await authHeader()),
+  };
+  const res = await expoFetch(
+    `${BASE}/api/experiences/${encodeURIComponent(slug)}/companion`,
+    { method: "POST", headers },
+  );
+  if (!res.ok || !res.body) {
+    throw new Error(`companion stream failed (${res.status})`);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

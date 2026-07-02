@@ -85,6 +85,13 @@ export type ProfileResult = {
   } | null;
 };
 
+export type BucketStatus = "saved" | "started" | "completed";
+
+export type BucketItem = {
+  status: BucketStatus;
+  place: Experience;
+};
+
 export type InteractionAction =
   | "save"
   | "unsave"

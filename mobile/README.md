@@ -4,9 +4,11 @@ The invite-only mobile client. It talks to the existing Next.js backend
 (`../`) over HTTP with a Supabase bearer token; the recommendation "brain"
 lives server-side and is shared with the web.
 
-> This app is **not built or verified in CI** — it has its own toolchain and is
+> CI (`.github/workflows/ci.yml`) typechecks, lints, and Metro-bundles this app
+> (iOS + Android, `expo export`) on every PR. It still has its own toolchain,
 > fenced off from the web app's tsc/lint/build (see root `tsconfig.json` /
-> `eslint.config.mjs`). Verify it locally with the steps below.
+> `eslint.config.mjs`). Anything device-only (animations, haptics, OAuth)
+> needs the run steps below.
 
 ## Setup
 
@@ -27,6 +29,9 @@ cp .env.example .env   # fill in the three EXPO_PUBLIC_* values
 
 ```bash
 npm run typecheck    # tsc --noEmit (this app only)
+npm run lint         # eslint (flat config, eslint-config-expo)
+npx expo export --platform ios --platform android --output-dir /tmp/expo-export
+                     # full Metro bundle — catches import/runtime-module errors
 ```
 
 Email-OTP sign-in works in **Expo Go** (`npm run start`). **Social sign-in

@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // The Expo app has its own toolchain (mobile/).
     "mobile/**",
+    // Vendored third-party agent skills — not app code.
+    ".claude/**",
+    ".agents/**",
   ]),
 ]);
 
