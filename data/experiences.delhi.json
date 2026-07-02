@@ -1,0 +1,338 @@
+[
+  {
+    "slug": "nizamuddin-thursday-qawwali",
+    "name": "Thursday Qawwali at Nizamuddin Dargah",
+    "city": "delhi",
+    "area": "Nizamuddin",
+    "kind": "cultural",
+    "lat": 28.5915,
+    "lng": 77.2435,
+    "category": "live-music",
+    "price_level": 1,
+    "vibe_tags": ["sufi", "heritage", "live-music", "spiritual", "people-watching", "after-dark", "offbeat"],
+    "description": "Every Thursday after sunset, qawwals sit in the marble courtyard of the 14th-century dargah of Hazrat Nizamuddin Auliya and sing until the crowd forgets the time. You reach it through a lane of attar, rose petals and kebab smoke; inside, knees touching strangers, the harmonium starts and the hair on your arms stands up.",
+    "editor_note": "Go barefoot, cover your head, and put a little money in the qawwals' cloth when a song moves you - that is how the night runs. Women sit to the side of the courtyard.",
+    "hours": {
+      "thu": [{"open": "18:30", "close": "22:00"}]
+    },
+    "best_for": {"moods": ["heartbroken", "reflective", "curious", "homesick"], "times": ["evening", "late-night"], "group": ["solo", "small-group"]},
+    "story": [
+      {"caption": "Leave your shoes at the stall in the lane. From here it is barefoot, past the attar sellers and the rose petals, into a courtyard older than most countries."},
+      {"caption": "Find a spot on the marble before 7. By 8 there is no marble left - just shoulders, knees, and a thousand people who came for the same thing."},
+      {"caption": "Then the harmonium starts. You will not understand every word. You will not need to. Stay for the one song that cracks the room open - it always comes."}
+    ]
+  },
+  {
+    "slug": "agrasen-ki-baoli",
+    "name": "Agrasen ki Baoli",
+    "city": "delhi",
+    "area": "Connaught Place",
+    "kind": "historical",
+    "lat": 28.6271,
+    "lng": 77.2249,
+    "category": "monument",
+    "price_level": 1,
+    "vibe_tags": ["hidden", "heritage", "ruins", "quiet", "offbeat", "people-watching"],
+    "description": "A 14th-century stepwell hidden two minutes from the glass towers of Connaught Place, down an unmarked lane off Hailey Road. 108 stone steps drop into a cool, echoing dark that most of Delhi has no idea exists. The pigeons, the symmetry and the drop in temperature do something to you.",
+    "editor_note": "Go on a weekday morning before the reels crowd arrives. The lower you climb, the colder and quieter it gets - sit on the last dry step and just listen.",
+    "hours": {
+      "mon": [{"open": "09:00", "close": "17:30"}],
+      "tue": [{"open": "09:00", "close": "17:30"}],
+      "wed": [{"open": "09:00", "close": "17:30"}],
+      "thu": [{"open": "09:00", "close": "17:30"}],
+      "fri": [{"open": "09:00", "close": "17:30"}],
+      "sat": [{"open": "09:00", "close": "17:30"}],
+      "sun": [{"open": "09:00", "close": "17:30"}]
+    },
+    "best_for": {"moods": ["restless", "curious", "reflective"], "times": ["morning", "afternoon"], "group": ["solo", "small-group", "date"]},
+    "story": [
+      {"caption": "Most people within twenty minutes of here have never heard of it. That is the point. Walk down Hailey Road and look for the gap between buildings."},
+      {"caption": "108 steps down. The traffic noise dies at about step 30. By the bottom it is ten degrees cooler and the only sound is pigeons and your own breath."},
+      {"caption": "Sit. Look back up at the arches framing a rectangle of Delhi sky. Six hundred years old, and almost nobody is here with you."}
+    ]
+  },
+  {
+    "slug": "mehrauli-archaeological-park",
+    "name": "Mehrauli Archaeological Park",
+    "city": "delhi",
+    "area": "Mehrauli",
+    "kind": "historical",
+    "lat": 28.5202,
+    "lng": 77.1855,
+    "category": "monument",
+    "price_level": 1,
+    "vibe_tags": ["hidden", "heritage", "ruins", "garden", "quiet", "offbeat", "golden-hour"],
+    "description": "Two hundred acres of un-fenced ruins behind the Qutub, where a thousand years of Delhi lie scattered in the scrub - tombs, a stepwell, a Mughal summer palace, and Jamali Kamali, whose painted ceiling is one of the city's great secrets. No tickets, no crowds, just paths through history that almost nobody walks.",
+    "editor_note": "Aim for the last two hours before sunset. Find Jamali Kamali, ask the caretaker to open it, and lie back to see the ceiling - that is the whole trip in one moment.",
+    "hours": {
+      "mon": [{"open": "06:00", "close": "18:30"}],
+      "tue": [{"open": "06:00", "close": "18:30"}],
+      "wed": [{"open": "06:00", "close": "18:30"}],
+      "thu": [{"open": "06:00", "close": "18:30"}],
+      "fri": [{"open": "06:00", "close": "18:30"}],
+      "sat": [{"open": "06:00", "close": "18:30"}],
+      "sun": [{"open": "06:00", "close": "18:30"}]
+    },
+    "best_for": {"moods": ["restless", "curious", "reflective", "adventurous"], "times": ["morning", "evening"], "group": ["solo", "small-group", "date"]},
+    "story": [
+      {"caption": "Everyone stops at the Qutub. Walk past it, into the scrub behind, and the tour buses vanish in ninety seconds."},
+      {"caption": "There is no map worth a damn. That is the gift - you turn a corner and there is a 16th-century tomb nobody told you about, sun coming through a broken dome."},
+      {"caption": "Find Jamali Kamali before the light goes. The painted ceiling above the two graves is the kind of thing you will tell people about and they will not believe you."}
+    ]
+  },
+  {
+    "slug": "sunder-nursery",
+    "name": "Sunder Nursery",
+    "city": "delhi",
+    "area": "Nizamuddin",
+    "kind": "historical",
+    "lat": 28.5969,
+    "lng": 77.2456,
+    "category": "garden",
+    "price_level": 1,
+    "vibe_tags": ["garden", "heritage", "quiet", "golden-hour", "date", "picnic", "people-watching"],
+    "description": "A 16th-century Mughal garden, painstakingly restored, sitting beside Humayun's Tomb with a dozen lesser monuments rising out of the lawns. Bougainvillea tunnels, a lake, peacocks, and old men doing tai chi at dawn. The most quietly beautiful place to do nothing in Delhi.",
+    "editor_note": "Bring a book and a flask of chai, find the rose garden mid-morning, and stay until you lose track of the hour. Skip weekends if you want it gentle.",
+    "hours": {
+      "mon": [{"open": "07:00", "close": "19:00"}],
+      "tue": [{"open": "07:00", "close": "19:00"}],
+      "wed": [{"open": "07:00", "close": "19:00"}],
+      "thu": [{"open": "07:00", "close": "19:00"}],
+      "fri": [{"open": "07:00", "close": "19:00"}],
+      "sat": [{"open": "07:00", "close": "19:00"}],
+      "sun": [{"open": "07:00", "close": "19:00"}]
+    },
+    "best_for": {"moods": ["tired", "reflective", "tender", "social"], "times": ["morning", "evening"], "group": ["solo", "date", "small-group"]},
+    "story": [
+      {"caption": "Come in through the main gate and keep walking until the city noise is fully gone. It takes about four minutes and one bougainvillea tunnel."},
+      {"caption": "There is a monument on a rise to your left that has no name on any sign. Climb it. Nobody will stop you. The whole garden opens up below."},
+      {"caption": "Stay for golden hour. The Mughals built this to be looked at when the light goes soft, and four hundred years later it still works."}
+    ]
+  },
+  {
+    "slug": "delhi-blue-pottery-wheel",
+    "name": "Wheel-throwing at Delhi Blue Pottery",
+    "city": "delhi",
+    "area": "Nizamuddin",
+    "kind": "workshop",
+    "lat": 28.5933,
+    "lng": 77.2507,
+    "category": "workshop",
+    "price_level": 3,
+    "vibe_tags": ["hands-on", "creative", "quiet", "offbeat", "date", "solo"],
+    "description": "A working studio in the lineage of Gurcharan Singh, India's pioneering studio potter, where you sit at a real wheel and learn to centre clay under the hands of people who have done it for decades. Messy, meditative, and the rare Delhi afternoon where your phone never comes out.",
+    "editor_note": "Book the beginners' wheel session, wear clothes you do not love, and do not expect a masterpiece - the point is your hands learning a thing your head cannot rush.",
+    "hours": {
+      "tue": [{"open": "10:00", "close": "17:00"}],
+      "wed": [{"open": "10:00", "close": "17:00"}],
+      "thu": [{"open": "10:00", "close": "17:00"}],
+      "fri": [{"open": "10:00", "close": "17:00"}],
+      "sat": [{"open": "10:00", "close": "17:00"}]
+    },
+    "best_for": {"moods": ["restless", "creative", "tender", "overwhelmed"], "times": ["morning", "afternoon"], "group": ["solo", "date", "small-group"]},
+    "story": [
+      {"caption": "The clay fights you for the first twenty minutes. It wobbles, it collapses, you get it everywhere. Everyone goes through this. Keep your hands wet."},
+      {"caption": "Then something clicks and the clay goes still under your palms - centred - and you understand why people give their whole lives to this."},
+      {"caption": "You will leave with one lopsided bowl and clay under your nails, and you will not have thought about anything else for three hours. That is the souvenir."}
+    ]
+  },
+  {
+    "slug": "gulab-singh-attar-dariba",
+    "name": "Attar tasting at Gulab Singh Johrimal",
+    "city": "delhi",
+    "area": "Old Delhi",
+    "kind": "workshop",
+    "lat": 28.6562,
+    "lng": 77.2305,
+    "category": "perfumery",
+    "price_level": 2,
+    "vibe_tags": ["heritage", "hands-on", "sensory", "old-school", "hidden", "offbeat"],
+    "description": "A perfumer on Dariba Kalan that has been blending natural attars since 1816, in the same family, in tiny cut-glass bottles. Sit at the counter and they will walk your nose through oudh, mitti (the smell of the first rain on earth, bottled), rose, and a dozen things you have no words for.",
+    "editor_note": "Ask specifically for 'gil' or 'mitti' attar - petrichor as a perfume. Smelling it for the first time reorganises something in your brain.",
+    "hours": {
+      "mon": [{"open": "11:00", "close": "20:00"}],
+      "tue": [{"open": "11:00", "close": "20:00"}],
+      "wed": [{"open": "11:00", "close": "20:00"}],
+      "thu": [{"open": "11:00", "close": "20:00"}],
+      "fri": [{"open": "11:00", "close": "20:00"}],
+      "sat": [{"open": "11:00", "close": "20:00"}]
+    },
+    "best_for": {"moods": ["curious", "nostalgic", "tender"], "times": ["afternoon", "evening"], "group": ["solo", "date", "small-group"]},
+    "story": [
+      {"caption": "Find the lane of silver in Old Delhi, then the small old shop that is not selling silver at all. Sit at the worn counter. There is no rush here."},
+      {"caption": "They will hand you glass rods, one scent at a time, on the back of your hand. Oudh first. Then rose. Then they save the one that gets everyone."},
+      {"caption": "Mitti attar - the smell of the year's first rain hitting dry earth, distilled and bottled since before your grandparents. You will buy a bottle. Everyone does."}
+    ]
+  },
+  {
+    "slug": "cafe-lota-crafts-museum",
+    "name": "Cafe Lota",
+    "city": "delhi",
+    "area": "Nizamuddin",
+    "kind": "cafe",
+    "lat": 28.6133,
+    "lng": 77.2426,
+    "category": "cafe",
+    "price_level": 2,
+    "vibe_tags": ["regional", "outdoor", "quiet", "date", "people-watching", "offbeat"],
+    "description": "Tucked into the National Crafts Museum, open to the trees, serving regional Indian plates you will not find on any other Delhi menu - palak patta chaat, Bengal's kasundi, a dessert built on the smell of woodsmoke. The kind of long lunch where the conversation outlasts the food.",
+    "editor_note": "Order the palak patta chaat - crisp spinach leaves, yoghurt, date chutney - it is the single most-ordered dish in Delhi for a reason. Sit outside.",
+    "hours": {
+      "tue": [{"open": "10:00", "close": "21:30"}],
+      "wed": [{"open": "10:00", "close": "21:30"}],
+      "thu": [{"open": "10:00", "close": "21:30"}],
+      "fri": [{"open": "10:00", "close": "21:30"}],
+      "sat": [{"open": "10:00", "close": "21:30"}],
+      "sun": [{"open": "10:00", "close": "21:30"}]
+    },
+    "best_for": {"moods": ["social", "tender", "curious", "hungover"], "times": ["afternoon", "evening"], "group": ["date", "small-group"]},
+    "story": [
+      {"caption": "It is hidden inside a museum, open to the trees, and half of Delhi still does not know it is here. Come for lunch, leave at dusk."},
+      {"caption": "The palak patta chaat arrives looking like nothing and tastes like the best decision you have made all week. Order a second plate. You will want to."},
+      {"caption": "Wander the craft museum next door after - block prints, terracotta, a painted Gujarati haveli facade - then come back for filter coffee under the trees."}
+    ]
+  },
+  {
+    "slug": "triveni-terrace-cafe",
+    "name": "Triveni Terrace Cafe",
+    "city": "delhi",
+    "area": "Connaught Place",
+    "kind": "cafe",
+    "lat": 28.6258,
+    "lng": 77.2342,
+    "category": "cafe",
+    "price_level": 1,
+    "vibe_tags": ["artsy", "quiet", "outdoor", "old-school", "solo", "people-watching", "offbeat"],
+    "description": "A terrace cafe inside the Triveni Kala Sangam arts centre, all weathered stone and potted plants, where actors run lines and painters nurse cold coffees between rehearsals. Cheap home-style thalis, the city's least pretentious cold coffee, and an atmosphere money cannot buy.",
+    "editor_note": "Get the rajma chawal and a cold coffee, grab the corner table by the sculpture, and bring something to read or someone to talk to slowly.",
+    "hours": {
+      "mon": [{"open": "11:00", "close": "19:00"}],
+      "tue": [{"open": "11:00", "close": "19:00"}],
+      "wed": [{"open": "11:00", "close": "19:00"}],
+      "thu": [{"open": "11:00", "close": "19:00"}],
+      "fri": [{"open": "11:00", "close": "19:00"}],
+      "sat": [{"open": "11:00", "close": "19:00"}]
+    },
+    "best_for": {"moods": ["reflective", "tired", "creative", "solo"], "times": ["afternoon"], "group": ["solo", "date", "small-group"]},
+    "story": [
+      {"caption": "Walk into the arts centre like you belong there - you do - and climb to the terrace. Someone will be rehearsing a play three tables over."},
+      {"caption": "The menu is short and cheap and exactly right: rajma chawal, a thali, a cold coffee that has not changed in thirty years."},
+      {"caption": "Nobody will rush you out. Stay through an afternoon, watch the light move across the old stone, and remember the city used to feel like this everywhere."}
+    ]
+  },
+  {
+    "slug": "piano-man-jazz-club",
+    "name": "The Piano Man Jazz Club",
+    "city": "delhi",
+    "area": "Safdarjung",
+    "kind": "nightlife",
+    "lat": 28.5689,
+    "lng": 77.2012,
+    "category": "live-music",
+    "price_level": 3,
+    "vibe_tags": ["live-music", "intimate", "after-dark", "date", "jazz", "moody"],
+    "description": "An intimate, low-lit jazz room in Safdarjung Enclave where a grand piano sits centre-stage and touring musicians play to a crowd that actually listens. Two floors, tight tables, stiff drinks, and the rare Delhi night out built entirely around the music instead of the scene.",
+    "editor_note": "Book ahead and ask for a table on the lower floor near the piano - the upstairs is for talkers. Go on a night with a touring act, not just a jam.",
+    "hours": {
+      "tue": [{"open": "18:00", "close": "00:00"}],
+      "wed": [{"open": "18:00", "close": "00:00"}],
+      "thu": [{"open": "18:00", "close": "00:00"}],
+      "fri": [{"open": "18:00", "close": "01:00"}],
+      "sat": [{"open": "18:00", "close": "01:00"}],
+      "sun": [{"open": "18:00", "close": "00:00"}]
+    },
+    "best_for": {"moods": ["romantic", "celebratory", "moody", "social"], "times": ["evening", "late-night"], "group": ["date", "small-group"]},
+    "story": [
+      {"caption": "Get there before the set starts and take the lower floor, near the piano. This is a listening room - the people who came to talk are upstairs."},
+      {"caption": "The lights drop, the bassist counts in, and for the next hour Delhi outside the door simply stops existing."},
+      {"caption": "Order whatever is brown and on the rocks, lean back, and let a touring trio you had never heard of ruin every other night out for you for a while."}
+    ]
+  },
+  {
+    "slug": "majnu-ka-tilla-tibetan-colony",
+    "name": "Majnu ka Tilla Tibetan Colony",
+    "city": "delhi",
+    "area": "Majnu ka Tilla",
+    "kind": "cultural",
+    "lat": 28.7028,
+    "lng": 77.2289,
+    "category": "neighbourhood",
+    "price_level": 1,
+    "vibe_tags": ["offbeat", "hidden", "food", "people-watching", "backpacker", "cheap-eats", "riverside"],
+    "description": "A little Tibet folded into north Delhi by the Yamuna - narrow lanes of momo kitchens, monastery prayer flags, thukpa steam, butter-tea cafes and rooftop spots looking over the river. Walk in and the city you know disappears; you are somewhere else entirely, ten minutes from the metro.",
+    "editor_note": "Get laphing (cold spicy mung-noodle) from a lane stall, then climb to a rooftop cafe for butter tea and the river view. Spin the prayer wheels at the monastery on your way out.",
+    "hours": {
+      "mon": [{"open": "08:00", "close": "23:00"}],
+      "tue": [{"open": "08:00", "close": "23:00"}],
+      "wed": [{"open": "08:00", "close": "23:00"}],
+      "thu": [{"open": "08:00", "close": "23:00"}],
+      "fri": [{"open": "08:00", "close": "23:00"}],
+      "sat": [{"open": "08:00", "close": "23:00"}],
+      "sun": [{"open": "08:00", "close": "23:00"}]
+    },
+    "best_for": {"moods": ["restless", "curious", "adventurous", "homesick"], "times": ["afternoon", "evening"], "group": ["solo", "small-group", "date"]},
+    "story": [
+      {"caption": "Step off the main road and through the gate, and within fifty metres the prayer flags start and the smell changes to steamed momo and incense."},
+      {"caption": "The lanes are barely shoulder-wide. Follow your nose. Get the laphing from the stall with the longest local queue - cold, fiery, unforgettable."},
+      {"caption": "End on a rooftop with butter tea and the Yamuna going gold below you, and try to believe you are still in Delhi."}
+    ]
+  },
+  {
+    "slug": "old-delhi-dawn-food-walk",
+    "name": "Old Delhi Dawn Food Walk",
+    "city": "delhi",
+    "area": "Old Delhi",
+    "kind": "cultural",
+    "lat": 28.6506,
+    "lng": 77.2334,
+    "category": "food-walk",
+    "price_level": 2,
+    "vibe_tags": ["heritage", "food", "people-watching", "old-school", "offbeat", "early-morning"],
+    "description": "Shahjahanabad before it wakes fully - nihari simmering since midnight, the first jalebis hitting the ghee, bedmi-aloo on leaf plates, and lanes you can actually move through. A self-made crawl through Chandni Chowk's 300-year-old breakfast, eaten standing up with the people who have done it every day for decades.",
+    "editor_note": "Start at 7am at Jama Masjid Gate 1 for nihari, then walk to Paranthe Wali Gali and finish on warm jalebi. Come hungry, carry cash, eat where the locals stand.",
+    "hours": {
+      "mon": [{"open": "06:30", "close": "10:30"}],
+      "tue": [{"open": "06:30", "close": "10:30"}],
+      "wed": [{"open": "06:30", "close": "10:30"}],
+      "thu": [{"open": "06:30", "close": "10:30"}],
+      "fri": [{"open": "06:30", "close": "10:30"}],
+      "sat": [{"open": "06:30", "close": "10:30"}],
+      "sun": [{"open": "06:30", "close": "10:30"}]
+    },
+    "best_for": {"moods": ["adventurous", "hungover", "curious", "social"], "times": ["morning"], "group": ["small-group", "date"]},
+    "story": [
+      {"caption": "Set an alarm you will hate. Be at Jama Masjid by 7. Old Delhi at dawn is a different city - empty lanes, low gold light, the day not yet loud."},
+      {"caption": "Nihari first, eaten standing, the bowl that has been on the fire since midnight. Then bedmi-aloo on a leaf plate. Pace yourself - you are not done."},
+      {"caption": "Finish on a jalebi pulled straight from the ghee, too hot to hold. The whole walk costs less than one fancy brunch and you will remember it for years."}
+    ]
+  },
+  {
+    "slug": "hauz-khas-reservoir-dusk",
+    "name": "Hauz Khas Reservoir & Deer Park at Dusk",
+    "city": "delhi",
+    "area": "Hauz Khas",
+    "kind": "historical",
+    "lat": 28.5535,
+    "lng": 77.1936,
+    "category": "monument",
+    "price_level": 1,
+    "vibe_tags": ["heritage", "ruins", "golden-hour", "quiet", "date", "people-watching", "lakeside"],
+    "description": "Behind the boutiques and bars of Hauz Khas Village lies the thing everyone forgets to look at - a 14th-century reservoir and madrasa ruins on the water's edge, with a deer park beside it. Come at dusk: parakeets screaming home, the old domes going pink, couples and dogs and joggers under six hundred years of stone.",
+    "editor_note": "Walk past the cafes to the back of the village, down to the water, and find a perch on the madrasa steps for sunset. The deer park gate closes early - go there first.",
+    "hours": {
+      "mon": [{"open": "10:30", "close": "19:00"}],
+      "tue": [{"open": "10:30", "close": "19:00"}],
+      "wed": [{"open": "10:30", "close": "19:00"}],
+      "thu": [{"open": "10:30", "close": "19:00"}],
+      "fri": [{"open": "10:30", "close": "19:00"}],
+      "sat": [{"open": "10:30", "close": "19:00"}],
+      "sun": [{"open": "10:30", "close": "19:00"}]
+    },
+    "best_for": {"moods": ["reflective", "romantic", "restless", "tender"], "times": ["evening"], "group": ["solo", "date", "small-group"]},
+    "story": [
+      {"caption": "Everyone comes to Hauz Khas for the bars. Walk straight past them, to the back of the village, where the stone stairs drop to the water."},
+      {"caption": "Sit on the madrasa steps as the sun goes. The domes turn pink, the parakeets come screaming back to roost, and the boutiques behind you disappear."},
+      {"caption": "Six hundred years ago students sat on these exact steps reading by this exact light. Stay until the guard whistles you out."}
+    ]
+  }
+]
