@@ -28,6 +28,18 @@ function smooth(p: number): number {
   return p * p * (3 - 2 * p);
 }
 
+/** Deterministic PRNG (mulberry32) so render stays pure — same seed, same field. */
+function mulberry32(seed: number) {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 type Point = {
   x: number;
   y: number;
@@ -48,20 +60,19 @@ export function ConvergenceField({
   const center = size / 2;
   const clock = useClock();
 
-  const points = useMemo<Point[]>(
-    () =>
-      Array.from({ length: dots }).map(() => {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = (size / 2) * (0.4 + Math.random() * 0.6);
-        return {
-          x: Math.cos(angle) * dist,
-          y: Math.sin(angle) * dist,
-          delay: Math.random() * 900,
-          duration: 1200 + Math.random() * 900,
-        };
-      }),
-    [dots, size],
-  );
+  const points = useMemo<Point[]>(() => {
+    const rand = mulberry32(dots * 7919 + size);
+    return Array.from({ length: dots }).map(() => {
+      const angle = rand() * Math.PI * 2;
+      const dist = (size / 2) * (0.4 + rand() * 0.6);
+      return {
+        x: Math.cos(angle) * dist,
+        y: Math.sin(angle) * dist,
+        delay: rand() * 900,
+        duration: 1200 + rand() * 900,
+      };
+    });
+  }, [dots, size]);
 
   // Core pulse: opacity + radius breathe on a fixed 1.6s cycle.
   const coreRadius = useDerivedValue(

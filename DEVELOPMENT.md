@@ -8,8 +8,7 @@
 > **Note:** `PROJECT_PLAN.md` is the *original* plan and is partly superseded by
 > the vision pivot — trust this file for current status.
 
-_Last updated: 2026-06-30 · active branch: `claude/development-file-review-ro7ybf`_
-_PR #17 is merged into `main`; the work below builds on it._
+_Last updated: 2026-07-02 · PR #17 merged 2026-06-28 (migrate action ran green — 0006/0007 are live)_
 
 ---
 
@@ -22,13 +21,14 @@ exposed it over HTTP and built the app on top.
 
 | Area | State |
 |---|---|
-| Backend HTTP API | ✅ built, ⏳ not tested against live DB |
-| DB schema (migrations 0006/0007) | ✅ written, ⏳ not applied to live DB |
-| Expo mobile app | ✅ scaffolded + typechecks, ⏳ not run on a device |
+| Backend HTTP API | ✅ built (+ `/api/bucket`, per-user rate limits on every route), ⏳ not tested against live DB |
+| DB schema (migrations 0006/0007) | ✅ **applied to live DB** (migrate action ran green on the PR #17 merge) |
+| Expo mobile app | ✅ scaffolded + typechecks + bundles, ⏳ not run on a device |
 | Social auth (Apple + Google) | ✅ coded, ⏳ needs credentials + dev build |
-| Admin authoring + vetting UI | ✅ built (A1–A3, B1–B4); ⏳ runtime needs buckets |
-| Catalog content (experiences + stories) | ❌ not seeded |
-| Store readiness | ❌ not started |
+| Admin authoring + vetting UI | ✅ built (A1–A3, B1–B4); buckets exist (0006/0007 live), ⏳ untested at runtime |
+| Catalog content (experiences + stories) | ✅ dataset ready (`data/experiences.delhi.json`, 12), ⏳ `npm run seed` not yet run against live DB |
+| CI (typecheck/lint/test/build, web + mobile) | ✅ `.github/workflows/ci.yml` |
+| Store readiness | ❌ not started (`mobile/eas.json` build profiles now exist) |
 
 ---
 
@@ -68,22 +68,22 @@ Baselines: web `tsc`/`lint`/`build` green; `mobile tsc` green.
 
 ## Phase 1 — remaining
 
-1. **Apply migrations to live Supabase** — merge PR #17 (runs the migrate
-   action) or `workflow_dispatch`; confirm the one-time `0001–0005` baseline
-   repair was done. ⏸️ **On hold** (by decision).
+1. ~~**Apply migrations to live Supabase**~~ ✅ Done — PR #17 merged 2026-06-28;
+   the migrate action completed successfully (`0006`/`0007` are live).
 2. **End-to-end API test** vs live DB — bearer scoping, 401s, rate-limit,
-   `is_chain` exclusion. ⏸️ **On hold** (by decision, gated on #1).
+   `is_chain` exclusion. **Unblocked** (migrations are live).
 3. **Run the app on a device** — experience pass: 60fps, animations, haptics,
    story gestures, streamed why; iterate on polish.
 4. **Social-auth credentials** — Apple provider in Supabase; Google OAuth clients
    + Supabase config; reversed iOS client id in `mobile/app.json`; build a dev
    client (`npx expo run:ios`).
-5. **Admin authoring gaps (web)** — the place form
-   (`src/app/(admin)/admin/places/place-form.tsx` + `actions.ts`) doesn't expose
-   `kind` / `is_chain` / `story`; no **member-vetting queue UI** (selfie review,
-   approve/reject/waitlist); no **selfie capture** in `/join`.
-6. **Catalog content** — seed real non-chain experiences with `kind` + story
-   media (today `data/places.delhi.json` is restaurant-shaped, no stories).
+5. ~~**Admin authoring gaps (web)**~~ ✅ Built (subphases A1–A3, B1–B4 below);
+   ⏳ verify upload/read flows against the live buckets at runtime.
+6. **Catalog content** — _dataset ready_: `data/experiences.delhi.json` has 12
+   curated non-chain experiences with kinds + story cards, and
+   `scripts/seed-places.mjs` now seeds them (with generated covers). **Run it
+   against the live DB:** `… npm run seed`. Still to do: more breadth + real
+   photo/video story media.
 7. **Final brand art** + **store prep** — Sign in with Apple compliance, privacy
    policy + nutrition labels, a pre-approved demo account for invite-only review,
    TestFlight / Play internal testing.
@@ -98,10 +98,9 @@ additive UI/action code that compiles and builds without the live DB. Each
 subphase is small and independently verifiable (`tsc --noEmit && lint && build`
 green before moving on). Suggested order: **A1 → A2 → B1 → B2 → B3 → A3 → B4**.
 
-> ⚠️ Runtime caveat: the `experience-media` and `member-vetting` buckets don't
-> exist until migrations `0006`/`0007` are applied (item #1, on hold), so
-> upload/read behavior can only be *functionally* verified once the DB is
-> unlocked. All subphases still build and typecheck now.
+> Migrations `0006`/`0007` are applied, so the `experience-media` and
+> `member-vetting` buckets exist — upload/read behavior can now be functionally
+> verified against the live DB. All subphases build and typecheck.
 
 ### Workstream A — place → experience authoring
 

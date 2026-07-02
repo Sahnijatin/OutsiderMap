@@ -1,6 +1,7 @@
 import { fetch as expoFetch } from "expo/fetch";
 import { supabase } from "@/lib/supabase";
 import type {
+  BucketItem,
   Experience,
   ExperienceDetail,
   FeedResult,
@@ -61,6 +62,8 @@ export const api = {
     request<RecommendResult>("/api/now", { method: "POST", body: { query } }),
 
   feed: () => request<FeedResult>("/api/feed"),
+
+  bucket: () => request<{ items: BucketItem[] }>("/api/bucket"),
 
   experiences: (params: {
     kind?: string;

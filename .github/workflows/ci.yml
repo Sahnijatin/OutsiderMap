@@ -1,9 +1,18 @@
+# Typecheck / lint / test / build for the web app and typecheck / lint /
+# bundle for the Expo app, on every PR and push to main. The two apps have
+# separate toolchains (see root tsconfig.json / mobile/), so they run as
+# separate jobs.
+
 name: CI
 
 on:
-  pull_request:
   push:
     branches: [main]
+  pull_request: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   web:
@@ -12,23 +21,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-      - name: Install
-        run: npm ci
-      # `next build` generates next-env.d.ts / .next/types and typechecks the app.
-      # Placeholder public env keeps static generation from tripping on missing env.
-      - name: Build
-        run: npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      - run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Lint
         run: npm run lint
       - name: Test
         run: npm test
+      # Placeholder public env keeps static generation from tripping on
+      # missing env; no real secrets are needed to build.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
 
   mobile:
     runs-on: ubuntu-latest
@@ -39,10 +47,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: mobile/package-lock.json
-      - name: Install
-        run: npm ci
+      - run: npm ci
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Bundle (expo export)
+        run: npx expo export --platform ios --platform android --output-dir /tmp/expo-export
+        env:
+          CI: "1"

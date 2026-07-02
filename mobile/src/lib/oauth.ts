@@ -1,9 +1,5 @@
 import { Platform } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
-import {
-  GoogleSignin,
-  statusCodes,
-} from "@react-native-google-signin/google-signin";
 import { supabase } from "@/lib/supabase";
 
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
@@ -12,14 +8,22 @@ const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 /** Google is only offered when its client id is configured. */
 export const googleConfigured = !!GOOGLE_WEB_CLIENT_ID;
 
+/**
+ * Loaded lazily: @react-native-google-signin is a native module absent from
+ * Expo Go, so importing it at module top would crash the sign-in screen there.
+ * We only touch it when the user actually taps Google (in a dev build).
+ */
 let googleReady = false;
-export function configureGoogle() {
-  if (!googleConfigured || googleReady) return;
-  GoogleSignin.configure({
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-    iosClientId: GOOGLE_IOS_CLIENT_ID,
-  });
-  googleReady = true;
+async function getGoogle() {
+  const mod = await import("@react-native-google-signin/google-signin");
+  if (!googleReady) {
+    mod.GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      iosClientId: GOOGLE_IOS_CLIENT_ID,
+    });
+    googleReady = true;
+  }
+  return mod;
 }
 
 /** Whether the native Apple button can be shown (iOS + available). */
@@ -59,7 +63,7 @@ export async function signInWithApple(): Promise<boolean> {
  * real failure.
  */
 export async function signInWithGoogle(): Promise<boolean> {
-  configureGoogle();
+  const { GoogleSignin, statusCodes } = await getGoogle();
   try {
     await GoogleSignin.hasPlayServices();
     // The response shape differs across library versions; read defensively.

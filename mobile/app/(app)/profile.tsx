@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { ProfileResult } from "@/lib/types";
-import { colors, space, fonts, radius } from "@/theme";
+import { colors, space, radius } from "@/theme";
 import { Text, Eyebrow } from "@/ui/Text";
 import { Badge } from "@/ui/Badge";
 import { Button } from "@/ui/Button";
