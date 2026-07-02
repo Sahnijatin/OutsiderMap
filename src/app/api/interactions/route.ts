@@ -1,6 +1,7 @@
 import { NextResponse, after, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { maybeRecomputeLearnedSignals } from "@/lib/taste/learn";
 import type { Json } from "@/types/database";
 
@@ -29,6 +30,11 @@ export async function POST(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const allowed = await checkRateLimit(`interactions:${ctx.user.id}`, 120, 60);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));

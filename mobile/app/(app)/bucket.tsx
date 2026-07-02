@@ -2,65 +2,33 @@ import { useCallback, useState } from "react";
 import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
-import { supabase } from "@/lib/supabase";
-import type { Experience } from "@/lib/types";
+import { api } from "@/lib/api";
+import type { BucketItem, BucketStatus } from "@/lib/types";
 import { colors, space, radius, fonts } from "@/theme";
 import { Text, Eyebrow } from "@/ui/Text";
 import { ExperienceCard } from "@/ui/ExperienceCard";
 
-type Status = "saved" | "started" | "completed";
-type Row = { status: Status; place: Experience };
-
-const FILTERS: { key: "all" | Status; label: string }[] = [
+const FILTERS: { key: "all" | BucketStatus; label: string }[] = [
   { key: "all", label: "All" },
   { key: "saved", label: "Saved" },
   { key: "started", label: "Started" },
   { key: "completed", label: "Done" },
 ];
 
-type SavedRecord = {
-  status: Status;
-  places: {
-    id: string;
-    slug: string;
-    name: string;
-    area: string | null;
-    kind: Experience["kind"];
-    image_path: string | null;
-    description: string | null;
-  } | null;
-};
-
 export default function Bucket() {
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<BucketItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | Status>("all");
+  const [filter, setFilter] = useState<"all" | BucketStatus>("all");
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("saved_places")
-      .select("status, places(id, slug, name, area, kind, image_path, description)")
-      .order("created_at", { ascending: false });
-
-    const mapped: Row[] = ((data as SavedRecord[] | null) ?? [])
-      .filter((r) => r.places)
-      .map((r) => ({
-        status: r.status,
-        place: {
-          id: r.places!.id,
-          slug: r.places!.slug,
-          name: r.places!.name,
-          area: r.places!.area,
-          kind: r.places!.kind,
-          category: null,
-          price_level: null,
-          vibe_tags: [],
-          description: r.places!.description,
-          image_path: r.places!.image_path,
-        },
-      }));
-    setRows(mapped);
-    setLoading(false);
+    try {
+      const { items } = await api.bucket();
+      setRows(items);
+    } catch {
+      // keep whatever was on screen; pull-to-focus retries
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useFocusEffect(

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getApiContext } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
  * The home/lobby feed: the proactive engine living in a scroll (no push yet).
@@ -35,6 +36,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const { supabase } = ctx;
+
+  const allowed = await checkRateLimit(`feed:${ctx.user.id}`, 60, 60);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
 
   const [{ data: profile }, { data: taste }] = await Promise.all([
     supabase
