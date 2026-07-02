@@ -1,209 +1,373 @@
-# OutsiderMap — Development Status
+# OutsiderMap — Project Plan & North Star
 
-> Living build tracker for the mobile-first rebuild. Single source of truth for
-> what's done and what's left. Update it as work lands.
+> The single source of truth for what OutsiderMap is, why it wins, how it's
+> designed, and what we build next. This supersedes `PROJECT_PLAN.md` (kept for
+> history). Update it as decisions land and work ships.
 >
 > **Vision:** `OutsiderMap_Vision.docx` (curated *experiences*, proactive
 > suggestion, no chains, invite-only, in-app companion).
-> **Note:** `PROJECT_PLAN.md` is the *original* plan and is partly superseded by
-> the vision pivot — trust this file for current status.
-
-_Last updated: 2026-07-02 · PR #17 merged 2026-06-28 (migrate action ran green — 0006/0007 are live)_
+>
+> _Last updated: 2026-07-02 · PRs #5/#17/#18/#20/#21/#22 merged; migrations
+> 0006/0007 live (migrate action green on the #17 merge)._
 
 ---
 
-## Snapshot
+## 0. One sentence
 
-Phase 1 = an invite-only mobile app (Expo) on the existing Next.js + Supabase
-backend: reactive chat → one reasoned answer, a personalized feed, story-format
-experiences, and a bucket. The recommendation "brain" already existed; this work
+> A city companion that learns who you are and gives you **one out-of-the-box
+> answer** — for tonight, this weekend, or the version of yourself you're trying
+> to become — across **places, experiences, and people**. Never a chain, never
+> the obvious. Smarter every time you open it.
+
+---
+
+## 1. The thesis
+
+**We sell confidence and taste, not listings.** Every incumbent — Google Maps,
+Zomato, District, Instagram saves — optimizes for *comprehensiveness* and leaves
+you paralyzed. OutsiderMap optimizes for *you*: it learns your taste from a quiz
+and every tap after, then answers with one out-of-the-box place, experience, or
+group of people.
+
+**Why this is a company, not a feature:**
+
+- **Two-sided data moat.** A private, per-user **taste graph** *and* a
+  proprietary **anti-mainstream catalog** (aggregated for coverage, AI- and
+  human-curated for taste). Google can out-aggregate us forever and still can't
+  be us — their incentive is everything, ours is the right thing. Our bias *is*
+  the product.
+- **A wedge into something big.** Start as "where do I go right now," become the
+  **operating system for a person's social and cultural life in a city**:
+  places → experiences → people → belonging.
+- **Retention is the game.** Discovery apps die when you find the place and
+  leave. Our antidotes: a **learning loop** that visibly gets smarter, and a
+  **proactive** surface that reaches out before you ask. Tool → habit.
+
+**The honest risk:** this is a **cold-start, content-density, and trust**
+business before it is an AI business. AI is *how* we deliver; curation +
+behavioral data is *why* we win. We invest accordingly.
+
+**North-star metric:** not DAU — **Confident Answer Accept Rate** (did you act on
+the one answer?) and **Stretch Success Rate** (did a deliberate
+out-of-comfort-zone pick land?). If the one-answer model doesn't beat a list, we
+don't have a product. We measure this from day one.
+
+---
+
+## 2. The product — three concentric rings
+
+Shipped in order. Each ring reuses the taste infrastructure of the one before.
+
+1. **Places** _(built)_ — "where do I go right now." The free, habit-forming
+   hook.
+2. **Experiences** _(modeled, unseeded)_ — curated, story-format, **not on
+   Google**. This is the brand and the thing worth paying for.
+3. **People & belonging** _(not started, in scope)_ — taste-matched small-group
+   experiences, "people with your taste are going to X," getting out of the
+   comfort zone *on purpose*. The TAM-expansion story and the emotional payoff.
+
+---
+
+## 3. Design principles (non-negotiable)
+
+1. **One answer, not ten.** We always have a point of view. A ranked list is a
+   failure state, not the default.
+2. **Anti-obvious by construction.** Chains and tourist-default places are
+   structurally demoted — already enforced in `match_places` via `is_chain`.
+   Extend to an **obviousness score**: popularity is a *penalty*, not a boost —
+   the inverse of every other app's ranking.
+3. **The adventurousness dial.** The profile carries an explicit *comfort ↔
+   stretch* axis. Same user, different days. AI infers your default; you override
+   per session ("surprise me" / "play it safe"). This makes "get out of your
+   comfort zone if that's what you want" real instead of a slogan.
+4. **Earn the right to be proactive.** We push only when confidence × timing ×
+   receptivity are high. A bad nudge costs more trust than ten good reactive
+   answers buy.
+5. **Explain, don't justify.** Every pick ships with a *personal* streamed "why"
+   ("because you went deep on X, it's a Tuesday, and you hate crowds").
+   Transparency turns the taste profile into magic instead of surveillance.
+
+---
+
+## 4. Data strategy — the critical path
+
+Today the catalog is one hand-written `data/places.delhi.json`. The vision needs
+an **ingestion + curation pipeline**. This is the single biggest gap between idea
+and product, and the gating constraint on retention.
+
+> **Full technical design: [`docs/DATA_PIPELINE.md`](./docs/DATA_PIPELINE.md)** —
+> schema (`source_records`, `ingest_candidates`), the connector contract, entity
+> resolution, the AI curation classifier, the publish gate, the crowdsource loop,
+> and a phased build plan.
+
+**Decision: we go all-in on coverage.** Aggregate from District, BookMyShow /
+Insider, Google, venue Instagrams, and everywhere else. Treat aggregated data as
+**coverage and leads**; taste and publishability are enforced downstream. (Risk
+note: ToS/scraping exposure is real — we move fast but isolate scraped *signal*
+from first-party *published* content, and revisit as we scale. Recorded, not
+blocking.)
+
+**Pipeline architecture:**
+
+```
+connectors ─▶ source_records ─▶ normalize ─▶ entity-resolution / de-dup
+   (per source, raw)                              │
+                                                  ▼
+                              enrich (geocode, hours, embed)
+                                                  │
+                                                  ▼
+                       AI curation classifier (chain? obvious? story? vibe? for-whom?)
+                                                  │
+                              ┌───────────────────┼───────────────────┐
+                              ▼                   ▼                   ▼
+                          reject / demote     human/AI vet        auto-publish
+```
+
+- **A. Connectors.** Pluggable per source, writing raw rows to `source_records`.
+  Structured APIs where they exist (Google Places, ticketing/event APIs);
+  crawlers for the rest. Each source is a lead generator, not a source of truth.
+- **B. Entity resolution.** The same venue from four sources collapses to one
+  `place`. De-dup on geo + name + fuzzy match.
+- **C. The "is this OutsiderMap-worthy?" filter.** An LLM **curation classifier**
+  scores every item: is-it-a-chain, obviousness, has-a-story, vibe tags,
+  who-is-this-for. **Most aggregated inventory is rejected or demoted — that's
+  the point.** Aggregation buys coverage; AI enforces taste at scale so curation
+  doesn't bottleneck on humans.
+- **D. Crowdsource loop (close it).** `/submit` exists but the loop is open.
+  Make it: user suggests → AI pre-screens + enriches → light human vet →
+  published → **suggester earns credit/reputation**. UGC + reputation = cheap
+  density + a community flywheel; power curators become a supply *and* retention
+  engine.
+- **E. Freshness as a feature.** Events are perishable. Scheduled re-crawl +
+  "happening tonight / this weekend" injection into Right Now. Stale inventory is
+  worse than none.
+
+---
+
+## 5. AI / ML plan
+
+Priority order = highest leverage first. The whole seed-stage stack rides on
+**off-the-shelf LLMs + embeddings + Postgres/pgvector + a bandit policy.** No
+custom training, no feature store, no multimodal pipelines yet — premature. Spend
+saved effort on inventory and the loop.
+
+**Keep (already correct):**
+
+- **Embeddings + pgvector** for taste↔place matching — the retrieval substrate.
+- **LLM `extract`** (quiz / free text → structured intent + profile) and
+  **streamed `why`**.
+
+**Add, in priority order:**
+
+1. **Behavior-aware ranking.** Today: embedding cosine + LLM rerank — a great
+   *cold-start* system that doesn't truly learn behavior yet.
+   - *Now:* feed the LLM reranker behavioral signals (saves, completes, skips,
+     dwell) as context. Half-built via `interaction_events` + `learned_signals`.
+   - *Next (~10k+ interactions):* a **learning-to-rank / collaborative-filtering**
+     re-scoring layer ("users whose taste vector is near yours loved X") — simple
+     two-tower or matrix factorization on top of vector retrieval. **Don't build
+     this before there's interaction volume; pre-volume the LLM *is* the ranker
+     and beats a cold ML model.**
+2. **Living taste embedding.** Continuously re-blend the quiz embedding with a
+   behavior-derived embedding (`learned_signals` already gestures at this). The
+   **profile page that visibly evolves** ("you're drifting toward quieter, older
+   places") is the wow moment and the viral screenshot.
+3. **Adventurousness / novelty model.** An explicit **explore vs. exploit**
+   policy — a **contextual bandit** is the textbook fit. Serve the confident match
+   (exploit) or a calculated stretch (explore), and *learn whether the stretch
+   landed*. Great UX ("surprise me") and the mechanism that stops filter-bubble
+   collapse. Genuinely novel for this category.
+4. **People-matching (ring 3).** Same taste-vector infra applied to humans:
+   "3 people with taste like yours are going Thursday." Taste-based social is
+   less creepy and higher-signal than interest-checkbox social; the place
+   embedding is ~80% of what's needed.
+5. **Proactive trigger model.** Good nudge = confidence × timing × novelty ×
+   receptivity history. Start rules-based, graduate to learned. This is the
+   pull → push unlock.
+6. **Content-generation assist (ops leverage).** LLMs draft experience stories,
+   vibe tags, and editor notes from raw ingested data; a human approves. How a
+   tiny team curates thousands of experiences. Internal force-multiplier — keep
+   it off the hand-curated flagship voice.
+
+---
+
+## 6. Monetization
+
+**Decision: monetize access and belonging, never the core answer.**
+
+- **Free, forever:** the taste profile + the one confident Right Now answer. This
+  is the habit-forming hook — never paywalled.
+- **Premium:** curated **experiences** + **people/events** you can't get
+  otherwise (the underground / belonging ring). You pay for access and curation,
+  not for "more recommendations."
+- Keeps invite-only scarcity intact and aligns price with the thing that's
+  genuinely scarce.
+- Payments via **Razorpay** (UPI / UPI Autopay — non-negotiable for Indian
+  consumer subscriptions). Razorpay integration already scaffolded.
+
+---
+
+## 7. Growth — invite-only as a mechanic, not just a gate
+
+- Each member gets **N invites**; track who invited whom (**taste lineage**).
+  Scarcity + social proof = the cheapest acquisition we'll ever get. Build the
+  **referral graph from day one.**
+- The **visibly-smart profile** is the share surface — "here's OutsiderMap's read
+  on me." Invite-only + an evolving profile = built-in virality if we design for
+  it.
+
+---
+
+## 8. Roadmap (sequenced, with rationale)
+
+| Horizon | What | Why now |
+|---|---|---|
+| **Now (finish Phase 1)** | Apply migrations to live DB; test API on live DB; run mobile on a device; **seed real experiences with stories** | The product can't be *felt* until inventory + a working device build exist. Nothing else matters first. |
+| **Next** | **Data-ingestion pipeline v1** (1–2 connectors + curation classifier + crowdsource loop closed) | Inventory density is the gating constraint on retention. The core unlock. |
+| **Next** | **Adventurousness dial + novelty/bandit serving** | Makes the central promise ("stretch when you want") real; differentiates from every list app. |
+| **Then** | **Proactive layer** (earned push) + **freshness / "tonight" engine** | Converts tool → habit. The retention play. |
+| **Then** | **People & belonging ring** (taste-based group experiences) | TAM expansion + the emotional payoff. |
+| **Parallel, always** | Profile-evolution "wow" surface; **referral / invite graph**; north-star instrumentation | Compounding growth + proof the one-answer model beats a list. |
+
+---
+
+## 9. Architecture (as built)
+
+- **Next.js 16 (App Router) on Vercel** — TypeScript, Tailwind v4, dark-only
+  cinematic UI (Motion + react-three-fiber). Marketing site + `/join` +
+  **HTTP API backend** (`src/app/api/*`) + the shared brain
+  (`src/lib/{ai,now,taste,places}`).
+- **Expo / React Native app** (`mobile/`) — own toolchain, talks to the API with
+  a Supabase bearer token.
+- **Supabase** — Postgres + Auth + Storage + RLS, **pgvector** for matching.
+  Migrations auto-apply on merge to `main` via `.github/workflows/migrate.yml`.
+- **Provider-agnostic AI layer** (`src/lib/ai/`) — server-only Anthropic/OpenAI
+  adapters; OpenAI embeddings (1536-dim). `complete` / `stream` / `extract<T>`.
+
+**Enforced conventions:** all AI calls server-side (`server-only`); RLS on every
+table, default deny; `interaction_events` append-only (raw material for the
+learning loop); service role only in trusted server code; design tokens live in
+`globals.css` `@theme`.
+
+---
+
+## 10. Current build status
+
+Phase 1 = an invite-only mobile app on the existing Next.js + Supabase backend:
+reactive chat → one reasoned answer, a personalized feed, story-format
+experiences, a bucket. The recommendation brain already existed; recent work
 exposed it over HTTP and built the app on top.
 
 | Area | State |
 |---|---|
-| Backend HTTP API | ✅ built (+ `/api/bucket`, per-user rate limits on every route), ⏳ not tested against live DB |
-| DB schema (migrations 0006/0007) | ✅ **applied to live DB** (migrate action ran green on the PR #17 merge) |
-| Expo mobile app | ✅ scaffolded + typechecks + bundles, ⏳ not run on a device |
+| Backend HTTP API | ✅ built (+ `/api/bucket`, `DELETE /api/account`, companion stream, push-token routes; per-user rate limits on every route), ⏳ not tested against live DB |
+| DB schema (migrations 0006/0007) | ✅ **applied to live DB** (migrate action ran green on the PR #17 merge); 0008 (push tables) merged — confirm the action ran |
+| Expo mobile app | ✅ scaffolded + typechecks + lints + bundles (iOS/Android), ⏳ not run on a device |
 | Social auth (Apple + Google) | ✅ coded, ⏳ needs credentials + dev build |
 | Admin authoring + vetting UI | ✅ built (A1–A3, B1–B4); buckets exist (0006/0007 live), ⏳ untested at runtime |
-| Catalog content (experiences + stories) | ✅ dataset ready (`data/experiences.delhi.json`, 12), ⏳ `npm run seed` not yet run against live DB |
-| CI (typecheck/lint/test/build, web + mobile) | ✅ `.github/workflows/ci.yml` |
+| Catalog content (experiences + stories) | ✅ dataset ready (`data/experiences.delhi.json`, 12 + kinds/stories on all 110 places), ⏳ `npm run seed` not yet run against live DB |
+| CI (typecheck/lint/test/build, web + mobile) | ✅ `.github/workflows/ci.yml` (22 unit tests) |
+| **Data-ingestion pipeline** | ❌ not built (Section 4) |
+| **Adventurousness dial / bandit** | ❌ not built (Section 5.3) |
+| **People & belonging ring** | ❌ not built (Section 2, ring 3) |
 | Store readiness | ❌ not started (`mobile/eas.json` build profiles now exist) |
 
----
+**Done (PR #17):** bearer/cookie API auth + route handlers (`/api/now`,
+`/api/now/why` stream, `/api/onboarding`, `/api/interactions`, `/api/feed`,
+`/api/experiences`(+`/[slug]`), `/api/profile`); schema `0006_experiences`
+(`places.kind`, `is_chain` enforced in `match_places`, `story` jsonb,
+`experience-media` bucket, `saved_places.status`, richer `interaction_events`,
+`profiles.personalization_enabled`) and `0007_membership` (waitlist vetting +
+private bucket); onboarding anchors question (`QUIZ_VERSION` 2); mobile theme +
+design system + screens (auth, onboarding, feed, chat + streamed why, experience
+story, bucket, profile) + ConvergenceField; Apple + Google auth; placeholder
+brand art. Baselines green: web `tsc`/`lint`/`build`, `mobile tsc`.
 
-## How the pieces fit
+### Phase 1 — remaining
 
-- `src/` — Next.js web app: marketing + `/join` application + **API backend**
-  (`src/app/api/*`) + the shared brain (`src/lib/{ai,now,taste,places}`).
-- `mobile/` — the Expo/React Native app (own toolchain; fenced off from the web
-  build). Talks to `src/app/api/*` with a Supabase bearer token.
-- `supabase/migrations/` — schema; deployed to prod by `.github/workflows/migrate.yml`
-  on merge to `main`.
-
----
-
-## Done (PR #17)
-
-- **Backend API** — `src/lib/api-auth.ts` (bearer **or** cookie → user-scoped
-  client) + route handlers: `POST /api/now`, `POST /api/now/why` (stream, bearer),
-  `POST /api/onboarding`, `POST /api/interactions`, `GET /api/feed`,
-  `GET /api/experiences` (+`/[slug]`), `GET`/`PATCH /api/profile`.
-- **Schema** — `0006_experiences` (`places.kind`, `is_chain` enforced in
-  `match_places`, `story` jsonb, `experience-media` bucket, `saved_places.status`,
-  richer `interaction_events` taxonomy, `profiles.personalization_enabled`),
-  `0007_membership` (waitlist vetting fields + private `member-vetting` bucket).
-  Learn-loop weights add `complete` as the gold signal; `recommend()` + feed
-  honor the consent flag.
-- **Onboarding** — anchors question added (`QUIZ_VERSION` 2).
-- **Mobile app** — theme ported from `globals.css`, design system
-  (`mobile/src/ui/*`), screens (auth, onboarding, feed, chat + streamed why,
-  experience story, bucket, profile), ConvergenceField signature moment.
-- **Auth** — Apple + Google (`mobile/src/lib/oauth.ts`) on top of email OTP.
-- **Brand art** — generated placeholder icon/splash (`scripts/gen-mobile-icons.mjs`).
-
-Baselines: web `tsc`/`lint`/`build` green; `mobile tsc` green.
-
----
-
-## Phase 1 — remaining
-
-1. ~~**Apply migrations to live Supabase**~~ ✅ Done — PR #17 merged 2026-06-28;
-   the migrate action completed successfully (`0006`/`0007` are live).
+1. ~~**Apply migrations to live Supabase**~~ ✅ 0006/0007 live (migrate action
+   green on the #17 merge). ⏳ Confirm the action also ran for 0008
+   (`device_tokens` / `notification_sends`, merged with the vetting PR).
 2. **End-to-end API test** vs live DB — bearer scoping, 401s, rate-limit,
-   `is_chain` exclusion. **Unblocked** (migrations are live).
-3. **Run the app on a device** — experience pass: 60fps, animations, haptics,
-   story gestures, streamed why; iterate on polish.
-4. **Social-auth credentials** — Apple provider in Supabase; Google OAuth clients
-   + Supabase config; reversed iOS client id in `mobile/app.json`; build a dev
-   client (`npx expo run:ios`).
-5. ~~**Admin authoring gaps (web)**~~ ✅ Built (subphases A1–A3, B1–B4 below);
-   ⏳ verify upload/read flows against the live buckets at runtime.
-6. **Catalog content** — _dataset ready_: `data/experiences.delhi.json` has 12
-   curated non-chain experiences with kinds + story cards, and
-   `scripts/seed-places.mjs` now seeds them (with generated covers). **Run it
-   against the live DB:** `… npm run seed`. Still to do: more breadth + real
-   photo/video story media.
-7. **Final brand art** + **store prep** — Sign in with Apple compliance, privacy
-   policy + nutrition labels, a pre-approved demo account for invite-only review,
-   TestFlight / Play internal testing.
+   `is_chain` exclusion. **Unblocked.**
+3. **Run on a device** — 60fps, animations, haptics, story gestures, streamed
+   why; polish. Note: ConvergenceField is now Skia (native) — needs a dev build,
+   no longer runs in Expo Go.
+4. **Social-auth credentials** — Apple provider in Supabase; Google OAuth
+   clients + config; reversed iOS client id in `mobile/app.json`; dev client.
+5. ~~**Admin authoring gaps**~~ ✅ built — place form exposes
+   `kind`/`is_chain`/rich story editor with media upload (A1–A3); `/join` selfie
+   + photos capture, vetting queue with approve/reject/waitlist (B1–B4).
+   ⏳ Verify upload/read against the live buckets.
+6. **Catalog content** — ✅ dataset ready (12 experiences + kinds/stories on all
+   110 places; seeder handles covers). ⏳ **Run `npm run seed` against the live
+   DB.** Still to do: breadth + real photo/video story media.
+7. **Brand art + store prep** — Apple sign-in compliance, privacy policy +
+   nutrition labels, pre-approved demo account, TestFlight / Play internal.
 
----
+### Recently landed (2026-07-02 merge train: #5, #18, #20, #21, #22)
 
-## Admin authoring + vetting UI — subphase plan (item #5)
+- **Admin authoring + vetting** — A1–A3 (kind/is_chain, story JSON, rich story
+  editor + `experience-media` upload) and B1–B4 (private-media helper, `/join`
+  selfie + consent capture, vetting queue, approve/reject/waitlist actions).
+- **Catalog** — `data/experiences.delhi.json` (12 curated experiences with story
+  cards); kinds/stories added across `data/places.delhi.json`; seeder generates
+  branded covers.
+- **Backend** — `GET /api/bucket`; `DELETE /api/account` (DPDP right-to-delete);
+  `POST /api/experiences/[slug]/companion` (streamed second voice);
+  push-token routes + migration `0008` + frequency caps (sender still deferred);
+  per-user rate limits on every member route.
+- **Mobile** — feed kind-filter chips; Skia ConvergenceField; bucket screen now
+  uses the API; working eslint; `.env.example`; `eas.json`; fixed `expo export`
+  on modern Node (dropped the no-op `expo-web-browser` plugin, added missing
+  `expo-asset`/`@babel/runtime`).
+- **Quality rails** — CI (web tsc/lint/test/build + mobile tsc/lint/Metro
+  bundle); Vitest harness with 22 unit tests; deps refreshed (Next 16.2.10,
+  React 19.2.7); brand book (`BRAND_BOOK.md` + PDF); dev skills vendored under
+  `.claude/skills/`.
 
-Item #5 is the largest unblocked workstream. The `0006`/`0007` columns and the
-TypeScript types (`src/types/database.ts`) already exist, so this is pure
-additive UI/action code that compiles and builds without the live DB. Each
-subphase is small and independently verifiable (`tsc --noEmit && lint && build`
-green before moving on). Suggested order: **A1 → A2 → B1 → B2 → B3 → A3 → B4**.
+### Deferred (Phase 2+, by decision)
 
-> Migrations `0006`/`0007` are applied, so the `experience-media` and
-> `member-vetting` buckets exist — upload/read behavior can now be functionally
-> verified against the live DB. All subphases build and typecheck.
-
-### Workstream A — place → experience authoring
-
-(`src/app/(admin)/admin/places/place-form.tsx` + `actions.ts` — today expose
-neither `kind`, `is_chain`, nor `story`.)
-
-- ✅ **A1 · scalar fields `kind` + `is_chain`** — `kind` `<Select>` (7 enum
-  values) + `is_chain` checkbox, mirroring the existing `category`/`is_published`
-  patterns; extend the Zod `FormSchema` and `row` mapping in `actions.ts`.
-- ✅ **A2 · story plumbing (raw JSON)** — a `story` JSON `<Textarea>` like the
-  existing `hours`/`best_for` fields, parsed via `parseStoryField` into the
-  `story` column. A trusted stopgap that makes the column writable.
-- ✅ **A3 · rich story editor + media upload** (`places/story-editor.tsx`) —
-  client component for ordered story cards (add/remove/reorder; media file +
-  `media_type` + caption); uploads media to the `experience-media` bucket via
-  `lib/media/experience.ts` (shared magic-byte image sniff in `lib/media/image.ts`,
-  plus an allowlisted video Content-Type); the action assembles the `story`
-  jsonb from indexed form fields. Replaces the A2 textarea.
-
-### Workstream B — member vetting
-
-(No selfie capture in `/join`; no vetting queue UI.)
-
-- ✅ **B1 · shared private-media helper** (`src/lib/vetting/media.ts`) —
-  signed-URL reader for the private `member-vetting` bucket + a reusable
-  sniff/upload helper. Built first because B2 (write) and B3 (read) depend on it.
-- ✅ **B2 · `/join` selfie + photos capture** — extends `join-flow.tsx` with
-  selfie capture + photo inputs + an explicit consent checkbox; extends
-  `submitApplication` to upload to the private bucket and set `selfie_path`,
-  `photo_paths`, `consent_personal_data`. Strictly additive and consent-gated —
-  the existing waitlist write is unchanged.
-- ✅ **B3 · vetting queue (read-only)** — extends `admin/waitlist/page.tsx` to
-  select the new fields and render signed-URL thumbnails via B1. No mutations.
-- ✅ **B4 · vetting actions** — `reviewApplicant` server action
-  (`status` + `reviewed_at` + `reviewer_note`) wired to Accept/Waitlist/Reject
-  buttons; input constrained to the four allowed statuses.
-
----
-
-## Autonomous (code-only) development steps
-
-Steps that can be built end-to-end in code and verified by `tsc`/`lint`/`build`
-with **no manual work** (no live-DB clicks, credentials, device, real media, or
-store actions). The API + mobile already consume `kind`/`story`/`is_chain`
-(experiences API filters on `?kind=`; the mobile story screen renders cards), so
-these outputs already have somewhere to land.
-
-1. ✅ **Catalog content model in the seed (#6)** — `kind` / `is_chain` / `story`
-   added to all 110 entries in `data/places.delhi.json`; `scripts/seed-places.mjs`
-   upserts them. Code done; running the seed against the DB stays gated by #1.
-2. ✅ **DPDP consent-purge endpoint** — `DELETE /api/account` purges all personal
-   data (events, saved places, weekend plans, subscription, taste profile,
-   profile, waitlist row + private vetting media) and deletes the auth user.
-3. ✅ **Experience filters in mobile** — kind chips on the feed; selecting one
-   switches to a filtered browse of `/api/experiences?kind=`, "All" shows the
-   curated feed.
-4. ✅ **In-app companion voice (backend)** — `POST /api/experiences/[slug]/companion`
-   streams the witty second voice via the existing AI provider; persona lives in
-   `src/lib/ai/companion.ts` (a tunable default). Mobile `api.streamCompanion`
-   added; UI wiring is a follow-up.
-5. ✅ **Push-notification data layer** — migration `0008` (`device_tokens` +
-   `notification_sends`), `POST`/`DELETE /api/notifications/token`, and
-   `lib/notifications/frequency.ts` (per-day + min-gap caps, fail-closed). Mobile
-   `api.registerPushToken`/`unregisterPushToken` added. The sender stays deferred
-   (needs APNs/FCM creds); migration run gated by #1.
-6. ✅ **Skia upgrade of ConvergenceField** — reimplemented on `@shopify/react-native-skia`
-   (one GPU clock via reanimated derived values), same public API. Requires a dev
-   build now (Skia is native; visual result unverified without a device).
-7. ✅ **Test harness** — Vitest (`npm test`, isolated in `tests/`, `server-only`
-   stubbed) + 22 unit tests covering `sniffImageExt`, the experience/vetting
-   media upload + signing helpers, and the notification frequency caps. Wiring a
-   lint/build/test CI workflow is an optional follow-up.
-
-Excluded (need manual work): apply migrations (#1), E2E vs live DB (#2), device
-run (#3), OAuth creds (#4), real catalog media, final brand art, store
-submission, the payments-vs-vision decision.
-
-## Deferred (Phase 2+, by decision)
-
-- Proactive **push notifications** (device tokens + sender + frequency caps).
-- The in-app **companion** (the witty second voice) — load-bearing for
-  historical/cultural experiences.
-- **Map + filters** surface (fast-follow).
+- Proactive **push notification sender** (APNs/FCM creds + delivery worker;
+  the data layer + frequency caps are built).
+- **Companion UI wiring** in the experience screen (backend stream is live).
+- **Map + full filters** surface (kind chips shipped as the first slice).
 - **Payments / premium** reconciliation with the new vision.
-- DPDP **consent-purge** endpoint (right-to-delete).
-- ~~**Skia** upgrade of the ConvergenceField~~ ✅ done: one GPU clock drives the
-  field via reanimated derived values. Note: now requires a dev build (Skia is
-  native; the field no longer runs in Expo Go).
+- Expo SDK 52 → 57 upgrade (five majors; do with a device in hand, before
+  store submission).
 
 ---
 
-## Open questions
+## 11. Decision log
 
-1. Does the premium / underground / weekend-planner monetization model survive
-   the vision, or is Phase 1 invite-only with payments later?
-2. Who owns the **content pipeline** (story photo/video/narrative per experience)?
+| Date | Decision |
+|---|---|
+| 2026-06-26 | Pivot to mobile-first, invite-only "curated experiences." |
+| 2026-06-28 | **People & belonging (ring 3) is in scope** — taste-matched social, built on the existing embedding infra. |
+| 2026-06-28 | **Monetize access & belonging, never the core answer.** Free taste profile + one Right Now answer forever; premium = experiences + underground/people access. |
+| 2026-06-28 | **Go all-in on data aggregation** (District, BMS/Insider, Google, Instagram, everywhere). Aggregated data = coverage/leads; taste enforced by the AI curation classifier; scraped signal isolated from published content. |
+| 2026-06-28 | **AI/ML sequencing:** LLM-as-ranker now; behavior-aware LTR/CF only after interaction volume; add a contextual bandit for the adventurousness/novelty dial; people-matching reuses the place embedding. |
+| 2026-06-28 | **North-star metric = Confident Answer Accept Rate + Stretch Success Rate**, not DAU. |
+| 2026-06-28 | **Invite-only is a growth mechanic** — N invites/member, referral/taste-lineage graph from day one. |
+| 2026-07-02 | **Merge train:** production pass (#22), seed dataset (#18), admin authoring + vetting + autonomous steps (#20), brand book (#5), vendored skills (#21), this plan (#19). Expo SDK 52→57 upgrade deliberately deferred until device testing. |
 
 ---
 
-## Running it
+## 12. Running it
 
 - **Web/API:** `npm install && npm run dev` (root). Checks: `npx tsc --noEmit`,
   `npm run lint`, `npm run build`.
 - **Mobile:** `cd mobile && npm install && npx expo start` (email OTP works in
   Expo Go; Apple/Google need `npx expo run:ios` — see `mobile/README.md`).
 - **DB:** migrations auto-apply on merge to `main`; manual `npx supabase db push`.
+
+---
+
+## 13. Open questions
+
+1. **Connector priority** — which source do we build first (District for events?
+   Google Places for coverage? Instagram for the underground edge)?
+2. **Content pipeline ownership** — who owns story photo/video/narrative per
+   experience as volume scales?
+3. **Ring-3 timing** — do we tease people/belonging during Phase 1 to test
+   demand, or hold until experiences are dense?
