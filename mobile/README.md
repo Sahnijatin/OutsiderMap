@@ -23,8 +23,10 @@ cp .env.example .env   # fill in the three EXPO_PUBLIC_* values
   (e.g. your Vercel URL). For local backend dev use your machine's **Wi-Fi LAN
   IP** — the one Metro prints (`exp://<ip>:8081`) — not `localhost`, and on
   Windows **not** a `172.x` WSL/Hyper-V adapter IP (the phone can't reach it).
-  Also start the backend with `npm run dev -- -H 0.0.0.0` so it listens on the
-  LAN, and allow Node through the Windows firewall if the phone can't connect.
+  Also start the backend with `npm run dev:lan` (from the repo root) so it
+  listens on the LAN — on Windows PowerShell, `npm run dev -- -H 0.0.0.0`
+  does not forward the flag — and allow Node through the Windows firewall if
+  the phone can't connect.
 - `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` — same Supabase
   project as the web app.
 
