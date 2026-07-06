@@ -9,7 +9,9 @@ taste profile (onboarding quiz + continuous learning from your behavior) and
 gives you *the* answer. Free tier: instant "Right Now" recommendations.
 Premium: AI-planned weekends + access to underground events and locations.
 
-📋 **Full product + technical plan:** [PROJECT_PLAN.md](./PROJECT_PLAN.md)
+📋 **Full product + technical plan:** [DEVELOPMENT.md](./DEVELOPMENT.md) (the
+north star; [PROJECT_PLAN.md](./PROJECT_PLAN.md) is the superseded web-first
+plan, kept for history)
 
 ## Stack
 

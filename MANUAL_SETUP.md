@@ -10,10 +10,13 @@ be closed.
 
 ## Required before `/join` accepts applications
 
-- [ ] **Apply the database migrations** to the live Supabase project:
-      `npx supabase db push`. The page depends on `0004_waitlist.sql` (the
-      `waitlist` table) and `0003_admin_curation.sql` (the `place-images`
-      storage bucket used for dropped-spot photos).
+- [ ] **Confirm all migrations are applied** to the live Supabase project.
+      They auto-apply on merge to `main` via `.github/workflows/migrate.yml`
+      (0006/0007 confirmed green; verify `0008_push.sql` ran). Manual fallback:
+      `npx supabase db push`. The `/join` page depends on `0004_waitlist.sql`
+      (the `waitlist` table), `0003_admin_curation.sql` (the `place-images`
+      bucket), and `0007_membership.sql` (the private `member-vetting` bucket
+      for selfie/photo vetting).
 - [ ] **Set production env vars** (Vercel → Project → Settings → Environment
       Variables):
       - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
@@ -50,15 +53,12 @@ be closed.
 
 ## Security hardening (recommended before high-traffic campaigns)
 
-- [ ] **Rate limiting / bot protection** on the submit action — it runs with
-      the service role and is anonymous-reachable, so without a throttle a
-      script can mass-create `waitlist` rows, `places` submissions, and image
-      uploads. Needs shared state (e.g. Upstash/Vercel KV) or a CAPTCHA (e.g.
-      Cloudflare Turnstile); can't be done reliably with in-memory state on
-      serverless.
+- [ ] **Provision the rate-limit + bot-protection backends.** The code is
+      built (`src/lib/security/rate-limit.ts` uses Upstash Redis;
+      `src/lib/security/turnstile.ts` verifies Cloudflare Turnstile) but both
+      **fail open when unconfigured** — set `UPSTASH_REDIS_REST_URL`,
+      `UPSTASH_REDIS_REST_TOKEN`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, and
+      `TURNSTILE_SECRET_KEY` in production or the throttles are no-ops.
 
-## Optional enhancements (need your go-ahead)
-
-- [ ] **Campaign attribution:** capture UTM / referrer params onto the
-      `waitlist` row so you can tie signups back to specific ads. (Currently
-      only the in-app referral code is captured.)
+> UTM / referrer campaign attribution shipped (`0005_waitlist_utm.sql` +
+> capture in `src/app/join`), so it's no longer listed here.

@@ -69,7 +69,7 @@ by canonical key / slug, exactly like the current seed script).
 
 ---
 
-## 3. Data model (migration `0008_ingestion`)
+## 3. Data model (migration `0009_ingestion` — `0008` was since taken by push)
 
 New tables sit *beside* the existing catalog. `places`/`events` are unchanged in
 shape except for additive provenance + ranking columns.
@@ -368,7 +368,7 @@ reuses 100% of the ingestion machinery.
 ## 9. Build plan (phased, concrete)
 
 **Phase A — skeleton + one clean source (highest leverage first).**
-1. Migration `0008_ingestion` (§3) + `pg_trgm`.
+1. Migration `0009_ingestion` (§3) + `pg_trgm`.
 2. `src/lib/ingest/{types,normalize,resolve,curation,publish}.ts` — the generic
    stages. Curation reuses `src/lib/ai` + zod; publish reuses
    `placeEmbeddingText`.
