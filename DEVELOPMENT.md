@@ -334,7 +334,7 @@ brand art. Baselines green: web `tsc`/`lint`/`build`, `mobile tsc`.
 - **Map + full filters** surface (kind chips shipped as the first slice).
 - **Payments / premium** reconciliation with the new vision.
 - Expo SDK 52 → 57 upgrade (five majors; do with a device in hand, before
-  store submission).
+  store submission). **Playbook: [`docs/EXPO_SDK_MIGRATION.md`](./docs/EXPO_SDK_MIGRATION.md).**
 
 ---
 

@@ -4,6 +4,7 @@
     "slug": "outsidermap",
     "version": "0.1.0",
     "orientation": "portrait",
+    "platforms": ["ios", "android"],
     "scheme": "outsidermap",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
