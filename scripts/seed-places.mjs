@@ -63,9 +63,21 @@ async function loadJson(relPath) {
 
 const places = await loadJson("data/places.delhi.json");
 const experiences = await loadJson("data/experiences.delhi.json");
-const catalog = [...places, ...experiences];
+
+// Some experiences are curated upgrades of existing places (same slug).
+// Merge by slug — experience fields (kind, story, description) win, place
+// fields (hours, price) survive where the experience omits them. A duplicate
+// slug inside one upsert batch is also a hard Postgres error
+// ("cannot affect row a second time"), so the catalog must be unique.
+const bySlug = new Map();
+for (const entry of [...places, ...experiences]) {
+  const prev = bySlug.get(entry.slug);
+  bySlug.set(entry.slug, prev ? { ...prev, ...entry } : entry);
+}
+const catalog = [...bySlug.values()];
 console.log(
-  `Loaded ${places.length} places + ${experiences.length} experiences = ${catalog.length} rows`,
+  `Loaded ${places.length} places + ${experiences.length} experiences = ` +
+    `${catalog.length} unique rows (${places.length + experiences.length - catalog.length} merged)`,
 );
 
 if (DRY_RUN) {
@@ -137,6 +149,20 @@ async function uploadCover(slug) {
   }
 }
 
+// Existing image paths, so a re-seed never clobbers an admin-uploaded image.
+// (Bulk upsert sends the UNION of keys per batch — rows missing a key become
+// explicit NULLs, so every row must carry every column with a real value.)
+const { data: existingRows, error: existingError } = await supabase
+  .from("places")
+  .select("slug, image_path");
+if (existingError) {
+  console.error("Could not read existing places:", existingError.message);
+  process.exit(1);
+}
+const existingImages = new Map(
+  (existingRows ?? []).map((r) => [r.slug, r.image_path]),
+);
+
 let upserted = 0;
 for (let i = 0; i < catalog.length; i += BATCH_SIZE) {
   const batch = catalog.slice(i, i + BATCH_SIZE);
@@ -147,10 +173,13 @@ for (let i = 0; i < catalog.length; i += BATCH_SIZE) {
 
   const rows = await Promise.all(
     batch.map(async (place, j) => {
-      // Generate a cover only for the curated experiences (they have a `kind`),
-      // so we never overwrite a real image on the existing places.
-      const imagePath = place.kind ? await uploadCover(place.slug) : null;
-      const row = {
+      // Generate a cover only for entries that have story cards and no image
+      // yet; existing images always win.
+      const hasStory = Array.isArray(place.story) && place.story.length > 0;
+      const existingImage = existingImages.get(place.slug) ?? null;
+      const imagePath =
+        hasStory && !existingImage ? await uploadCover(place.slug) : null;
+      return {
         slug: place.slug,
         name: place.name,
         city: place.city ?? "delhi",
@@ -167,13 +196,12 @@ for (let i = 0; i < catalog.length; i += BATCH_SIZE) {
         embedding: JSON.stringify(data[j].embedding),
         is_published: true,
         source: "curated",
+        kind: place.kind ?? "spot",
         is_chain: place.is_chain ?? false,
+        story: Array.isArray(place.story) ? place.story : [],
+        image_path: imagePath ?? existingImage,
         updated_at: new Date().toISOString(),
       };
-      if (place.kind) row.kind = place.kind;
-      if (Array.isArray(place.story) && place.story.length) row.story = place.story;
-      if (imagePath) row.image_path = imagePath;
-      return row;
     }),
   );
 
