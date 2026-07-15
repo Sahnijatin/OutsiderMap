@@ -129,7 +129,7 @@ export function MapSearch({
             <input
               type="search"
               enterKeyHint="search"
-              placeholder={`Search ${cityName} — places, areas…`}
+              placeholder={`Search ${cityName} - places, areas…`}
               value={query}
               onFocus={() => setOpen(true)}
               onChange={(e) => {

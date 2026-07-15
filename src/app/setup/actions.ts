@@ -42,6 +42,10 @@ export async function claimUsername(raw: string): Promise<ClaimResult> {
     if (error.code === "23505") {
       return { ok: false, error: "That name is taken. Try another." };
     }
+    console.error("claimUsername failed", {
+      code: error.code,
+      message: error.message,
+    });
     return { ok: false, error: "Couldn't save that. Try again." };
   }
   // Zero rows matched: the username was already set (another tab, a retry).

@@ -13,7 +13,8 @@ import { claimUsername } from "./actions";
 
 type Availability = "idle" | "checking" | "free" | "taken" | "invalid";
 
-type Checked = { name: string; available: boolean } | null;
+// available: null = lookup failed; the claim action is the source of truth.
+type Checked = { name: string; available: boolean | null } | null;
 
 export function UsernameStep({
   outsiderNumber,
@@ -43,8 +44,9 @@ export function UsernameStep({
         const body = (await res.json()) as { available: boolean };
         setChecked({ name: normalized, available: body.available });
       } catch {
-        // Availability is advisory; the claim itself is the source of truth.
-        setChecked(null);
+        // Advisory only - fall through to a neutral state so the claim
+        // button still works when the lookup itself is down.
+        setChecked({ name: normalized, available: null });
       }
     }, 350);
     return () => {
@@ -57,9 +59,11 @@ export function UsernameStep({
     : !USERNAME_PATTERN.test(normalized)
       ? "invalid"
       : checked?.name === normalized
-        ? checked.available
-          ? "free"
-          : "taken"
+        ? checked.available === null
+          ? "idle"
+          : checked.available
+            ? "free"
+            : "taken"
         : "checking";
 
   function submit(e: React.FormEvent) {
@@ -86,8 +90,8 @@ export function UsernameStep({
           That number is yours. Forever.
         </h1>
         <p className="text-sm text-ink-dim">
-          Now pick the name that goes with it. Lowercase, no spaces &mdash;
-          and choose carefully, it&rsquo;s one shot.
+          Now pick the name that goes with it. Lowercase, no spaces - and
+          choose carefully, it&rsquo;s one shot.
         </p>
       </div>
 
@@ -128,7 +132,7 @@ export function UsernameStep({
           )}
           {availability === "invalid" && normalized.length > 0 && (
             <span className="text-ink-dim">
-              3&ndash;20 characters: lowercase letters, numbers, underscores.
+              3-20 characters: lowercase letters, numbers, underscores.
             </span>
           )}
         </p>

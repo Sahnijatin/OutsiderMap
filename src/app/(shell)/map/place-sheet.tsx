@@ -223,7 +223,7 @@ export function PlaceSheet({
               {busy === "start" ? (
                 <Spinner className="border-night/30 border-t-night" />
               ) : null}
-              {started ? "Started — it's in your bucket" : "Start this"}
+              {started ? "Started - it's in your bucket" : "Start this"}
             </Button>
             <Button
               variant="secondary"
