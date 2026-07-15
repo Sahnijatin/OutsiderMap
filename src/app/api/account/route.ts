@@ -46,12 +46,40 @@ export async function DELETE(request: NextRequest) {
     }
   }
 
-  // Delete every row keyed to the user. Order doesn't matter - none of these
-  // reference each other - so we just run them all and collect failures.
+  // Captured quest media + rendered reels: collect the storage paths BEFORE
+  // the row cascade wipes the pointers, then remove the objects.
+  const [{ data: questMedia }, { data: userReels }] = await Promise.all([
+    admin.from("quest_stop_media").select("storage_path").eq("user_id", userId),
+    admin
+      .from("reels")
+      .select("video_path, poster_path")
+      .eq("user_id", userId),
+  ]);
+  const questPaths = (questMedia ?? []).map((m) => m.storage_path);
+  if (questPaths.length > 0) {
+    const { error } = await admin.storage.from("quest-media").remove(questPaths);
+    if (error) errors.push(`quest media: ${error.message}`);
+  }
+  const reelPaths = (userReels ?? []).flatMap((r) =>
+    [r.video_path, r.poster_path].filter((p): p is string => Boolean(p)),
+  );
+  if (reelPaths.length > 0) {
+    const { error } = await admin.storage.from("reel-media").remove(reelPaths);
+    if (error) errors.push(`reel media: ${error.message}`);
+  }
+
+  // Delete every row keyed to the user. chat threads/messages, quests/stops/
+  // media, reel jobs and reels all cascade from the profiles delete; the
+  // explicit deletes cover rows and collect per-table failures.
   const deletions: Array<PromiseLike<{ error: { message: string } | null }>> = [
     admin.from("interaction_events").delete().eq("user_id", userId),
     admin.from("saved_places").delete().eq("user_id", userId),
     admin.from("weekend_plans").delete().eq("user_id", userId),
+    admin.from("chat_threads").delete().eq("user_id", userId),
+    admin.from("quests").delete().eq("user_id", userId),
+    admin.from("reel_jobs").delete().eq("user_id", userId),
+    admin.from("reels").delete().eq("user_id", userId),
+    admin.from("device_tokens").delete().eq("user_id", userId),
     admin.from("subscriptions").delete().eq("user_id", userId),
     admin.from("taste_profiles").delete().eq("user_id", userId),
     admin.from("profiles").delete().eq("id", userId),

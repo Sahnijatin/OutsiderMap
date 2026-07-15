@@ -13,8 +13,8 @@ export function MarketingFooter() {
           <Link href="/#how" className="transition-colors hover:text-ink">
             How it works
           </Link>
-          <Link href="/join" className="transition-colors hover:text-ink">
-            Join waitlist
+          <Link href="/sign-in" className="transition-colors hover:text-ink">
+            Sign up
           </Link>
         </div>
         <p className="font-mono text-xs text-ink-dim/60">

@@ -17,8 +17,8 @@ export function MarketingNav() {
           </Link>
           {/* Sign in & Pricing are intentionally hidden pre-launch — the
               routes still work by direct URL while we build behind the scenes. */}
-          <ButtonLink href="/join" variant="primary" size="sm">
-            Join waitlist
+          <ButtonLink href="/sign-in" variant="primary" size="sm">
+            Sign up
           </ButtonLink>
         </div>
       </nav>
