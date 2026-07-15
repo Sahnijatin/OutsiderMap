@@ -16,6 +16,8 @@ const serverEnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(1).optional(),
+  /** Base URL for server-to-self calls (reel job kickoff). */
+  NEXT_PUBLIC_APP_URL: z.string().url().optional(),
   RAZORPAY_KEY_ID: z.string().min(1).optional(),
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),

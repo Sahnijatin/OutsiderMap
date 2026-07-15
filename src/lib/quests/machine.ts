@@ -39,6 +39,13 @@ function friendly(message: string) {
   return message.replace(/^.*?:\s*/, "").trim() || message;
 }
 
+export type QuestStopMedia = {
+  id: string;
+  storage_path: string;
+  media_type: "image" | "video";
+  url: string | null;
+};
+
 export type QuestStopDetail = Tables<"quest_stops"> & {
   place: {
     id: string;
@@ -52,14 +59,30 @@ export type QuestStopDetail = Tables<"quest_stops"> & {
     editor_note: string | null;
   } | null;
   media_count: number;
+  media: QuestStopMedia[];
 };
 
-export type QuestDetail = Tables<"quests"> & { stops: QuestStopDetail[] };
+export type QuestReelState = {
+  /** rendering = job queued/processing; ready = MP4 exists; failed = gave up. */
+  status: "rendering" | "ready" | "failed";
+  videoPath: string | null;
+  posterPath: string | null;
+};
 
-/** Full quest with ordered stops, joined place info, and media counts. */
+export type QuestDetail = Tables<"quests"> & {
+  stops: QuestStopDetail[];
+  reel: QuestReelState | null;
+};
+
+/**
+ * Full quest with ordered stops, joined place info, and captured media.
+ * Pass `signUrls` (admin-backed) to attach short-lived display URLs; without
+ * it, media rows come back with url: null.
+ */
 export async function getQuestDetail(
   supabase: SupabaseClient<Database>,
   questId: string,
+  signUrls?: (paths: string[]) => Promise<Map<string, string>>,
 ): Promise<QuestDetail | null> {
   const { data: quest } = await supabase
     .from("quests")
@@ -77,25 +100,81 @@ export async function getQuestDetail(
     .order("position");
 
   const stopIds = (stops ?? []).map((s) => s.id);
-  const counts = new Map<string, number>();
+  const mediaByStop = new Map<
+    string,
+    { id: string; storage_path: string; media_type: "image" | "video" }[]
+  >();
   if (stopIds.length > 0) {
     const { data: media } = await supabase
       .from("quest_stop_media")
-      .select("stop_id")
-      .in("stop_id", stopIds);
+      .select("id, stop_id, storage_path, media_type")
+      .in("stop_id", stopIds)
+      .order("created_at");
     for (const m of media ?? []) {
-      counts.set(m.stop_id, (counts.get(m.stop_id) ?? 0) + 1);
+      const list = mediaByStop.get(m.stop_id) ?? [];
+      list.push({
+        id: m.id,
+        storage_path: m.storage_path,
+        media_type: m.media_type,
+      });
+      mediaByStop.set(m.stop_id, list);
+    }
+  }
+
+  const allPaths = [...mediaByStop.values()].flat().map((m) => m.storage_path);
+  const urls = signUrls && allPaths.length > 0
+    ? await signUrls(allPaths)
+    : new Map<string, string>();
+
+  // Reel state, only meaningful once the quest is completed. RLS lets the
+  // owner read their own job and reel rows.
+  let reel: QuestReelState | null = null;
+  if (quest.status === "completed") {
+    const [{ data: reelRow }, { data: job }] = await Promise.all([
+      supabase
+        .from("reels")
+        .select("video_path, poster_path")
+        .eq("quest_id", questId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("reel_jobs")
+        .select("status")
+        .eq("quest_id", questId)
+        .maybeSingle(),
+    ]);
+    if (reelRow) {
+      reel = {
+        status: "ready",
+        videoPath: reelRow.video_path,
+        posterPath: reelRow.poster_path,
+      };
+    } else if (job) {
+      reel = {
+        status: job.status === "failed" ? "failed" : "rendering",
+        videoPath: null,
+        posterPath: null,
+      };
     }
   }
 
   return {
     ...quest,
-    stops: (stops ?? []).map((s) => ({
-      ...(s as unknown as Tables<"quest_stops"> & {
-        place: QuestStopDetail["place"];
-      }),
-      media_count: counts.get(s.id) ?? 0,
-    })),
+    reel,
+    stops: (stops ?? []).map((s) => {
+      const media = (mediaByStop.get(s.id) ?? []).map((m) => ({
+        ...m,
+        url: urls.get(m.storage_path) ?? null,
+      }));
+      return {
+        ...(s as unknown as Tables<"quest_stops"> & {
+          place: QuestStopDetail["place"];
+        }),
+        media_count: media.length,
+        media,
+      };
+    }),
   } as QuestDetail;
 }
 

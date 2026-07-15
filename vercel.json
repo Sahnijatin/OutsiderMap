@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/recompute",
       "schedule": "30 21 * * *"
+    },
+    {
+      "path": "/api/cron/reels",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

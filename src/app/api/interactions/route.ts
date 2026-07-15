@@ -22,8 +22,10 @@ const BodySchema = z.object({
     "complete",
     // Log-only signals (no bucket side effects).
     "chat_pick_click",
+    "reel_share",
   ]),
-  placeId: z.string().uuid(),
+  // Log-only signals may arrive without a place (e.g. sharing a quest reel).
+  placeId: z.string().uuid().optional(),
   rating: z.union([z.literal(1), z.literal(-1)]).optional(),
   query: z.string().trim().max(500).optional(),
 });
@@ -46,21 +48,27 @@ export async function POST(request: NextRequest) {
   const { action, placeId, rating, query } = parsed.data;
   const { user, supabase } = ctx;
 
+  // Everything except the log-only signals acts on a specific place.
+  const LOG_ONLY = new Set(["chat_pick_click", "reel_share"]);
+  if (placeId === undefined && !LOG_ONLY.has(action)) {
+    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  }
+
   // Bucket-table side effects.
-  if (action === "save") {
+  if (action === "save" && placeId) {
     const { error } = await supabase
       .from("saved_places")
       .upsert({ user_id: user.id, place_id: placeId, status: "saved" });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-  } else if (action === "unsave") {
+  } else if (action === "unsave" && placeId) {
     await supabase
       .from("saved_places")
       .delete()
       .eq("user_id", user.id)
       .eq("place_id", placeId);
-  } else if (action === "start" || action === "complete") {
+  } else if ((action === "start" || action === "complete") && placeId) {
     const { error } = await supabase.from("saved_places").upsert({
       user_id: user.id,
       place_id: placeId,
@@ -82,7 +90,7 @@ export async function POST(request: NextRequest) {
   const { error: logError } = await supabase.from("interaction_events").insert({
     user_id: user.id,
     event_type: eventType,
-    place_id: placeId,
+    place_id: placeId ?? null,
     payload,
   });
   if (logError) {
