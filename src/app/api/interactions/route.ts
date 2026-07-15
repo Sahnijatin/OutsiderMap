@@ -20,6 +20,8 @@ const BodySchema = z.object({
     "rate",
     "start",
     "complete",
+    // Log-only signals (no bucket side effects).
+    "chat_pick_click",
   ]),
   placeId: z.string().uuid(),
   rating: z.union([z.literal(1), z.literal(-1)]).optional(),

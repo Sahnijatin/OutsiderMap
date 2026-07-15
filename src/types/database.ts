@@ -41,7 +41,18 @@ export type InteractionEventType =
   | "complete"
   | "bucket_add"
   | "story_view"
-  | "dwell";
+  | "dwell"
+  | "quest_start"
+  | "stop_complete"
+  | "quest_complete"
+  | "chat_pick_click"
+  | "reel_share";
+
+/** Quest lifecycle (see quests.status). */
+export type QuestStatus = "draft" | "active" | "completed" | "abandoned";
+
+/** Stop lifecycle (see quest_stops.status). */
+export type QuestStopStatus = "locked" | "unlocked" | "completed";
 
 export type Database = {
   public: {
@@ -520,6 +531,196 @@ export type Database = {
           },
         ];
       };
+      chat_threads: {
+        Row: {
+          id: string;
+          user_id: string;
+          city: string;
+          title: string | null;
+          intent_state: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          city?: string;
+          title?: string | null;
+          intent_state?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          city?: string;
+          title?: string | null;
+          intent_state?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      chat_messages: {
+        Row: {
+          id: string;
+          thread_id: string;
+          role: "user" | "assistant";
+          content: string;
+          picks: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          thread_id: string;
+          role: "user" | "assistant";
+          content: string;
+          picks?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          thread_id?: string;
+          role?: "user" | "assistant";
+          content?: string;
+          picks?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_thread_id_fkey";
+            columns: ["thread_id"];
+            isOneToOne: false;
+            referencedRelation: "chat_threads";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      quests: {
+        Row: {
+          id: string;
+          user_id: string;
+          city: string;
+          title: string;
+          brief: Json;
+          status: QuestStatus;
+          started_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          city?: string;
+          title: string;
+          brief?: Json;
+          status?: QuestStatus;
+          started_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          city?: string;
+          title?: string;
+          brief?: Json;
+          status?: QuestStatus;
+          started_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      quest_stops: {
+        Row: {
+          id: string;
+          quest_id: string;
+          position: number;
+          place_id: string;
+          note: string | null;
+          capture_guide: Json;
+          status: QuestStopStatus;
+          user_note: string | null;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          quest_id: string;
+          position: number;
+          place_id: string;
+          note?: string | null;
+          capture_guide?: Json;
+          status?: QuestStopStatus;
+          user_note?: string | null;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          quest_id?: string;
+          position?: number;
+          place_id?: string;
+          note?: string | null;
+          capture_guide?: Json;
+          status?: QuestStopStatus;
+          user_note?: string | null;
+          completed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "quest_stops_quest_id_fkey";
+            columns: ["quest_id"];
+            isOneToOne: false;
+            referencedRelation: "quests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "quest_stops_place_id_fkey";
+            columns: ["place_id"];
+            isOneToOne: false;
+            referencedRelation: "places";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      quest_stop_media: {
+        Row: {
+          id: string;
+          stop_id: string;
+          user_id: string;
+          storage_path: string;
+          media_type: "image" | "video";
+          duration_seconds: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          stop_id: string;
+          user_id: string;
+          storage_path: string;
+          media_type: "image" | "video";
+          duration_seconds?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          stop_id?: string;
+          user_id?: string;
+          storage_path?: string;
+          media_type?: "image" | "video";
+          duration_seconds?: number | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "quest_stop_media_stop_id_fkey";
+            columns: ["stop_id"];
+            isOneToOne: false;
+            referencedRelation: "quest_stops";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       device_tokens: {
         Row: {
           token: string;
@@ -589,6 +790,17 @@ export type Database = {
       username_available: {
         Args: { candidate: string };
         Returns: boolean;
+      };
+      start_quest: {
+        Args: { p_quest_id: string };
+        Returns: undefined;
+      };
+      complete_quest_stop: {
+        Args: { p_stop_id: string; p_require_media?: boolean };
+        Returns: {
+          quest_completed: boolean;
+          next_stop_id: string | null;
+        }[];
       };
       match_places: {
         Args: {
