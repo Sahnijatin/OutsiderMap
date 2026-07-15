@@ -15,11 +15,11 @@ export const metadata: Metadata = {
 export default async function MapPage({
   searchParams,
 }: {
-  searchParams: Promise<{ welcome?: string }>;
+  searchParams: Promise<{ welcome?: string; place?: string }>;
 }) {
   const profile = await requireOnboarded();
   const supabase = await createClient();
-  const { welcome } = await searchParams;
+  const { welcome, place } = await searchParams;
 
   const { data: cities } = await supabase
     .from("cities")
@@ -41,6 +41,7 @@ export default async function MapPage({
         welcome={welcome === "1"}
         outsiderNumber={profile.outsider_number}
         username={profile.username}
+        initialPlaceSlug={place ?? null}
       />
     </main>
   );

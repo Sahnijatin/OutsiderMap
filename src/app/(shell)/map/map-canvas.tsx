@@ -47,12 +47,15 @@ export function MapCanvas({
   welcome,
   outsiderNumber,
   username,
+  initialPlaceSlug,
 }: {
   city: CityOption;
   cities: CityOption[];
   welcome: boolean;
   outsiderNumber: number | null;
   username: string | null;
+  /** Deep link (?place=slug): opens that place's sheet once data loads. */
+  initialPlaceSlug: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -311,6 +314,22 @@ export function MapCanvas({
       cancelled = true;
     };
   }, [activeCity.slug]);
+
+  // Deep link: open the requested place once the catalog is in.
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (!initialPlaceSlug || deepLinked.current) return;
+    const feature = places.features.find(
+      (f) => f.properties.slug === initialPlaceSlug,
+    );
+    if (!feature) return;
+    deepLinked.current = true;
+    const [lng, lat] = feature.geometry.coordinates;
+    const open = () => selectPlace(feature.properties, lng, lat);
+    const map = mapRef.current;
+    if (map?.isStyleLoaded()) open();
+    else map?.once("load", open);
+  }, [initialPlaceSlug, places, selectPlace]);
 
   const flyTo = useCallback((lng: number, lat: number, zoom: number) => {
     mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: 1200 });

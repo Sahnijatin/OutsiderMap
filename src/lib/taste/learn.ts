@@ -19,15 +19,20 @@ import {
 export const RECOMPUTE_EVERY = 10;
 
 const EVENT_WEIGHTS: Record<string, number> = {
-  // 'complete' is the gold signal - they actually did the experience.
+  // 'quest_complete'/'complete' are gold signals - they actually went.
+  quest_complete: 6,
   complete: 5,
+  stop_complete: 4,
+  reel_share: 4,
   start: 3,
   save: 3,
   bucket_add: 3,
+  quest_start: 3,
   visit: 2,
   rate: 2,
   plan_add: 2,
   rec_click: 1,
+  chat_pick_click: 1,
   dismiss: -2,
   unsave: -1,
 };
