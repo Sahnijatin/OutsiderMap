@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { getQuestDetail } from "@/lib/quests/machine";
+import { signQuestMediaUrls } from "@/lib/media/quest";
 
 /** GET /api/quests/:id — full quest detail with ordered stops. */
 export async function GET(
@@ -23,7 +25,9 @@ export async function GET(
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 
-  const quest = await getQuestDetail(ctx.supabase, id);
+  const quest = await getQuestDetail(ctx.supabase, id, (paths) =>
+    signQuestMediaUrls(createAdminClient(), paths),
+  );
   if (!quest) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }

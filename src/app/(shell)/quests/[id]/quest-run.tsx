@@ -50,6 +50,16 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
     }
   }
 
+  // While the reel is rendering, poll until it lands.
+  const rendering =
+    quest.status === "completed" && quest.reel?.status === "rendering";
+  useEffect(() => {
+    if (!rendering) return;
+    const t = setInterval(() => void refresh(), 20_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rendering]);
+
   // The route map: stops as numbered lights, connected by a dashed path.
   useEffect(() => {
     if (!mapContainer.current || mapRef.current || withCoords.length === 0) {
@@ -232,17 +242,7 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
             Start the quest
           </Button>
         )}
-        {quest.status === "completed" && (
-          <div className="mt-4 rounded-card border border-accent/40 bg-accent/10 p-4">
-            <p className="font-display text-lg italic text-accent">
-              Quest complete.
-            </p>
-            <p className="mt-1 text-sm text-ink-dim">
-              Your reel drops here in the next update - your shots, your
-              number, no branding. For now: well walked, outsider.
-            </p>
-          </div>
-        )}
+        {quest.status === "completed" && <ReelPanel quest={quest} />}
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       </div>
 
@@ -250,11 +250,13 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
         {stops.map((stop, i) => (
           <StopCard
             key={stop.id}
+            questId={quest.id}
             stop={stop}
             index={i}
             questStatus={quest.status}
             busy={busy === stop.id}
             onComplete={() => complete(stop)}
+            onMediaChange={() => void refresh()}
           />
         ))}
       </ol>
@@ -282,24 +284,178 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
   );
 }
 
+function ReelPanel({ quest }: { quest: QuestDetail }) {
+  const reel = quest.reel;
+  const videoUrl = publicMediaUrl("reel-media", reel?.videoPath);
+  const posterUrl = publicMediaUrl("reel-media", reel?.posterPath);
+
+  async function share() {
+    if (!videoUrl) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: quest.title, url: videoUrl });
+        void fetch("/api/interactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reel_share" }),
+        }).catch(() => {});
+        return;
+      } catch {
+        // fall through to clipboard
+      }
+    }
+    await navigator.clipboard.writeText(videoUrl).catch(() => {});
+  }
+
+  if (reel?.status === "ready" && videoUrl) {
+    return (
+      <div className="mt-4 overflow-hidden rounded-card border border-accent/40 bg-surface">
+        <video
+          src={videoUrl}
+          poster={posterUrl ?? undefined}
+          controls
+          playsInline
+          className="aspect-[9/16] max-h-96 w-full bg-night object-contain"
+        />
+        <div className="flex gap-2 p-3">
+          <a
+            href={videoUrl}
+            download
+            className="flex h-10 flex-1 items-center justify-center rounded-full bg-accent text-sm font-medium text-night"
+          >
+            Download reel
+          </a>
+          <Button variant="secondary" size="sm" className="h-10" onClick={share}>
+            Share
+          </Button>
+        </div>
+        <p className="px-3 pb-3 text-xs text-ink-dim">
+          Your shots, your number, no branding. Post it anywhere.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-card border border-accent/40 bg-accent/10 p-4">
+      <p className="font-display text-lg italic text-accent">
+        Quest complete.
+      </p>
+      {reel?.status === "failed" ? (
+        <p className="mt-1 text-sm text-ink-dim">
+          The automatic edit hit a snag - the desk is crafting your reel by
+          hand. It&rsquo;ll appear here.
+        </p>
+      ) : (
+        <p className="mt-1 flex items-center gap-2 text-sm text-ink-dim">
+          <Spinner className="size-3.5" />
+          Cutting your reel from what you shot - a few minutes. It&rsquo;ll
+          appear right here.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function StopCard({
+  questId,
   stop,
   index,
   questStatus,
   busy,
   onComplete,
+  onMediaChange,
 }: {
+  questId: string;
   stop: QuestStopDetail;
   index: number;
   questStatus: string;
   busy: boolean;
   onComplete: () => void;
+  onMediaChange: () => void;
 }) {
   const guide = (stop.capture_guide ?? {}) as CaptureGuide;
   const locked = stop.status === "locked";
   const unlocked = stop.status === "unlocked" && questStatus === "active";
   const done = stop.status === "completed";
   const img = publicMediaUrl("place-images", stop.place?.image_path);
+  const [uploading, setUploading] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  async function uploadOne(file: File) {
+    const kind = file.type.startsWith("video/") ? "video" : "image";
+    const extFromName = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const ext =
+      kind === "image"
+        ? ["jpg", "jpeg", "png", "webp"].includes(extFromName)
+          ? extFromName.replace("jpeg", "jpg")
+          : "jpg"
+        : ["mp4", "webm", "mov"].includes(extFromName)
+          ? extFromName
+          : "mp4";
+
+    const issue = await fetch(
+      `/api/quests/${questId}/stops/${stop.id}/media`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, ext, size: file.size }),
+      },
+    );
+    const issued = (await issue.json()) as {
+      path?: string;
+      token?: string;
+      message?: string;
+    };
+    if (!issue.ok || !issued.path || !issued.token) {
+      throw new Error(issued.message ?? "Couldn't start the upload.");
+    }
+
+    // Straight to Storage - the app server never sees the bytes.
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    const { error: uploadError } = await supabase.storage
+      .from("quest-media")
+      .uploadToSignedUrl(issued.path, issued.token, file);
+    if (uploadError) throw new Error("Upload failed - try again.");
+
+    const confirm = await fetch(
+      `/api/quests/${questId}/stops/${stop.id}/media/confirm`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: issued.path, mediaType: kind }),
+      },
+    );
+    if (!confirm.ok) {
+      const body = (await confirm.json()) as { message?: string };
+      throw new Error(body.message ?? "Couldn't save the upload.");
+    }
+  }
+
+  async function onFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadError(null);
+    setUploading(files.length);
+    try {
+      for (const file of Array.from(files)) {
+        if (file.size > 150 * 1024 * 1024) {
+          throw new Error(`${file.name} is over 150MB.`);
+        }
+        await uploadOne(file);
+        setUploading((n) => Math.max(0, n - 1));
+      }
+      onMediaChange();
+    } catch (err) {
+      setUploadError(
+        err instanceof Error ? err.message : "Upload failed - try again.",
+      );
+    } finally {
+      setUploading(0);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   return (
     <li
@@ -347,7 +503,7 @@ function StopCard({
 
       {unlocked && (
         <div className="border-t border-line/60 px-4 py-3">
-          {img && (
+          {img && stop.media.length === 0 && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={img}
@@ -369,16 +525,69 @@ function StopCard({
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-[0.65rem] uppercase tracking-wider text-ink-dim">
-                capture upload lands next update - shoot them anyway
-              </p>
             </div>
+          )}
+
+          {stop.media.length > 0 && (
+            <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+              {stop.media.map((m) =>
+                m.url ? (
+                  m.media_type === "video" ? (
+                    <video
+                      key={m.id}
+                      src={m.url}
+                      muted
+                      playsInline
+                      className="h-20 w-16 shrink-0 rounded-lg border border-line/60 object-cover"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={m.id}
+                      src={m.url}
+                      alt=""
+                      className="h-20 w-16 shrink-0 rounded-lg border border-line/60 object-cover"
+                    />
+                  )
+                ) : null,
+              )}
+            </div>
+          )}
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            hidden
+            onChange={(e) => void onFiles(e.target.files)}
+          />
+          {uploadError && (
+            <p className="mb-2 text-xs text-danger">{uploadError}</p>
           )}
           <div className="flex gap-2">
             <Button
               size="sm"
+              variant={stop.media.length === 0 ? "primary" : "secondary"}
               className="flex-1"
-              disabled={busy}
+              disabled={uploading > 0}
+              onClick={() => fileRef.current?.click()}
+            >
+              {uploading > 0 ? (
+                <Spinner />
+              ) : (
+                <Camera className="size-4" />
+              )}
+              {uploading > 0
+                ? `Uploading ${uploading}…`
+                : stop.media.length === 0
+                  ? "Capture this stop"
+                  : "Add more shots"}
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={busy || uploading > 0 || stop.media.length === 0}
               onClick={onComplete}
             >
               {busy ? <Spinner className="border-night/30 border-t-night" /> : null}
