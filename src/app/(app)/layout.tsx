@@ -1,5 +1,6 @@
 import { requireOnboarded } from "@/lib/auth";
 import { AppNav } from "@/components/app/nav";
+import { BottomTabs } from "@/components/app/bottom-tabs";
 
 export default async function AppLayout({
   children,
@@ -12,9 +13,11 @@ export default async function AppLayout({
         displayName={profile.display_name}
         isAdmin={profile.is_admin}
       />
-      <div className="mx-auto w-full max-w-5xl px-6 pb-24 pt-24">
+      {/* pb-40 clears both the page footer space and the bottom tab bar. */}
+      <div className="mx-auto w-full max-w-5xl px-6 pb-40 pt-24">
         {children}
       </div>
+      <BottomTabs />
     </>
   );
 }

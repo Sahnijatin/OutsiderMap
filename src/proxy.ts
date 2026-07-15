@@ -3,6 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /** Route prefixes that require a signed-in user. */
 const PROTECTED_PREFIXES = [
+  "/map",
+  "/chat",
+  "/quests",
+  "/reels",
+  "/setup",
   "/now",
   "/onboarding",
   "/profile",
@@ -61,7 +66,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && pathname === "/sign-in") {
-    return NextResponse.redirect(new URL("/now", request.url));
+    return NextResponse.redirect(new URL("/map", request.url));
   }
 
   return response;

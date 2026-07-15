@@ -40,13 +40,15 @@ export async function getProfile(): Promise<Tables<"profiles"> | null> {
 }
 
 /**
- * The (app) gate: must be signed in AND have finished the onboarding quiz.
- * Redirects to the right step otherwise.
+ * The (app) gate: must be signed in, have claimed a username, and have
+ * finished the taste quiz. /setup walks through whichever steps are missing.
  */
 export async function requireOnboarded() {
   const profile = await getProfile();
   if (!profile) redirect("/sign-in");
-  if (!profile.onboarding_completed_at) redirect("/onboarding");
+  if (!profile.username || !profile.onboarding_completed_at) {
+    redirect("/setup");
+  }
   return profile;
 }
 
