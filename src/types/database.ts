@@ -55,6 +55,9 @@ export type Database = {
           is_admin: boolean;
           personalization_enabled: boolean;
           onboarding_completed_at: string | null;
+          outsider_number: number | null;
+          username: string | null;
+          home_city: string | null;
           created_at: string;
         };
         Insert: {
@@ -65,6 +68,9 @@ export type Database = {
           is_admin?: boolean;
           personalization_enabled?: boolean;
           onboarding_completed_at?: string | null;
+          outsider_number?: number | null;
+          username?: string | null;
+          home_city?: string | null;
           created_at?: string;
         };
         Update: {
@@ -75,6 +81,42 @@ export type Database = {
           is_admin?: boolean;
           personalization_enabled?: boolean;
           onboarding_completed_at?: string | null;
+          outsider_number?: number | null;
+          username?: string | null;
+          home_city?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      cities: {
+        Row: {
+          slug: string;
+          name: string;
+          lat: number;
+          lng: number;
+          zoom: number;
+          is_live: boolean;
+          areas: string[];
+          created_at: string;
+        };
+        Insert: {
+          slug: string;
+          name: string;
+          lat: number;
+          lng: number;
+          zoom?: number;
+          is_live?: boolean;
+          areas?: string[];
+          created_at?: string;
+        };
+        Update: {
+          slug?: string;
+          name?: string;
+          lat?: number;
+          lng?: number;
+          zoom?: number;
+          is_live?: boolean;
+          areas?: string[];
           created_at?: string;
         };
         Relationships: [];
@@ -542,6 +584,10 @@ export type Database = {
       };
       is_premium: {
         Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      username_available: {
+        Args: { candidate: string };
         Returns: boolean;
       };
       match_places: {

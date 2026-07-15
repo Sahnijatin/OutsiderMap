@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
+import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
 
 const GA_MEASUREMENT_ID = "G-SY3XQJ0R3S";
@@ -41,10 +42,19 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_IN",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Outsider",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#0c0a08",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -63,6 +73,7 @@ export default function RootLayout({
     >
       <body>
         {children}
+        <PwaRegister />
         <Analytics />
       </body>
       {/* Google tag (gtag.js) */}

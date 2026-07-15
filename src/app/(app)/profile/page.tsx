@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { priceGlyph } from "@/lib/utils";
+import { formatOutsiderNumber } from "@/lib/identity/username";
 
 export const metadata: Metadata = {
   title: "Your taste profile",
@@ -70,14 +71,16 @@ export default async function ProfilePage({
     <main className="flex flex-col gap-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <p className="voice">
-            Your taste profile · v{taste?.version ?? 1}
+          <p className="voice text-accent">
+            outsider {formatOutsiderNumber(profile.outsider_number)}
+            {profile.username ? ` · @${profile.username}` : ""}
           </p>
           <h1 className="font-display text-3xl sm:text-4xl">
             {welcome
               ? "Here’s our first read."
               : (profile.display_name ?? "You, mapped.")}
           </h1>
+          <p className="voice">Your taste profile · v{taste?.version ?? 1}</p>
         </div>
         <Badge variant={premium ? "under" : "outline"}>
           {premium ? "Premium" : "Free tier"}
