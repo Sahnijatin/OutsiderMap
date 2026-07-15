@@ -50,8 +50,8 @@ export function Hero() {
           variants={fadeUp}
           className="flex flex-col items-center gap-3 sm:flex-row"
         >
-          <ButtonLink href="/join" size="lg">
-            Join the waitlist
+          <ButtonLink href="/sign-in" size="lg">
+            Become an outsider
           </ButtonLink>
           <ButtonLink href="#how" variant="ghost" size="lg">
             See how it works

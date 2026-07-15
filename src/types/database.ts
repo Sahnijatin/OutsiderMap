@@ -214,7 +214,7 @@ export type Database = {
           image_path: string | null;
           embedding: string | null;
           is_published: boolean;
-          source: "curated" | "submitted";
+          source: "curated" | "submitted" | "ingested";
           kind: PlaceKind;
           is_chain: boolean;
           story: Json;
@@ -239,7 +239,7 @@ export type Database = {
           image_path?: string | null;
           embedding?: string | null;
           is_published?: boolean;
-          source?: "curated" | "submitted";
+          source?: "curated" | "submitted" | "ingested";
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;
@@ -264,7 +264,7 @@ export type Database = {
           image_path?: string | null;
           embedding?: string | null;
           is_published?: boolean;
-          source?: "curated" | "submitted";
+          source?: "curated" | "submitted" | "ingested";
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;
@@ -817,6 +817,75 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      ingest_items: {
+        Row: {
+          id: string;
+          url: string;
+          source_type: "instagram" | "youtube" | "blog" | "other";
+          status:
+            | "queued"
+            | "fetching"
+            | "extracted"
+            | "needs_review"
+            | "approved"
+            | "rejected"
+            | "failed";
+          raw_metadata: Json | null;
+          candidate: Json | null;
+          dedupe_matches: Json | null;
+          error: string | null;
+          created_by: string | null;
+          reviewed_by: string | null;
+          place_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          url: string;
+          source_type?: "instagram" | "youtube" | "blog" | "other";
+          status?:
+            | "queued"
+            | "fetching"
+            | "extracted"
+            | "needs_review"
+            | "approved"
+            | "rejected"
+            | "failed";
+          raw_metadata?: Json | null;
+          candidate?: Json | null;
+          dedupe_matches?: Json | null;
+          error?: string | null;
+          created_by?: string | null;
+          reviewed_by?: string | null;
+          place_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          url?: string;
+          source_type?: "instagram" | "youtube" | "blog" | "other";
+          status?:
+            | "queued"
+            | "fetching"
+            | "extracted"
+            | "needs_review"
+            | "approved"
+            | "rejected"
+            | "failed";
+          raw_metadata?: Json | null;
+          candidate?: Json | null;
+          dedupe_matches?: Json | null;
+          error?: string | null;
+          created_by?: string | null;
+          reviewed_by?: string | null;
+          place_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       device_tokens: {
         Row: {
