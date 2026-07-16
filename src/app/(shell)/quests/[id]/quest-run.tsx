@@ -275,7 +275,7 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
           </h2>
           <p className="relative max-w-xs text-sm text-ink-dim">
             That&rsquo;s the whole point of this app. Your taste profile just
-            got sharper, and reels land in the next update.
+            got sharper, and your reel is being cut from what you shot.
           </p>
           <span className="relative text-xs text-ink-dim">tap to close</span>
         </button>

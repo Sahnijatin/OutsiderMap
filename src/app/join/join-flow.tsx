@@ -304,7 +304,7 @@ function StepDetails({
         </h1>
         <p className="text-sm leading-relaxed text-ink-dim">
           We&rsquo;re not running a race. We&rsquo;re choosing 100 outsiders
-          ourselves. Good things take time. We open in Delhi on July 10 -
+          ourselves. Good things take time. We&rsquo;re live in Delhi -
           more cities soon.
         </p>
       </header>
