@@ -5,15 +5,30 @@ import maplibregl, {
   type MapMouseEvent,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { baseMapStyle } from "@/lib/map/style";
+import {
+  baseMapStyle,
+  MAP_ACCENT as ACCENT,
+  MAP_INK as INK,
+  MAP_LABEL_AMBER,
+  MAP_NIGHT as NIGHT,
+} from "@/lib/map/style";
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { MapSearch } from "./map-search";
 import { PlaceSheet, type SelectedPlace } from "./place-sheet";
 
-const ACCENT = "#f0a431";
-const NIGHT = "#0c0a08";
-const INK = "#ede7db";
+/** maplibre v5 has no supported() - probe for a WebGL context directly. */
+function webglAvailable() {
+  try {
+    const canvas = document.createElement("canvas");
+    return Boolean(
+      canvas.getContext("webgl2") ?? canvas.getContext("webgl"),
+    );
+  } catch {
+    return false;
+  }
+}
 
 export type CityOption = {
   slug: string;
@@ -66,6 +81,9 @@ export function MapCanvas({
   const [loadError, setLoadError] = useState(false);
   const [loadedEmpty, setLoadedEmpty] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [unsupported, setUnsupported] = useState(false);
+  const [tileTrouble, setTileTrouble] = useState(false);
+  const lastTileErrorAt = useRef(0);
 
   const selectPlace = useCallback(
     (props: PlaceFeatureProps, lng: number, lat: number) => {
@@ -112,18 +130,42 @@ export function MapCanvas({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: baseMapStyle(),
-      center: [city.lng, city.lat],
-      zoom: city.zoom,
-      attributionControl: false,
-      // The night style has no labels; keep rotation off so the city stays
-      // oriented the way people hold their phones.
-      dragRotate: false,
-      pitchWithRotate: false,
-    });
+    if (!webglAvailable()) {
+      queueMicrotask(() => setUnsupported(true));
+      return;
+    }
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: baseMapStyle(),
+        center: [city.lng, city.lat],
+        zoom: city.zoom,
+        attributionControl: false,
+        // The basemap carries only quiet area names; keep rotation off so
+        // the city stays oriented the way people hold their phones.
+        dragRotate: false,
+        pitchWithRotate: false,
+      });
+    } catch {
+      queueMicrotask(() => setUnsupported(true));
+      return;
+    }
     mapRef.current = map;
+
+    // A silent black map was indistinguishable from a working empty one.
+    // Surface real tile/style failures as a throttled pill; ignore benign
+    // aborted requests from fast panning.
+    map.on("error", (e) => {
+      const err = e?.error as (Error & { status?: number }) | undefined;
+      const message = err?.message ?? "";
+      if (err?.name === "AbortError" || /abort/i.test(message)) return;
+      const now = Date.now();
+      if (now - lastTileErrorAt.current < 30_000) return;
+      lastTileErrorAt.current = now;
+      setTileTrouble(true);
+      setTimeout(() => setTileTrouble(false), 6000);
+    });
 
     map.addControl(
       new maplibregl.AttributionControl({
@@ -230,6 +272,29 @@ export function MapCanvas({
           "circle-stroke-width": 1.5,
         },
       });
+      // Our place names, under the dots once the city is close enough.
+      // These are the only place labels on the whole map.
+      map.addLayer({
+        id: "place-names",
+        type: "symbol",
+        source: "places",
+        filter: ["!", ["has", "point_count"]],
+        minzoom: 13,
+        layout: {
+          "text-field": ["get", "name"],
+          "text-font": ["Noto Sans Regular"],
+          "text-size": 11.5,
+          "text-anchor": "top",
+          "text-offset": [0, 0.9],
+          "text-optional": true,
+          "text-max-width": 8,
+        },
+        paint: {
+          "text-color": MAP_LABEL_AMBER,
+          "text-halo-color": NIGHT,
+          "text-halo-width": 1.2,
+        },
+      });
       // Selection ring, driven by its own single-feature source.
       map.addLayer({
         id: "selected-ring",
@@ -261,17 +326,19 @@ export function MapCanvas({
         });
       });
 
-      map.on("click", "place-dot", (e: MapMouseEvent) => {
-        const feature = map.queryRenderedFeatures(e.point, {
-          layers: ["place-dot"],
-        })[0];
-        if (!feature) return;
-        const props = feature.properties as PlaceFeatureProps;
-        const [lng, lat] = (feature.geometry as GeoJSON.Point).coordinates;
-        selectPlace(props, lng, lat);
-      });
+      for (const clickable of ["place-dot", "place-names"]) {
+        map.on("click", clickable, (e: MapMouseEvent) => {
+          const feature = map.queryRenderedFeatures(e.point, {
+            layers: [clickable],
+          })[0];
+          if (!feature) return;
+          const props = feature.properties as PlaceFeatureProps;
+          const [lng, lat] = (feature.geometry as GeoJSON.Point).coordinates;
+          selectPlace(props, lng, lat);
+        });
+      }
 
-      for (const layer of ["clusters", "place-dot"]) {
+      for (const layer of ["clusters", "place-dot", "place-names"]) {
         map.on("mouseenter", layer, () => {
           map.getCanvas().style.cursor = "pointer";
         });
@@ -360,6 +427,30 @@ export function MapCanvas({
     [closeSheet, flyTo],
   );
 
+  if (unsupported) {
+    return (
+      <div className="flex h-full items-center justify-center px-6">
+        <div className="relative max-w-sm rounded-card border border-line bg-surface p-6 text-center">
+          <div className="halo absolute -inset-8" />
+          <p className="voice relative">no night map here</p>
+          <p className="relative mt-2 font-display text-xl italic">
+            This device can&rsquo;t draw the map.
+          </p>
+          <p className="relative mt-2 text-sm text-ink-dim">
+            The night map needs WebGL, which this browser has switched off.
+            The concierge still knows {activeCity.name} cold.
+          </p>
+          <Link
+            href="/chat"
+            className="relative mt-4 inline-block rounded-full bg-accent px-5 py-2 text-sm font-medium text-night"
+          >
+            Ask the concierge
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="absolute inset-0" />
@@ -378,6 +469,12 @@ export function MapCanvas({
           selectPlace(props, lng, lat);
         }}
       />
+
+      {tileTrouble && (
+        <p className="absolute inset-x-0 top-32 z-10 mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink-dim backdrop-blur">
+          Map tiles are struggling - check your connection.
+        </p>
+      )}
 
       {loadError && (
         <button
