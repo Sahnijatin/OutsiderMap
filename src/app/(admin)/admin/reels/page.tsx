@@ -4,7 +4,12 @@ import { publicMediaUrl } from "@/lib/media/url";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { attachManualReel, moderateReel, retryReelJob } from "./actions";
+import {
+  attachManualReel,
+  moderateReel,
+  retryReelJob,
+  uploadCuratedReel,
+} from "./actions";
 
 export const metadata: Metadata = { title: "Reels · Admin" };
 
@@ -40,6 +45,51 @@ export default async function AdminReelsPage() {
 
   return (
     <div className="flex flex-col gap-10">
+      <section>
+        <h2 className="font-display text-2xl italic">Upload curated reel</h2>
+        <p className="mt-1 max-w-xl text-sm text-ink-dim">
+          The feed&rsquo;s editorial lever: a vertical MP4 goes straight in as
+          approved, optionally linked to a place for the &ldquo;Do this&rdquo;
+          button.
+        </p>
+        <form
+          action={uploadCuratedReel}
+          className="mt-4 grid gap-3 sm:grid-cols-2"
+        >
+          <input
+            name="caption"
+            required
+            maxLength={140}
+            placeholder="Caption, e.g. Thursday qawwali at Nizamuddin"
+            className="rounded-card border border-line bg-surface px-4 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-accent/60 sm:col-span-2"
+          />
+          <input
+            name="city"
+            required
+            defaultValue="delhi"
+            placeholder="city slug"
+            className="rounded-card border border-line bg-surface px-4 py-2.5 font-mono text-sm text-ink outline-none focus:border-accent/60"
+          />
+          <input
+            name="place_slug"
+            placeholder="place slug (optional)"
+            className="rounded-card border border-line bg-surface px-4 py-2.5 font-mono text-sm text-ink outline-none placeholder:text-ink-dim focus:border-accent/60"
+          />
+          <input
+            type="file"
+            name="video"
+            accept="video/mp4"
+            required
+            className="text-xs text-ink-dim file:mr-2 file:rounded-full file:border file:border-line file:bg-transparent file:px-3 file:py-1.5 file:text-xs file:text-ink sm:col-span-2"
+          />
+          <div className="sm:col-span-2">
+            <Button type="submit" size="sm">
+              Publish to the feed
+            </Button>
+          </div>
+        </form>
+      </section>
+
       <section>
         <h2 className="font-display text-2xl italic">
           Pending review ({pending?.length ?? 0})
