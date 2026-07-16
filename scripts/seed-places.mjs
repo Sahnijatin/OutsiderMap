@@ -173,12 +173,11 @@ for (let i = 0; i < catalog.length; i += BATCH_SIZE) {
 
   const rows = await Promise.all(
     batch.map(async (place, j) => {
-      // Generate a cover only for entries that have story cards and no image
-      // yet; existing images always win.
-      const hasStory = Array.isArray(place.story) && place.story.length > 0;
+      // Every place gets a branded night-palette cover unless an image
+      // already exists (admin uploads always win). A bare text sheet reads
+      // as broken; a deterministic cover reads as a brand.
       const existingImage = existingImages.get(place.slug) ?? null;
-      const imagePath =
-        hasStory && !existingImage ? await uploadCover(place.slug) : null;
+      const imagePath = existingImage ? null : await uploadCover(place.slug);
       return {
         slug: place.slug,
         name: place.name,
