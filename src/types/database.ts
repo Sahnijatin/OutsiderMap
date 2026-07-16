@@ -932,6 +932,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      friendships: {
+        Row: {
+          id: string;
+          requester: string;
+          addressee: string;
+          status: "pending" | "accepted";
+          created_at: string;
+          responded_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          requester: string;
+          addressee: string;
+          status?: "pending" | "accepted";
+          created_at?: string;
+          responded_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          requester?: string;
+          addressee?: string;
+          status?: "pending" | "accepted";
+          created_at?: string;
+          responded_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -956,6 +983,33 @@ export type Database = {
       username_available: {
         Args: { candidate: string };
         Returns: boolean;
+      };
+      search_members: {
+        Args: { q: string };
+        Returns: {
+          id: string;
+          username: string;
+          display_name: string | null;
+          outsider_number: number | null;
+        }[];
+      };
+      get_public_profiles: {
+        Args: { ids: string[] };
+        Returns: {
+          id: string;
+          username: string;
+          display_name: string | null;
+          outsider_number: number | null;
+        }[];
+      };
+      find_member_by_username: {
+        Args: { candidate: string };
+        Returns: {
+          id: string;
+          username: string;
+          display_name: string | null;
+          outsider_number: number | null;
+        }[];
       };
       start_quest: {
         Args: { p_quest_id: string };

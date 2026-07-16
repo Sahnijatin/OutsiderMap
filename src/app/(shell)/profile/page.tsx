@@ -12,8 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { priceGlyph } from "@/lib/utils";
-import { formatOutsiderNumber } from "@/lib/identity/username";
+import { resolveCity } from "@/lib/cities";
 import { DangerZone, PersonalizationToggle } from "./settings-cards";
+import { IdentityCard } from "./identity-card";
+import { StatsRow } from "./stats-row";
+import { FriendsPanel } from "./friends";
 
 export const metadata: Metadata = {
   title: "Your taste profile",
@@ -39,25 +42,50 @@ export default async function ProfilePage({
   const { welcome } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: taste }, { data: subscription }, { data: bucket }] =
-    await Promise.all([
-      supabase
-        .from("taste_profiles")
-        .select("*")
-        .eq("user_id", profile.id)
-        .maybeSingle(),
-      supabase
-        .from("subscriptions")
-        .select("tier, status, current_period_end")
-        .eq("user_id", profile.id)
-        .maybeSingle(),
-      supabase
-        .from("saved_places")
-        .select("place_id, status, place:places(slug, name, area)")
-        .eq("user_id", profile.id)
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
+  const [
+    { data: taste },
+    { data: subscription },
+    { data: bucket },
+    { count: questCount },
+    { count: reelCount },
+    { count: savedCount },
+    { count: friendCount },
+    city,
+  ] = await Promise.all([
+    supabase
+      .from("taste_profiles")
+      .select("*")
+      .eq("user_id", profile.id)
+      .maybeSingle(),
+    supabase
+      .from("subscriptions")
+      .select("tier, status, current_period_end")
+      .eq("user_id", profile.id)
+      .maybeSingle(),
+    supabase
+      .from("saved_places")
+      .select("place_id, status, place:places(slug, name, area)")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("quests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "completed"),
+    supabase
+      .from("reels")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", profile.id),
+    supabase
+      .from("saved_places")
+      .select("place_id", { count: "exact", head: true })
+      .eq("user_id", profile.id),
+    supabase
+      .from("friendships")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "accepted"),
+    resolveCity(supabase, profile.home_city),
+  ]);
 
   const parsed = StoredAnswersSchema.safeParse(taste?.quiz_answers);
   const dimensions = parsed.success ? parsed.data.dimensions : undefined;
@@ -76,13 +104,9 @@ export default async function ProfilePage({
     Object.keys(taste.learned_signals).length > 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)] lg:max-w-3xl lg:px-8 lg:pt-12">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)] lg:max-w-5xl lg:px-8 lg:pt-12">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <p className="voice text-accent">
-            outsider {formatOutsiderNumber(profile.outsider_number)}
-            {profile.username ? ` · @${profile.username}` : ""}
-          </p>
           <h1 className="font-display text-3xl sm:text-4xl">
             {welcome
               ? "Here’s our first read."
@@ -95,6 +119,24 @@ export default async function ProfilePage({
         </Badge>
       </header>
 
+      <div className="flex flex-col gap-10 lg:grid lg:grid-cols-5 lg:items-start lg:gap-8">
+      <div className="flex flex-col gap-5 lg:sticky lg:top-8 lg:col-span-2">
+        <IdentityCard
+          username={profile.username}
+          outsiderNumber={profile.outsider_number}
+          displayName={profile.display_name}
+          memberSince={profile.created_at}
+          cityName={city.name}
+        />
+        <StatsRow
+          quests={questCount ?? 0}
+          reels={reelCount ?? 0}
+          saved={savedCount ?? 0}
+          friends={friendCount ?? 0}
+        />
+      </div>
+
+      <div className="flex flex-col gap-10 lg:col-span-3">
       {taste?.taste_summary ? (
         <blockquote className="border-l-2 border-accent pl-6 font-display text-xl leading-relaxed sm:text-2xl">
           {taste.taste_summary}
@@ -200,6 +242,8 @@ export default async function ProfilePage({
         </p>
       </Card>
 
+      <FriendsPanel />
+
       <section className="flex flex-col gap-3">
         <h2 className="voice">Your bucket</h2>
         {bucket && bucket.length > 0 ? (
@@ -242,6 +286,8 @@ export default async function ProfilePage({
           </Card>
         )}
       </section>
+      </div>
+      </div>
 
       <PersonalizationToggle
         initial={profile.personalization_enabled !== false}
