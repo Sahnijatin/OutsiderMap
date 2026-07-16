@@ -55,7 +55,7 @@ export function SubscribeButton() {
               subscriptionId: response.razorpay_subscription_id,
               signature: response.razorpay_signature,
             });
-            router.push("/weekend");
+            router.push("/events");
             router.refresh();
           } catch {
             setError(

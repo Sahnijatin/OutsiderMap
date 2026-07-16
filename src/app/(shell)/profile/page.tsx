@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TasteDimensionsSchema } from "@/lib/taste/profile";
-import { retryTasteRead } from "@/app/onboarding/actions";
+import { retryTasteRead } from "@/app/setup/actions";
 import { cancelPremium } from "@/app/(marketing)/pricing/actions";
 import { revalidatePath } from "next/cache";
 import { signOut } from "./actions";
@@ -68,7 +68,7 @@ export default async function ProfilePage({
     Object.keys(taste.learned_signals).length > 0;
 
   return (
-    <main className="flex flex-col gap-10">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-24 pt-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <p className="voice text-accent">
@@ -232,7 +232,7 @@ export default async function ProfilePage({
 
       <footer className="flex flex-wrap items-center gap-4 border-t border-line pt-6">
         <Link
-          href="/onboarding?redo=1"
+          href="/setup?redo=1"
           className="text-sm text-ink-dim transition-colors hover:text-ink"
         >
           Retake the quiz

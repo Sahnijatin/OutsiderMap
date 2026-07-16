@@ -7,20 +7,21 @@ import { SubscribeButton } from "./subscribe-button";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Right Now answers are free, forever. Premium adds the Weekend Planner and underground access for ₹499/month.",
+    "The concierge, the map and quests are free, forever. Premium unlocks the underground for ₹499/month.",
 };
 
 const freeFeatures = [
   "Your taste profile, always learning",
-  "Right Now mode - unlimited asks",
-  "Save places, build your shortlist",
+  "The concierge - unlimited asks",
+  "Quests with capture and your own reel",
+  "Save places, build your bucket",
 ];
 
 const premiumFeatures = [
   "Everything in free",
-  "Weekend Planner - Fri to Sun, built around you",
   "Underground access - events that aren't on Google",
-  "Tonight's underground folded into Right Now answers",
+  "Tonight's underground folded into concierge answers",
+  "First in line as member perks land",
 ];
 
 export default async function PricingPage() {
@@ -52,7 +53,7 @@ export default async function PricingPage() {
             ))}
           </ul>
           {user ? (
-            <ButtonLink href="/now" variant="secondary">
+            <ButtonLink href="/chat" variant="secondary">
               You have this - go ask
             </ButtonLink>
           ) : (
@@ -83,8 +84,8 @@ export default async function PricingPage() {
           </ul>
           <div className="relative">
             {premium ? (
-              <ButtonLink href="/weekend" variant="under">
-                You&rsquo;re in - plan the weekend
+              <ButtonLink href="/events" variant="under">
+                You&rsquo;re in - see what&rsquo;s on
               </ButtonLink>
             ) : user ? (
               <SubscribeButton />

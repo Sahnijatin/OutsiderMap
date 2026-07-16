@@ -7,14 +7,12 @@ import { Textarea } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { QUIZ, type QuizAnswers } from "@/lib/taste/quiz";
-import { completeOnboarding } from "./actions";
 
 export function OnboardingQuiz({
   action,
 }: {
-  /** Server action run with the answers; defaults to the classic onboarding
-   *  completion. /setup passes its own so the quiz can land on the map. */
-  action?: (answers: QuizAnswers) => Promise<void>;
+  /** Server action run with the final answers (completeSetup). */
+  action: (answers: QuizAnswers) => Promise<void>;
 }) {
   const reduced = useReducedMotion() ?? false;
   const [step, setStep] = useState(0);
@@ -36,7 +34,7 @@ export function OnboardingQuiz({
       setError(null);
       startTransition(async () => {
         try {
-          await (action ?? completeOnboarding)(finalAnswers);
+          await action(finalAnswers);
         } catch {
           setError(
             "Something broke while saving. Your answers are safe - try again.",

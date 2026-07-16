@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { resolveCity } from "@/lib/cities";
 
 /**
  * The home/lobby feed: the proactive engine living in a scroll (no push yet).
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
   const [{ data: profile }, { data: taste }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("personalization_enabled")
+      .select("personalization_enabled, home_city")
       .eq("id", ctx.user.id)
       .maybeSingle(),
     supabase
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest) {
   ]);
 
   const personalize = profile?.personalization_enabled !== false;
+  const city = await resolveCity(supabase, profile?.home_city);
   const tasteEmbedding = personalize ? parseStoredEmbedding(taste?.embedding) : null;
 
   // forYou: taste-matched if we have a vector, else freshest.
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
     const { data } = await supabase.rpc("match_places", {
       query_embedding: JSON.stringify(tasteEmbedding),
       match_count: 10,
-      filter_city: "delhi",
+      filter_city: city.slug,
       filter_area: null,
       max_price_level: null,
     });
@@ -76,7 +78,7 @@ export async function GET(request: NextRequest) {
     .select(SLIM_FIELDS)
     .eq("is_published", true)
     .eq("is_chain", false)
-    .eq("city", "delhi")
+    .eq("city", city.slug)
     .order("created_at", { ascending: false })
     .limit(10);
   if (forYou.length === 0) forYou = fresh ?? [];

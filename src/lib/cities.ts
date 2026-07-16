@@ -4,7 +4,7 @@ import type { Database, Tables } from "@/types/database";
 
 export type City = Tables<"cities">;
 
-const FALLBACK_DELHI: City = {
+export const FALLBACK_DELHI: City = {
   slug: "delhi",
   name: "Delhi",
   lat: 28.6139,
