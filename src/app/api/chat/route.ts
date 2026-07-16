@@ -6,8 +6,12 @@ import { runChatTurn } from "@/lib/chat/engine";
 
 /**
  * POST /api/chat — one conversational turn. Two LLM calls on the recommend
- * path, so the rate limit is tighter than browse endpoints.
+ * path, so the rate limit is tighter than browse endpoints, and the route
+ * needs real time: without maxDuration the platform default timeout kills
+ * the turn mid-flight and the client receives a non-JSON 504 (issue #38).
  */
+export const maxDuration = 300;
+
 const BodySchema = z.object({
   threadId: z.string().uuid().optional(),
   message: z.string().trim().min(1).max(600),

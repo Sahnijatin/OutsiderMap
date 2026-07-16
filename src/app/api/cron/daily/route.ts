@@ -1,11 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processReelJobs } from "@/lib/reels/jobs";
+import { processIngestItems } from "@/lib/ingest/pipeline";
 import { serverEnv } from "@/lib/env";
 
 /**
- * Reel sweeper: requeues stuck renders and processes the queue. The
- * completion-time ping handles the happy path; this is the retry net.
+ * The one daily sweeper (Vercel Hobby allows max 2 crons, daily-only - see
+ * scripts/check-vercel-config.mjs). Inline kicks remain the fast path for
+ * reels (quest completion) and ingest (inbox submit); this is the retry net
+ * for anything those kicks missed.
  */
 export const maxDuration = 300;
 
@@ -17,6 +20,7 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const report = await processReelJobs(admin, 2);
-  return NextResponse.json(report);
+  const reels = await processReelJobs(admin, 5);
+  const ingest = await processIngestItems(admin, 25);
+  return NextResponse.json({ reels, ingest });
 }

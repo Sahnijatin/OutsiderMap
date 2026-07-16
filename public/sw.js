@@ -1,12 +1,13 @@
 /**
  * Minimal service worker: enough for installability and snappy repeat opens,
- * deliberately NOT offline-first. Strategy:
- *  - map style/glyph/tile hosts: stale-while-revalidate (cheap repeat pans)
- *  - /api/map/places: stale-while-revalidate (map paints instantly, then
- *    refreshes)
- *  - everything else: network only (auth-sensitive pages stay fresh)
+ * deliberately NOT offline-first.
+ *
+ * Scope: ONLY the public map-tile host gets stale-while-revalidate. The app's
+ * own APIs are never intercepted - /api/map/places responses are per-user
+ * (caching them by URL leaked one account's catalog view to another on a
+ * shared device) and auth-sensitive routes must always hit the network.
  */
-const VERSION = "om-sw-v1";
+const VERSION = "om-sw-v2";
 const MAP_CACHE = `${VERSION}-map`;
 
 const MAP_HOSTS = ["tiles.openfreemap.org"];
@@ -29,15 +30,11 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-function isMapAsset(url) {
-  if (MAP_HOSTS.includes(url.hostname)) return true;
-  return url.origin === self.location.origin &&
-    url.pathname.startsWith("/api/map/places");
-}
-
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || !isMapAsset(url)) return;
+  if (event.request.method !== "GET" || !MAP_HOSTS.includes(url.hostname)) {
+    return;
+  }
 
   event.respondWith(
     (async () => {
@@ -48,7 +45,10 @@ self.addEventListener("fetch", (event) => {
           if (res.ok) cache.put(event.request, res.clone());
           return res;
         })
-        .catch(() => cached);
+        // respondWith must never resolve to undefined - that turns a cache
+        // miss on a flaky network into a broken response instead of a
+        // normal network error the page can handle.
+        .catch(() => cached ?? Response.error());
       return cached ?? network;
     })(),
   );
