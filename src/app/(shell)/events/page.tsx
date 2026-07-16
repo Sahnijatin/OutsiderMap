@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveCity } from "@/lib/cities";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
+import { Reveal, RevealItem } from "@/components/motion/reveal";
 import { formatEventTime } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -38,7 +39,7 @@ export default async function EventsPage() {
   const teaserCount = teasers?.length ?? 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)]">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)] lg:max-w-4xl lg:px-8 lg:pt-12">
       <header className="flex flex-col gap-2">
         <p className="voice">Events · {city.name}</p>
         <h1 className="font-display text-3xl sm:text-4xl">
@@ -57,12 +58,14 @@ export default async function EventsPage() {
       )}
 
       {visibleCount > 0 && (
-        <ul className="flex flex-col gap-4">
+        <Reveal speed="fast">
+        <ul className="flex flex-col gap-4 lg:grid lg:grid-cols-2">
           {events!.map((event) => (
-            <li key={event.id}>
+            <li key={event.id} className="h-full">
+              <RevealItem className="h-full">
               <Link
                 href={`/events/${event.id}`}
-                className="flex flex-col gap-2 rounded-card border border-line bg-surface p-5 transition-colors hover:border-ink-dim"
+                className="flex h-full flex-col gap-2 rounded-card border border-line bg-surface p-5 transition-[transform,border-color] hover:-translate-y-0.5 hover:border-accent/50"
               >
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="font-mono text-xs text-accent">
@@ -84,9 +87,11 @@ export default async function EventsPage() {
                   </div>
                 )}
               </Link>
+              </RevealItem>
             </li>
           ))}
         </ul>
+        </Reveal>
       )}
 
       {teaserCount > 0 && (

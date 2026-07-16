@@ -45,6 +45,17 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --tab-clearance: calc(4rem + env(safe-area-inset-bottom, 0px));
+  /* Desktop side rail width. 0 on phones so mobile renders byte-identically;
+   * the media query below must match Tailwind's lg breakpoint (64rem) so
+   * lg: utilities and these vars flip together. */
+  --rail-w: 0px;
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --tab-clearance: 0px;
+    --rail-w: 13.5rem;
+  }
 }
 
 body {
