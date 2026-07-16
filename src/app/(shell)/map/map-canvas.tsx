@@ -64,6 +64,8 @@ export function MapCanvas({
   const [selected, setSelected] = useState<SelectedPlace | null>(null);
   const [showWelcome, setShowWelcome] = useState(welcome);
   const [loadError, setLoadError] = useState(false);
+  const [loadedEmpty, setLoadedEmpty] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const selectPlace = useCallback(
     (props: PlaceFeatureProps, lng: number, lat: number) => {
@@ -291,14 +293,21 @@ export function MapCanvas({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(
-          `/api/map/places?city=${encodeURIComponent(activeCity.slug)}`,
-        );
+        const url = `/api/map/places?city=${encodeURIComponent(activeCity.slug)}`;
+        let res = await fetch(url);
+        if (res.status === 401) {
+          // Safari can race a token expiry between SSR and this fetch:
+          // refresh the session once, then retry before declaring failure.
+          const { createClient } = await import("@/lib/supabase/client");
+          await createClient().auth.refreshSession();
+          res = await fetch(url);
+        }
         if (!res.ok) throw new Error();
         const data = (await res.json()) as PlaceCollection;
         if (cancelled) return;
         setPlaces(data);
         setLoadError(false);
+        setLoadedEmpty(data.features.length === 0);
         const map = mapRef.current;
         const apply = () =>
           (map?.getSource("places") as GeoJSONSource | undefined)?.setData(
@@ -313,7 +322,14 @@ export function MapCanvas({
     return () => {
       cancelled = true;
     };
-  }, [activeCity.slug]);
+  }, [activeCity.slug, reloadKey]);
+
+  // The welcome flag is a one-shot: strip it from the URL so revisits and
+  // shares of the link don't re-trigger the toast.
+  useEffect(() => {
+    if (!welcome) return;
+    window.history.replaceState(null, "", "/map");
+  }, [welcome]);
 
   // Deep link: open the requested place once the catalog is in.
   const deepLinked = useRef(false);
@@ -364,12 +380,32 @@ export function MapCanvas({
       />
 
       {loadError && (
-        <div className="absolute inset-x-0 top-20 z-10 mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink-dim backdrop-blur">
-          Couldn&rsquo;t load places. Pull to retry or check your connection.
+        <button
+          type="button"
+          onClick={() => {
+            setLoadError(false);
+            setReloadKey((k) => k + 1);
+          }}
+          className="absolute inset-x-0 top-20 z-10 mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink backdrop-blur"
+        >
+          Couldn&rsquo;t load places · tap to retry
+        </button>
+      )}
+
+      {!loadError && loadedEmpty && (
+        <div className="absolute inset-x-6 top-1/3 z-10 mx-auto max-w-sm rounded-card border border-line bg-surface/95 p-5 text-center backdrop-blur-md">
+          <p className="voice">quiet, for now</p>
+          <p className="mt-2 font-display text-xl italic">
+            Nothing lit up in {activeCity.name} yet.
+          </p>
+          <p className="mt-1 text-sm text-ink-dim">
+            The catalog is being stocked - the lights come on soon. Check
+            back, or ask the concierge meanwhile.
+          </p>
         </div>
       )}
 
-      {showWelcome && (
+      {showWelcome && !loadedEmpty && (
         <button
           type="button"
           onClick={() => setShowWelcome(false)}
