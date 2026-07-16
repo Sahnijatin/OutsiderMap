@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Reels" };
 export default async function ReelsPage() {
   await requireOnboarded();
   return (
-    <main className="fixed inset-0 bottom-16 bg-night">
+    <main className="fixed inset-x-0 top-0 bottom-[var(--tab-clearance)] bg-night">
       <ReelsFeed />
     </main>
   );

@@ -178,13 +178,13 @@ function ReelSlide({
         type="button"
         aria-label={muted ? "Unmute" : "Mute"}
         onClick={onToggleMute}
-        className="absolute right-4 top-4 rounded-full border border-line/60 bg-night/60 p-2 text-ink-dim backdrop-blur"
+        className="absolute right-4 top-[calc(var(--safe-top)+1rem)] rounded-full border border-line/60 bg-night/60 p-2 text-ink-dim backdrop-blur"
       >
         {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
       </button>
 
       {reel.status && reel.status !== "approved" && (
-        <span className="absolute left-4 top-4 rounded-full border border-accent/50 bg-night/70 px-3 py-1 text-xs text-accent backdrop-blur">
+        <span className="absolute left-4 top-[calc(var(--safe-top)+1rem)] rounded-full border border-accent/50 bg-night/70 px-3 py-1 text-xs text-accent backdrop-blur">
           {reel.status === "pending"
             ? "in review · only you see this"
             : "not published"}

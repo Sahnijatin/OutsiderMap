@@ -76,7 +76,7 @@ export function OnboardingQuiz({
   }
 
   return (
-    <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-6 py-10">
+    <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-6 pb-10 pt-[calc(var(--safe-top)+2.5rem)]">
       <div className="flex items-center justify-between">
         <span className="font-display text-lg italic">OutsiderMap</span>
         <div className="flex gap-1.5" aria-label={`Question ${step + 1} of ${QUIZ.length}`}>

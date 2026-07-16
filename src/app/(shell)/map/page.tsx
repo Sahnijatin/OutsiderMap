@@ -33,7 +33,7 @@ export default async function MapPage({
     live.find((c) => c.slug === profile.home_city) ?? live[0] ?? null;
 
   return (
-    <main className="fixed inset-0 bottom-16">
+    <main className="fixed inset-x-0 top-0 bottom-[var(--tab-clearance)]">
       <MapCanvas
         city={city ?? FALLBACK_DELHI}
         cities={live}

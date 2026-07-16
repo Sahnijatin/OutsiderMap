@@ -38,7 +38,7 @@ export default async function EventsPage() {
   const teaserCount = teasers?.length ?? 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-24 pt-8">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)]">
       <header className="flex flex-col gap-2">
         <p className="voice">Events · {city.name}</p>
         <h1 className="font-display text-3xl sm:text-4xl">

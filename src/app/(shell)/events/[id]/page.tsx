@@ -30,7 +30,7 @@ export default async function EventPage({
   if (!event) notFound();
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pb-24 pt-8">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)]">
       <Link href="/events" className="voice transition-colors hover:text-ink">
         ← Events
       </Link>

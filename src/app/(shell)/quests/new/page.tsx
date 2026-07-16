@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "New quest" };
 export default async function NewQuestPage() {
   await requireOnboarded();
   return (
-    <main className="relative mx-auto min-h-dvh max-w-lg px-5 pb-24 pt-6">
+    <main className="relative mx-auto min-h-dvh max-w-lg px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+1.5rem)]">
       <div className="halo absolute inset-x-0 top-0 h-72" />
       <NewQuestForm />
     </main>

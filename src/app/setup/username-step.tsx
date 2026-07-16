@@ -81,7 +81,7 @@ export function UsernameStep({
   }
 
   return (
-    <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 py-10">
+    <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 pb-10 pt-[calc(var(--safe-top)+2.5rem)]">
       <div className="flex flex-col gap-3">
         <span className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
           outsider {formatOutsiderNumber(outsiderNumber)}
