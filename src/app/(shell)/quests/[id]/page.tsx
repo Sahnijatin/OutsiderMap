@@ -23,7 +23,7 @@ export default async function QuestPage({
   if (!quest) notFound();
 
   return (
-    <main className="mx-auto min-h-dvh max-w-lg pb-[calc(var(--tab-clearance)+2rem)] pt-[var(--safe-top)]">
+    <main className="mx-auto min-h-dvh max-w-lg pb-[calc(var(--tab-clearance)+2rem)] pt-[var(--safe-top)] lg:max-w-2xl lg:pt-8">
       <QuestRun initial={quest} />
     </main>
   );

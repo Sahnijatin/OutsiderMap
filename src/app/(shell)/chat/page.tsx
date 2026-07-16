@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Chat" };
 export default async function ChatPage() {
   const profile = await requireOnboarded();
   return (
-    <main className="mx-auto flex h-dvh max-w-lg flex-col pb-[var(--tab-clearance)]">
+    <main className="mx-auto flex h-dvh max-w-lg flex-col pb-[var(--tab-clearance)] lg:max-w-2xl">
       <ChatThread displayName={profile.display_name} />
     </main>
   );
