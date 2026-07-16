@@ -5,12 +5,8 @@
       "schedule": "30 21 * * *"
     },
     {
-      "path": "/api/cron/reels",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/ingest",
-      "schedule": "*/15 * * * *"
+      "path": "/api/cron/daily",
+      "schedule": "0 22 * * *"
     }
   ]
 }

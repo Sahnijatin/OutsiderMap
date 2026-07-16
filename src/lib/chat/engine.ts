@@ -211,6 +211,9 @@ export async function runChatTurn(
   const composed = await ai.extract({
     schema: ChatPicksSchema,
     schemaName: "chat_picks",
+    // Latency matters more than prose polish here - same fast model as the
+    // decision step (the heavy default was the main source of slow turns).
+    model: fastModel,
     messages: [
       { role: "system", content: picksSystem(city.name) },
       ...history,

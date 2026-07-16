@@ -24,6 +24,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Vercel silently rejects deployments whose vercel.json breaks plan
+      # limits (that pinned prod at an old build once) - fail it here instead.
+      - name: Validate vercel.json (Hobby plan limits)
+        run: node scripts/check-vercel-config.mjs
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Lint

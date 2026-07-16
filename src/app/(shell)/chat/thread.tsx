@@ -13,6 +13,8 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   picks?: ChatPickCard[] | null;
+  /** UI-only decorations for failure/backoff bubbles. */
+  tone?: "error" | "limit";
 };
 
 const SUGGESTIONS = [
@@ -28,6 +30,7 @@ export function ChatThread({ displayName }: { displayName: string | null }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(true);
+  const [failedText, setFailedText] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   // Restore the latest thread once on mount.
@@ -73,28 +76,56 @@ export function ChatThread({ displayName }: { displayName: string | null }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, busy]);
 
-  async function send(text: string) {
+  async function send(text: string, isRetry = false) {
     const message = text.trim();
     if (!message || busy) return;
     setInput("");
     setBusy(true);
-    setMessages((prev) => [
-      ...prev,
-      { id: `local-${prev.length}`, role: "user", content: message },
-    ]);
+    setFailedText(null);
+    setMessages((prev) => {
+      // A retry replaces the previous failure bubble instead of stacking.
+      const base = isRetry
+        ? prev.filter((m) => m.tone !== "error")
+        : [
+            ...prev,
+            { id: `local-${prev.length}`, role: "user" as const, content: message },
+          ];
+      return base;
+    });
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ threadId, message }),
       });
-      const body = (await res.json()) as {
-        threadId?: string;
-        text?: string;
-        picks?: ChatPickCard[];
-        message?: string;
-      };
-      if (!res.ok) throw new Error(body.message ?? "chat failed");
+      // Check status BEFORE parsing: a platform 504/timeout body isn't JSON,
+      // and Safari's parse exception must never become a bot reply (#38).
+      const body = res.ok
+        ? ((await res.json().catch(() => null)) as {
+            threadId?: string;
+            text?: string;
+            picks?: ChatPickCard[];
+          } | null)
+        : null;
+
+      if (res.status === 429) {
+        const limitBody = (await res.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `local-${prev.length}`,
+            role: "assistant",
+            content:
+              limitBody?.message ?? "Easy - give it a minute and ask again.",
+            tone: "limit",
+          },
+        ]);
+        return;
+      }
+      if (!res.ok || !body) throw new Error("chat failed");
+
       if (body.threadId) setThreadId(body.threadId);
       setMessages((prev) => [
         ...prev,
@@ -105,16 +136,15 @@ export function ChatThread({ displayName }: { displayName: string | null }) {
           picks: body.picks,
         },
       ]);
-    } catch (err) {
+    } catch {
+      setFailedText(message);
       setMessages((prev) => [
         ...prev,
         {
           id: `local-${prev.length}`,
           role: "assistant",
-          content:
-            err instanceof Error && err.message !== "chat failed"
-              ? err.message
-              : "Lost my train of thought - say that again?",
+          content: "Lost my train of thought - that one didn't go through.",
+          tone: "error",
         },
       ]);
     } finally {
@@ -191,11 +221,24 @@ export function ChatThread({ displayName }: { displayName: string | null }) {
                     "max-w-[85%] rounded-card px-4 py-2.5 text-sm leading-relaxed",
                     m.role === "user"
                       ? "bg-raise text-ink"
-                      : "border border-line/70 bg-surface text-ink",
+                      : m.tone === "error"
+                        ? "border border-danger/40 bg-danger/5 text-ink-dim"
+                        : m.tone === "limit"
+                          ? "border border-line/40 bg-transparent text-ink-dim italic"
+                          : "border border-line/70 bg-surface text-ink",
                   )}
                 >
                   {m.content}
                 </div>
+                {m.tone === "error" && failedText && !busy && (
+                  <button
+                    type="button"
+                    onClick={() => void send(failedText, true)}
+                    className="rounded-full border border-accent/50 px-4 py-1.5 text-xs text-accent transition-colors hover:bg-accent/10"
+                  >
+                    Try again
+                  </button>
+                )}
                 {m.picks && m.picks.length > 0 && (
                   <div className="flex w-full flex-col gap-2">
                     {m.picks.map((pick) => (
