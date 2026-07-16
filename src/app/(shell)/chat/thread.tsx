@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUp, Plus } from "lucide-react";
+import { ArrowUp, History, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Spinner } from "@/components/ui/spinner";
 import { publicMediaUrl } from "@/lib/media/url";
 import { cn } from "@/lib/utils";
 import type { ChatPickCard } from "@/lib/chat/engine";
 
-type Message = {
+export type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
@@ -24,53 +23,38 @@ const SUGGESTIONS = [
   "it's late and I'm starving",
 ];
 
-export function ChatThread({ displayName }: { displayName: string | null }) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [threadId, setThreadId] = useState<string | undefined>();
+/**
+ * One conversation pane. Fresh chats start empty by design - history lives
+ * in the thread list (sidebar on desktop, sheet on phones) and an opened
+ * thread arrives via initialMessages/threadId. The parent remounts this
+ * component (key change) when switching conversations.
+ */
+export function ChatThread({
+  displayName,
+  threadId: initialThreadId,
+  initialMessages,
+  onThreadCreated,
+  onActivity,
+  onNewAsk,
+  onOpenHistory,
+}: {
+  displayName: string | null;
+  threadId?: string;
+  initialMessages?: Message[];
+  /** A first send created a server thread - lets the list insert it. */
+  onThreadCreated?: (id: string, firstMessage: string) => void;
+  /** A send landed on an existing thread - lets the list bump it up. */
+  onActivity?: (id: string) => void;
+  onNewAsk?: () => void;
+  /** Present on phones only - opens the history sheet. */
+  onOpenHistory?: () => void;
+}) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages ?? []);
+  const [threadId, setThreadId] = useState<string | undefined>(initialThreadId);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [restoring, setRestoring] = useState(true);
   const [failedText, setFailedText] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  // Restore the latest thread once on mount.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/chat/threads?latest=1");
-        if (!res.ok) throw new Error();
-        const body = (await res.json()) as {
-          threads: { id: string }[];
-          messages: {
-            id: string;
-            role: "user" | "assistant";
-            content: string;
-            picks: ChatPickCard[] | null;
-          }[];
-        };
-        if (cancelled) return;
-        if (body.threads.length > 0 && body.messages.length > 0) {
-          setThreadId(body.threads[0].id);
-          setMessages(
-            body.messages.map((m) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-              picks: m.picks,
-            })),
-          );
-        }
-      } catch {
-        // A fresh thread is a fine fallback.
-      } finally {
-        if (!cancelled) setRestoring(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -126,7 +110,14 @@ export function ChatThread({ displayName }: { displayName: string | null }) {
       }
       if (!res.ok || !body) throw new Error("chat failed");
 
-      if (body.threadId) setThreadId(body.threadId);
+      if (body.threadId) {
+        if (!threadId) {
+          onThreadCreated?.(body.threadId, message);
+        } else {
+          onActivity?.(threadId);
+        }
+        setThreadId(body.threadId);
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -152,11 +143,6 @@ export function ChatThread({ displayName }: { displayName: string | null }) {
     }
   }
 
-  function newThread() {
-    setThreadId(undefined);
-    setMessages([]);
-  }
-
   const firstName = (displayName ?? "").trim().split(/\s+/)[0] || null;
   const empty = messages.length === 0;
 
@@ -164,23 +150,30 @@ export function ChatThread({ displayName }: { displayName: string | null }) {
     <>
       <header className="flex items-center justify-between px-5 pb-2 pt-[calc(var(--safe-top)+1rem)]">
         <p className="voice">the concierge</p>
-        {!empty && (
-          <button
-            type="button"
-            onClick={newThread}
-            className="flex items-center gap-1 rounded-full border border-line px-3 py-1 text-xs text-ink-dim transition-colors hover:text-ink"
-          >
-            <Plus className="size-3.5" /> New ask
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onOpenHistory && (
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              className="flex items-center gap-1 rounded-full border border-line px-3 py-1 text-xs text-ink-dim transition-colors hover:text-ink lg:hidden"
+            >
+              <History className="size-3.5" /> History
+            </button>
+          )}
+          {!empty && onNewAsk && (
+            <button
+              type="button"
+              onClick={onNewAsk}
+              className="flex items-center gap-1 rounded-full border border-line px-3 py-1 text-xs text-ink-dim transition-colors hover:text-ink"
+            >
+              <Plus className="size-3.5" /> New ask
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-5">
-        {restoring ? (
-          <div className="flex h-full items-center justify-center">
-            <Spinner className="size-5" />
-          </div>
-        ) : empty ? (
+        {empty ? (
           <div className="flex h-full flex-col justify-center gap-6">
             <div className="relative">
               <div className="halo absolute -inset-10" />

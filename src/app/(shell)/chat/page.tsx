@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
 import { requireOnboarded } from "@/lib/auth";
-import { ChatThread } from "./thread";
+import { ChatShell } from "./chat-shell";
 
 export const metadata: Metadata = { title: "Chat" };
 
 /**
  * The concierge: a conversation that narrows down to 2-3 precise places.
- * Threads persist server-side; the newest one restores on load.
+ * Every visit starts a fresh ask; past threads live in the history list
+ * (persistent sidebar on desktop, slide-over sheet on phones).
  */
 export default async function ChatPage() {
   const profile = await requireOnboarded();
-  return (
-    <main className="mx-auto flex h-dvh max-w-lg flex-col pb-[var(--tab-clearance)] lg:max-w-2xl">
-      <ChatThread displayName={profile.display_name} />
-    </main>
-  );
+  return <ChatShell displayName={profile.display_name} />;
 }
