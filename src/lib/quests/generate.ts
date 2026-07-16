@@ -16,6 +16,8 @@ import type { Database, Json } from "@/types/database";
  */
 
 export const QuestBriefSchema = z.object({
+  /** Explicit city slug from the wizard. Absent = fall back to home city. */
+  city: z.string().trim().toLowerCase().max(40).optional(),
   first_time: z.boolean().default(false),
   interests: z.array(z.string().trim().min(1).max(40)).max(6).default([]),
   hours: z.number().int().min(2).max(12).default(5),
@@ -75,7 +77,28 @@ export async function generateQuest(
     .eq("id", userId)
     .maybeSingle();
   const personalize = profileRow?.personalization_enabled !== false;
-  const city = await resolveCity(supabase, profileRow?.home_city);
+
+  // An explicitly chosen city must fail loudly when it isn't open yet; only
+  // the absent-city path may silently fall back (home city -> first live).
+  let city;
+  if (brief.city) {
+    const { data: chosen } = await supabase
+      .from("cities")
+      .select("*")
+      .eq("slug", brief.city)
+      .maybeSingle();
+    if (!chosen) {
+      throw new Error("We don't know that city yet - it's on the list.");
+    }
+    if (!chosen.is_live) {
+      throw new Error(
+        `${chosen.name} isn't live yet - soon. Delhi's open right now.`,
+      );
+    }
+    city = chosen;
+  } else {
+    city = await resolveCity(supabase, profileRow?.home_city);
+  }
 
   const { data: taste } = personalize
     ? await supabase

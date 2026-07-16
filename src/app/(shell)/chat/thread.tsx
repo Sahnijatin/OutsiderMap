@@ -51,6 +51,7 @@ export function ChatThread({
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages ?? []);
   const [threadId, setThreadId] = useState<string | undefined>(initialThreadId);
+  const [city, setCity] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [failedText, setFailedText] = useState<string | null>(null);
@@ -87,6 +88,7 @@ export function ChatThread({
       const body = res.ok
         ? ((await res.json().catch(() => null)) as {
             threadId?: string;
+            city?: string;
             text?: string;
             picks?: ChatPickCard[];
           } | null)
@@ -118,6 +120,7 @@ export function ChatThread({
         }
         setThreadId(body.threadId);
       }
+      if (body.city) setCity(body.city);
       setMessages((prev) => [
         ...prev,
         {
@@ -201,7 +204,7 @@ export function ChatThread({
           </div>
         ) : (
           <div className="flex flex-col gap-4 py-4">
-            {messages.map((m) => (
+            {messages.map((m, i) => (
               <div
                 key={m.id}
                 className={cn(
@@ -237,6 +240,15 @@ export function ChatThread({
                     {m.picks.map((pick) => (
                       <PickCard key={pick.slug} pick={pick} />
                     ))}
+                    <Link
+                      href={questHandoffHref(
+                        city,
+                        lastUserMessageBefore(messages, i),
+                      )}
+                      className="self-start rounded-full border border-line px-4 py-1.5 text-xs text-ink-dim transition-colors hover:border-accent/50 hover:text-accent"
+                    >
+                      Turn this into a day →
+                    </Link>
                   </div>
                 )}
               </div>
@@ -283,6 +295,22 @@ export function ChatThread({
       </form>
     </>
   );
+}
+
+/** The user ask that produced the picks at index i - fuels the quest brief. */
+function lastUserMessageBefore(messages: Message[], i: number) {
+  for (let j = i - 1; j >= 0; j--) {
+    if (messages[j].role === "user") return messages[j].content;
+  }
+  return "";
+}
+
+function questHandoffHref(city: string | null, brief: string) {
+  const params = new URLSearchParams();
+  if (city) params.set("city", city);
+  if (brief) params.set("brief", brief.slice(0, 400));
+  const qs = params.toString();
+  return qs ? `/quests/new?${qs}` : "/quests/new";
 }
 
 function Dot({ delay }: { delay: string }) {

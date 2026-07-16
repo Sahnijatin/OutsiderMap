@@ -39,8 +39,14 @@ export type ChatPickCard = {
 };
 
 export type ChatTurnResult =
-  | { type: "ask"; threadId: string; text: string }
-  | { type: "picks"; threadId: string; text: string; picks: ChatPickCard[] };
+  | { type: "ask"; threadId: string; city: string; text: string }
+  | {
+      type: "picks";
+      threadId: string;
+      city: string;
+      text: string;
+      picks: ChatPickCard[];
+    };
 
 const IntentStateSchema = z
   .object({ questions_asked: z.number().int().min(0).default(0) })
@@ -171,7 +177,7 @@ export async function runChatTurn(
         .update({ intent_state: nextState, updated_at: new Date().toISOString() })
         .eq("id", threadId),
     ]);
-    return { type: "ask", threadId, text: decision.question };
+    return { type: "ask", threadId, city: city.slug, text: decision.question };
   }
 
   // Recommend path: search the catalog, then compose lead-in + picks.
@@ -204,7 +210,7 @@ export async function runChatTurn(
       role: "assistant",
       content: text,
     });
-    return { type: "picks", threadId, text, picks: [] };
+    return { type: "picks", threadId, city: city.slug, text, picks: [] };
   }
 
   const pool = preferOpen(candidates);
@@ -318,5 +324,11 @@ export async function runChatTurn(
     }),
   ]);
 
-  return { type: "picks", threadId, text: composed.lead_in, picks };
+  return {
+    type: "picks",
+    threadId,
+    city: city.slug,
+    text: composed.lead_in,
+    picks,
+  };
 }
