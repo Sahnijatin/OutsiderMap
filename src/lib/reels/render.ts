@@ -88,6 +88,7 @@ export async function renderQuestReel(
 
   const workDir = await mkdtemp(path.join(tmpdir(), "reel-"));
   try {
+    const ffmpeg = await ffmpegPath();
     const clips: ReelClip[] = [];
     for (let i = 0; i < ordered.length; i++) {
       const m = ordered[i];
@@ -98,6 +99,19 @@ export async function renderQuestReel(
       const ext = m.storage_path.slice(m.storage_path.lastIndexOf(".") + 1);
       const localPath = path.join(workDir, `clip-${i}.${ext}`);
       await writeFile(localPath, Buffer.from(await blob.arrayBuffer()));
+      // One undecodable file (mislabeled HEIC, truncated upload) must not
+      // fail the whole reel: probe-decode a single frame and skip the clip
+      // if ffmpeg can't read it.
+      try {
+        await execFileAsync(
+          ffmpeg,
+          ["-v", "error", "-i", localPath, "-frames:v", "1", "-f", "null", "-"],
+          { maxBuffer: 4 * 1024 * 1024, timeout: 30_000 },
+        );
+      } catch {
+        console.warn(`reel: skipping undecodable clip ${m.storage_path}`);
+        continue;
+      }
       clips.push({ localPath, type: m.media_type });
     }
     if (clips.length === 0) throw new Error("no downloadable media");
@@ -111,7 +125,6 @@ export async function renderQuestReel(
 
     const outPath = path.join(workDir, "reel.mp4");
     const posterPath = path.join(workDir, "poster.jpg");
-    const ffmpeg = await ffmpegPath();
 
     await execFileAsync(
       ffmpeg,

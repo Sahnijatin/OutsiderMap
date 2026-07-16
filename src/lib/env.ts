@@ -16,8 +16,15 @@ const serverEnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(1).optional(),
-  /** Base URL for server-to-self calls (reel job kickoff). */
-  NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  /** Base URL for server-to-self calls (reel job kickoff). A bare domain
+   *  ("outsidermap.com") is a common dashboard entry - normalize it. */
+  NEXT_PUBLIC_APP_URL: z.preprocess(
+    (v) =>
+      typeof v === "string" && v.length > 0 && !/^https?:\/\//.test(v)
+        ? `https://${v}`
+        : v,
+    z.string().url().optional(),
+  ),
   RAZORPAY_KEY_ID: z.string().min(1).optional(),
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
@@ -36,9 +43,26 @@ export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
 let cached: ServerEnv | null = null;
 
+/**
+ * Vercel's dashboard happily saves a variable with an empty value, and
+ * "" fails min(1)/url() - which took down every route whose first line is
+ * serverEnv() (the cron 500s in prod). Treat empty/whitespace values as
+ * unset so optional vars degrade the feature instead of the whole route.
+ */
+function withoutEmptyValues(
+  env: NodeJS.ProcessEnv,
+): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value === "string" && value.trim() === "") continue;
+    out[key] = value;
+  }
+  return out;
+}
+
 export function serverEnv(): ServerEnv {
   if (!cached) {
-    const parsed = serverEnvSchema.safeParse(process.env);
+    const parsed = serverEnvSchema.safeParse(withoutEmptyValues(process.env));
     if (!parsed.success) {
       throw new Error(
         `Invalid environment configuration: ${parsed.error.issues

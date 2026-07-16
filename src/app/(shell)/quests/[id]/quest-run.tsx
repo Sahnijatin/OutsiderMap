@@ -383,17 +383,65 @@ function StopCard({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  async function uploadOne(file: File) {
+  async function uploadOne(rawFile: File) {
+    let file = rawFile;
     const kind = file.type.startsWith("video/") ? "video" : "image";
-    const extFromName = file.name.split(".").pop()?.toLowerCase() ?? "";
-    const ext =
-      kind === "image"
-        ? ["jpg", "jpeg", "png", "webp"].includes(extFromName)
-          ? extFromName.replace("jpeg", "jpg")
-          : "jpg"
-        : ["mp4", "webm", "mov"].includes(extFromName)
-          ? extFromName
-          : "mp4";
+    let extFromName = file.name.split(".").pop()?.toLowerCase() ?? "";
+
+    // iPhones shoot HEIC/HEIF by default. Our renderer can't decode it, so
+    // transcode to JPEG on-device - Safari (the platform that produces
+    // HEIC) decodes it natively via createImageBitmap.
+    const isHeic =
+      kind === "image" &&
+      (file.type === "image/heic" ||
+        file.type === "image/heif" ||
+        ["heic", "heif"].includes(extFromName));
+    if (isHeic) {
+      try {
+        const bitmap = await createImageBitmap(file);
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/jpeg", 0.85),
+        );
+        if (!blob) throw new Error("transcode produced nothing");
+        file = new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+          type: "image/jpeg",
+        });
+        extFromName = "jpg";
+      } catch {
+        throw new Error(
+          "That's an iPhone HEIC photo we can't read here. Switch Settings > Camera > Formats to Most Compatible, or screenshot the photo and upload that.",
+        );
+      }
+    }
+
+    // Resolve the real extension from MIME first (camera captures often
+    // arrive with odd/absent names), then the filename. Anything we can't
+    // identify is rejected with a clear message - never relabeled.
+    const MIME_EXT: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "video/mp4": "mp4",
+      "video/webm": "webm",
+      "video/quicktime": "mov",
+    };
+    const VALID =
+      kind === "image" ? ["jpg", "png", "webp"] : ["mp4", "webm", "mov"];
+    const fromMime = MIME_EXT[file.type];
+    const fromName = extFromName === "jpeg" ? "jpg" : extFromName;
+    const ext = fromMime ?? (VALID.includes(fromName) ? fromName : null);
+    if (!ext || !VALID.includes(ext)) {
+      throw new Error(
+        kind === "image"
+          ? `That image format isn't supported - JPG, PNG or WebP.`
+          : `That video format isn't supported - MP4, WebM or MOV.`,
+      );
+    }
 
     const issue = await fetch(
       `/api/quests/${questId}/stops/${stop.id}/media`,

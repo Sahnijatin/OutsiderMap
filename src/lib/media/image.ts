@@ -15,6 +15,24 @@ export const IMAGE_EXT_MIME = {
 export type ImageExt = keyof typeof IMAGE_EXT_MIME;
 
 /**
+ * HEIC/HEIF detection (iPhone default format). The ISO-BMFF header carries
+ * "ftyp" at offset 4 followed by a heif-family brand. We never accept these
+ * - callers use this to reject with a friendly message instead of letting
+ * mislabeled bytes poison downstream consumers (the reel renderer can't
+ * decode them).
+ */
+export function isHeicBytes(bytes: Uint8Array): boolean {
+  if (bytes.length < 12) return false;
+  const ascii = (from: number, to: number) =>
+    String.fromCharCode(...bytes.slice(from, to));
+  if (ascii(4, 8) !== "ftyp") return false;
+  const brand = ascii(8, 12);
+  return ["heic", "heix", "hevc", "heim", "heis", "hevm", "hevs", "mif1"].includes(
+    brand,
+  );
+}
+
+/**
  * Identifies an image by its magic bytes. Returns the canonical extension, or
  * null if the bytes aren't an allowed image.
  */
