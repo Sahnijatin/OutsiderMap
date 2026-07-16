@@ -1,19 +1,21 @@
 import type { StyleSpecification } from "maplibre-gl";
 
 /**
- * The OutsiderMap basemap: Delhi-night dark, geometry-first. Built on
- * OpenFreeMap's OpenMapTiles vector schema. The basemap contributes NO
- * street names, no POI icons, no transit shields - the only symbol layer it
- * owns is quiet neighbourhood/city names for orientation; every place label
- * on screen is ours.
+ * The OutsiderMap basemap.
  *
- * Colors come from the brand tokens in globals.css (hardcoded here because
- * MapLibre needs literal values in the style JSON - keep in sync).
+ * We render on CARTO's "dark_nolabels" raster basemap: a clean dark map with
+ * NO street names or POI labels (our no-clutter product law holds), served
+ * from a global CDN with strong reach - including India, our launch market.
+ * We moved off the free single-host OpenFreeMap vector tiles because they
+ * did not load reliably on Indian mobile networks and left the map black.
+ *
+ * The only labels on screen are still OURS - place names and cluster counts
+ * are symbol layers added in map-canvas, drawn with self-hosted Noto Sans
+ * glyphs (public/fonts) so text has no third-party dependency either.
+ *
+ * Brand color constants are exported for the overlay layers; keep in sync
+ * with globals.css.
  */
-
-const TILES_URL = "https://tiles.openfreemap.org/planet";
-export const GLYPHS_URL =
-  "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 
 export const MAP_NIGHT = "#0c0a08";
 export const MAP_INK = "#ede7db";
@@ -22,128 +24,39 @@ export const MAP_ACCENT = "#f0a431";
 /** Amber-tinted ink for our own place-name labels. */
 export const MAP_LABEL_AMBER = "#e6c789";
 
-const SURFACE = "#16120e";
-// Roads a few steps brighter than the old RAISE/LINE values - the founder's
-// laptop read the map as pure black. Warm greys keep the night feel.
-const ROAD_MINOR = "#2a231b";
-const ROAD_MID = "#342c22";
-const ROAD_MAJOR = "#40372b";
-const WATER = "#101720";
-const GREEN = "#17200f";
+/** Self-hosted glyphs - no external font host to fail. */
+export const GLYPHS_URL = "/fonts/{fontstack}/{range}.pbf";
+
+/** CARTO dark, label-free raster. Keyless; attribution required. */
+const CARTO_TILES = [
+  "https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
+  "https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
+  "https://c.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
+  "https://d.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png",
+];
+
+export const MAP_ATTRIBUTION =
+  '© OpenStreetMap contributors © CARTO';
 
 export function baseMapStyle(): StyleSpecification {
   return {
     version: 8,
     glyphs: GLYPHS_URL,
     sources: {
-      om: { type: "vector", url: TILES_URL },
+      basemap: {
+        type: "raster",
+        tiles: CARTO_TILES,
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 20,
+        attribution: MAP_ATTRIBUTION,
+      },
     },
     layers: [
+      // A night floor under the tiles so any single missing tile reads as
+      // brand-dark, never a bright gap.
       { id: "bg", type: "background", paint: { "background-color": MAP_NIGHT } },
-      {
-        id: "green",
-        type: "fill",
-        source: "om",
-        "source-layer": "landcover",
-        paint: { "fill-color": GREEN, "fill-opacity": 0.85 },
-      },
-      {
-        id: "park",
-        type: "fill",
-        source: "om",
-        "source-layer": "park",
-        paint: { "fill-color": GREEN, "fill-opacity": 1 },
-      },
-      {
-        id: "water",
-        type: "fill",
-        source: "om",
-        "source-layer": "water",
-        paint: { "fill-color": WATER },
-      },
-      {
-        id: "buildings",
-        type: "fill",
-        source: "om",
-        "source-layer": "building",
-        minzoom: 13,
-        paint: { "fill-color": SURFACE, "fill-opacity": 0.55 },
-      },
-      // Roads: three weights, quiet but visible. Texture, not a chart.
-      {
-        id: "roads-minor",
-        type: "line",
-        source: "om",
-        "source-layer": "transportation",
-        minzoom: 12,
-        filter: [
-          "in",
-          ["get", "class"],
-          ["literal", ["minor", "service", "track", "path"]],
-        ],
-        paint: {
-          "line-color": ROAD_MINOR,
-          "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.4, 16, 2],
-        },
-      },
-      {
-        id: "roads-mid",
-        type: "line",
-        source: "om",
-        "source-layer": "transportation",
-        filter: [
-          "in",
-          ["get", "class"],
-          ["literal", ["secondary", "tertiary"]],
-        ],
-        paint: {
-          "line-color": ROAD_MID,
-          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 16, 4],
-        },
-      },
-      {
-        id: "roads-major",
-        type: "line",
-        source: "om",
-        "source-layer": "transportation",
-        filter: [
-          "in",
-          ["get", "class"],
-          ["literal", ["motorway", "trunk", "primary"]],
-        ],
-        paint: {
-          "line-color": ROAD_MAJOR,
-          "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 16, 6],
-        },
-      },
-      // Orientation labels ONLY: city/suburb/neighbourhood names, uppercase
-      // mono-quiet. Still zero street names and zero POIs.
-      {
-        id: "place-labels",
-        type: "symbol",
-        source: "om",
-        "source-layer": "place",
-        minzoom: 9,
-        maxzoom: 14.5,
-        filter: [
-          "in",
-          ["get", "class"],
-          ["literal", ["city", "town", "suburb", "quarter", "neighbourhood"]],
-        ],
-        layout: {
-          "text-field": ["get", "name"],
-          "text-font": ["Noto Sans Regular"],
-          "text-size": ["interpolate", ["linear"], ["zoom"], 9, 10.5, 14, 13],
-          "text-letter-spacing": 0.08,
-          "text-transform": "uppercase",
-        },
-        paint: {
-          "text-color": MAP_INK_DIM,
-          "text-halo-color": MAP_NIGHT,
-          "text-halo-width": 1.2,
-          "text-opacity": 0.85,
-        },
-      },
+      { id: "basemap", type: "raster", source: "basemap" },
     ],
   };
 }

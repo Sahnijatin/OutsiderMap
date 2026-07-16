@@ -2,15 +2,19 @@
  * Minimal service worker: enough for installability and snappy repeat opens,
  * deliberately NOT offline-first.
  *
- * Scope: ONLY the public map-tile host gets stale-while-revalidate. The app's
+ * Scope: ONLY the public map-tile CDN gets stale-while-revalidate. The app's
  * own APIs are never intercepted - /api/map/places responses are per-user
  * (caching them by URL leaked one account's catalog view to another on a
  * shared device) and auth-sensitive routes must always hit the network.
+ * Our glyph fonts are same-origin static files and Next serves + caches them.
  */
-const VERSION = "om-sw-v3";
+const VERSION = "om-sw-v4";
 const MAP_CACHE = `${VERSION}-map`;
 
-const MAP_HOSTS = ["tiles.openfreemap.org"];
+/** CARTO basemap tile CDN (a/b/c/d.basemaps.cartocdn.com). */
+function isMapTileHost(hostname) {
+  return hostname.endsWith("basemaps.cartocdn.com");
+}
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -32,28 +36,12 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || !MAP_HOSTS.includes(url.hostname)) {
+  if (event.request.method !== "GET" || !isMapTileHost(url.hostname)) {
     return;
   }
 
-  // Only the immutable, content-addressed assets are safe to serve stale:
-  // the dated .pbf vector tiles and the glyph ranges. Everything else on
-  // this host - crucially the TileJSON at /planet, which points to a dated
-  // tile path OpenFreeMap rotates - MUST be network-first, or a cached
-  // TileJSON keeps aiming at deleted tiles and the whole map goes black.
-  const immutable = url.pathname.endsWith(".pbf");
-
-  if (!immutable) {
-    event.respondWith(
-      fetch(event.request).catch(
-        async () =>
-          (await caches.open(MAP_CACHE)).match(event.request) ??
-          Response.error(),
-      ),
-    );
-    return;
-  }
-
+  // Raster tiles are effectively immutable and safe to serve stale while a
+  // fresh copy revalidates in the background.
   event.respondWith(
     (async () => {
       const cache = await caches.open(MAP_CACHE);

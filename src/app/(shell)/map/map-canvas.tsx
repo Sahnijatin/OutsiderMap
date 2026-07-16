@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   baseMapStyle,
   MAP_ACCENT as ACCENT,
+  MAP_ATTRIBUTION,
   MAP_INK as INK,
   MAP_LABEL_AMBER,
   MAP_NIGHT as NIGHT,
@@ -179,7 +180,7 @@ export function MapCanvas({
     map.addControl(
       new maplibregl.AttributionControl({
         compact: true,
-        customAttribution: "© OpenStreetMap",
+        customAttribution: MAP_ATTRIBUTION,
       }),
       "bottom-left",
     );
