@@ -38,6 +38,13 @@
 
 :root {
   color-scheme: dark;
+  /* Installed-PWA safe areas: with viewport-fit=cover + a translucent status
+   * bar, content extends under the notch and home indicator. Every surface
+   * pads with these instead of guessing (issue #53). --tab-clearance is the
+   * real height of the bottom tab bar (4rem + the home-indicator inset). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tab-clearance: calc(4rem + env(safe-area-inset-bottom, 0px));
 }
 
 body {

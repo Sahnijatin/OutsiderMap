@@ -26,7 +26,7 @@ export default async function QuestsPage() {
   const list = quests ?? [];
 
   return (
-    <main className="mx-auto min-h-dvh max-w-lg px-5 pb-24 pt-6">
+    <main className="mx-auto min-h-dvh max-w-lg px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+1.5rem)]">
       <header className="flex items-end justify-between gap-4">
         <div>
           <p className="voice">quests</p>

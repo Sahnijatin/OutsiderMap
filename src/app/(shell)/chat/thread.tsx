@@ -162,7 +162,7 @@ export function ChatThread({ displayName }: { displayName: string | null }) {
 
   return (
     <>
-      <header className="flex items-center justify-between px-5 pb-2 pt-4">
+      <header className="flex items-center justify-between px-5 pb-2 pt-[calc(var(--safe-top)+1rem)]">
         <p className="voice">the concierge</p>
         {!empty && (
           <button

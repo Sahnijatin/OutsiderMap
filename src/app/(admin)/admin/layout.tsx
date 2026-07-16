@@ -9,7 +9,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-dvh">
-      <header className="border-b border-line bg-surface/50">
+      <header className="border-b border-line bg-surface/50 pt-[var(--safe-top)]">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
           <div className="flex items-center gap-3">
             <Link href="/map" className="font-display text-lg italic">
