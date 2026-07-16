@@ -9,13 +9,16 @@
 #        SUPABASE_ACCESS_TOKEN  - Supabase account -> Access Tokens
 #        SUPABASE_DB_PASSWORD   - Project Settings -> Database (connection info)
 #        SUPABASE_PROJECT_ID    - the project ref (bhzuqawppkhwgmktazdp)
-#   2. Baseline the migrations you already applied by hand, so the CLI doesn't
-#      try to re-run them (run locally once):
+#   2. Baseline any migrations that were already applied by hand, so the CLI
+#      doesn't try to re-run them (run locally once, listing exactly the
+#      versions that are ALREADY live in that database - check
+#      supabase/migrations/ for the current file list; as of this writing
+#      they run 00000000000001 through 00000000000014):
 #        npx supabase link --project-ref <ref>
-#        npx supabase migration repair --status applied \
-#          00000000000001 00000000000002 00000000000003 \
-#          00000000000004 00000000000005
+#        npx supabase migration repair --status applied <version...>
 #      After that, `db push` only ever applies brand-new migration files.
+#      For a FRESH database, skip the repair entirely - `db push` applies
+#      everything from scratch.
 
 name: Deploy DB migrations
 

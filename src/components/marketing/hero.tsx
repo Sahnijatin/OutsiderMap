@@ -59,7 +59,7 @@ export function Hero() {
         </motion.div>
 
         <motion.p variants={fadeUp} className="font-mono text-xs text-ink-dim/60">
-          Launching in Delhi, July 10 · every city soon
+          Live in Delhi · every city soon
         </motion.p>
       </motion.div>
     </section>

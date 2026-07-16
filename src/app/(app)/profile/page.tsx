@@ -206,7 +206,7 @@ export default async function ProfilePage({
                         month: "short",
                         timeZone: "Asia/Kolkata",
                       })
-                    : "soon"
+                    : "at the end of this period"
                 }`
               : "Free tier - Right Now answers, unlimited."}
           </p>
