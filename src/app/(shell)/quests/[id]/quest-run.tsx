@@ -288,23 +288,67 @@ function ReelPanel({ quest }: { quest: QuestDetail }) {
   const reel = quest.reel;
   const videoUrl = publicMediaUrl("reel-media", reel?.videoPath);
   const posterUrl = publicMediaUrl("reel-media", reel?.posterPath);
+  const [exporting, setExporting] = useState<"share" | "download" | null>(null);
 
+  function logShare() {
+    void fetch("/api/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reel_share" }),
+    }).catch(() => {});
+  }
+
+  async function fetchReelFile(): Promise<File> {
+    const res = await fetch(videoUrl!);
+    if (!res.ok) throw new Error("reel fetch failed");
+    const blob = await res.blob();
+    return new File([blob], "outsider-reel.mp4", { type: "video/mp4" });
+  }
+
+  // Share the actual FILE - a cross-origin URL neither downloads nor posts
+  // to Instagram on iOS; the file opens the real share sheet.
   async function share() {
-    if (!videoUrl) return;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: quest.title, url: videoUrl });
-        void fetch("/api/interactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "reel_share" }),
-        }).catch(() => {});
+    if (!videoUrl || exporting) return;
+    setExporting("share");
+    try {
+      const file = await fetchReelFile();
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: quest.title });
+        logShare();
         return;
-      } catch {
-        // fall through to clipboard
       }
+      if (navigator.share) {
+        await navigator.share({ title: quest.title, url: videoUrl });
+        logShare();
+        return;
+      }
+      await navigator.clipboard.writeText(videoUrl);
+      logShare(); // the clipboard path counts as a share too
+    } catch {
+      // Share sheet dismissed or unavailable - nothing to clean up.
+    } finally {
+      setExporting(null);
     }
-    await navigator.clipboard.writeText(videoUrl).catch(() => {});
+  }
+
+  async function download() {
+    if (!videoUrl || exporting) return;
+    setExporting("download");
+    try {
+      const file = await fetchReelFile();
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      window.open(videoUrl, "_blank", "noopener");
+    } finally {
+      setExporting(null);
+    }
   }
 
   if (reel?.status === "ready" && videoUrl) {
@@ -318,15 +362,25 @@ function ReelPanel({ quest }: { quest: QuestDetail }) {
           className="aspect-[9/16] max-h-96 w-full bg-night object-contain"
         />
         <div className="flex gap-2 p-3">
-          <a
-            href={videoUrl}
-            download
-            className="flex h-10 flex-1 items-center justify-center rounded-full bg-accent text-sm font-medium text-night"
+          <Button
+            className="h-10 flex-1"
+            disabled={exporting !== null}
+            onClick={share}
           >
-            Download reel
-          </a>
-          <Button variant="secondary" size="sm" className="h-10" onClick={share}>
-            Share
+            {exporting === "share" ? (
+              <Spinner className="border-night/30 border-t-night" />
+            ) : null}
+            Share reel
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-10"
+            disabled={exporting !== null}
+            onClick={download}
+          >
+            {exporting === "download" ? <Spinner className="size-4" /> : null}
+            Save
           </Button>
         </div>
         <p className="px-3 pb-3 text-xs text-ink-dim">
