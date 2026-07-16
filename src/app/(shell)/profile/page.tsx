@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { priceGlyph } from "@/lib/utils";
 import { formatOutsiderNumber } from "@/lib/identity/username";
+import { DangerZone, PersonalizationToggle } from "./settings-cards";
 
 export const metadata: Metadata = {
   title: "Your taste profile",
@@ -38,18 +39,25 @@ export default async function ProfilePage({
   const { welcome } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: taste }, { data: subscription }] = await Promise.all([
-    supabase
-      .from("taste_profiles")
-      .select("*")
-      .eq("user_id", profile.id)
-      .maybeSingle(),
-    supabase
-      .from("subscriptions")
-      .select("tier, status, current_period_end")
-      .eq("user_id", profile.id)
-      .maybeSingle(),
-  ]);
+  const [{ data: taste }, { data: subscription }, { data: bucket }] =
+    await Promise.all([
+      supabase
+        .from("taste_profiles")
+        .select("*")
+        .eq("user_id", profile.id)
+        .maybeSingle(),
+      supabase
+        .from("subscriptions")
+        .select("tier, status, current_period_end")
+        .eq("user_id", profile.id)
+        .maybeSingle(),
+      supabase
+        .from("saved_places")
+        .select("place_id, status, place:places(slug, name, area)")
+        .eq("user_id", profile.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
 
   const parsed = StoredAnswersSchema.safeParse(taste?.quiz_answers);
   const dimensions = parsed.success ? parsed.data.dimensions : undefined;
@@ -192,6 +200,53 @@ export default async function ProfilePage({
         </p>
       </Card>
 
+      <section className="flex flex-col gap-3">
+        <h2 className="voice">Your bucket</h2>
+        {bucket && bucket.length > 0 ? (
+          <ul className="flex flex-col gap-2">
+            {bucket.map((row) => (
+              <li key={row.place_id}>
+                <Link
+                  href={`/map?place=${encodeURIComponent(row.place?.slug ?? "")}`}
+                  className="flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface px-4 py-3 transition-colors hover:border-accent/50"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-ink">
+                      {row.place?.name ?? "A place"}
+                    </p>
+                    {row.place?.area && (
+                      <p className="text-xs text-ink-dim">{row.place.area}</p>
+                    )}
+                  </div>
+                  <Badge
+                    variant={
+                      row.status === "completed"
+                        ? "accent"
+                        : row.status === "started"
+                          ? "under"
+                          : "outline"
+                    }
+                  >
+                    {row.status}
+                  </Badge>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Card>
+            <p className="text-sm text-ink-dim">
+              Nothing saved yet. Tap a light on the map and save what calls
+              to you - it collects here.
+            </p>
+          </Card>
+        )}
+      </section>
+
+      <PersonalizationToggle
+        initial={profile.personalization_enabled !== false}
+      />
+
       <Card className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <p className="voice">Membership</p>
@@ -229,6 +284,8 @@ export default async function ProfilePage({
           </Link>
         )}
       </Card>
+
+      <DangerZone username={profile.username} />
 
       <footer className="flex flex-wrap items-center gap-4 border-t border-line pt-6">
         <Link

@@ -12,6 +12,7 @@ type FeedReel = {
   caption: string | null;
   video_path: string;
   poster_path: string | null;
+  status?: "pending" | "approved" | "rejected";
   created_at: string;
   place: { id: string; slug: string; name: string; area: string | null } | null;
 };
@@ -181,6 +182,14 @@ function ReelSlide({
       >
         {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
       </button>
+
+      {reel.status && reel.status !== "approved" && (
+        <span className="absolute left-4 top-4 rounded-full border border-accent/50 bg-night/70 px-3 py-1 text-xs text-accent backdrop-blur">
+          {reel.status === "pending"
+            ? "in review · only you see this"
+            : "not published"}
+        </span>
+      )}
 
       <div className="absolute inset-x-4 bottom-6 flex items-end justify-between gap-3">
         <div className="min-w-0">
