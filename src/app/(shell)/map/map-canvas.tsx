@@ -6,6 +6,7 @@ import maplibregl, {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
+import { LocateFixed } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   baseMapStyle,
@@ -17,6 +18,12 @@ import {
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { MapSearch } from "./map-search";
 import { PlaceSheet, type SelectedPlace } from "./place-sheet";
+
+function LocateIcon({ spinning }: { spinning: boolean }) {
+  return (
+    <LocateFixed className={spinning ? "size-3.5 animate-spin" : "size-3.5"} />
+  );
+}
 
 /** maplibre v5 has no supported() - probe for a WebGL context directly. */
 function webglAvailable() {
@@ -83,7 +90,9 @@ export function MapCanvas({
   const [reloadKey, setReloadKey] = useState(0);
   const [unsupported, setUnsupported] = useState(false);
   const [tileTrouble, setTileTrouble] = useState(false);
+  const [locating, setLocating] = useState(false);
   const lastTileErrorAt = useRef(0);
+  const geolocateRef = useRef<maplibregl.GeolocateControl | null>(null);
 
   const selectPlace = useCallback(
     (props: PlaceFeatureProps, lng: number, lat: number) => {
@@ -174,14 +183,20 @@ export function MapCanvas({
       }),
       "bottom-left",
     );
-    map.addControl(
-      new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserLocation: true,
-      }),
-      "bottom-right",
-    );
+    const geolocate = new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true, timeout: 10_000 },
+      trackUserLocation: true,
+      showUserLocation: true,
+      // Land the member at a street-level zoom where the night map clearly
+      // reads - roads, water and area names all render. The distant city
+      // overview looked like a black void on phones.
+      fitBoundsOptions: { maxZoom: 15 },
+    });
+    geolocateRef.current = geolocate;
+    map.addControl(geolocate, "bottom-right");
+    geolocate.on("geolocate", () => setLocating(false));
+    geolocate.on("error", () => setLocating(false));
+    geolocate.on("outofmaxbounds", () => setLocating(false));
     map.touchZoomRotate.disableRotation();
 
     map.on("load", () => {
@@ -346,6 +361,15 @@ export function MapCanvas({
           map.getCanvas().style.cursor = "";
         });
       }
+
+      // Drop the member onto the map at their own location on first paint.
+      // iOS Safari may hold the permission prompt for a tap, so this is a
+      // best-effort nudge; the locate button below is the reliable path.
+      setLocating(true);
+      requestAnimationFrame(() => {
+        const started = geolocate.trigger();
+        if (!started) setLocating(false);
+      });
     });
 
     return () => {
@@ -469,6 +493,22 @@ export function MapCanvas({
           selectPlace(props, lng, lat);
         }}
       />
+
+      {/* Reliable locate affordance: the auto-nudge on load may be blocked
+          until a tap on iOS Safari, so this is always here. */}
+      <button
+        type="button"
+        aria-label="Center on my location"
+        onClick={() => {
+          setLocating(true);
+          const started = geolocateRef.current?.trigger();
+          if (!started) setLocating(false);
+        }}
+        className="absolute right-4 top-20 z-10 flex items-center gap-1.5 rounded-full border border-accent/50 bg-surface/90 px-3.5 py-2 text-xs font-medium text-accent backdrop-blur transition-colors hover:bg-accent/10"
+      >
+        <LocateIcon spinning={locating} />
+        {locating ? "Finding you" : "Near me"}
+      </button>
 
       {tileTrouble && (
         <p className="absolute inset-x-0 top-32 z-10 mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink-dim backdrop-blur">

@@ -7,7 +7,7 @@
  * (caching them by URL leaked one account's catalog view to another on a
  * shared device) and auth-sensitive routes must always hit the network.
  */
-const VERSION = "om-sw-v2";
+const VERSION = "om-sw-v3";
 const MAP_CACHE = `${VERSION}-map`;
 
 const MAP_HOSTS = ["tiles.openfreemap.org"];
@@ -33,6 +33,24 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || !MAP_HOSTS.includes(url.hostname)) {
+    return;
+  }
+
+  // Only the immutable, content-addressed assets are safe to serve stale:
+  // the dated .pbf vector tiles and the glyph ranges. Everything else on
+  // this host - crucially the TileJSON at /planet, which points to a dated
+  // tile path OpenFreeMap rotates - MUST be network-first, or a cached
+  // TileJSON keeps aiming at deleted tiles and the whole map goes black.
+  const immutable = url.pathname.endsWith(".pbf");
+
+  if (!immutable) {
+    event.respondWith(
+      fetch(event.request).catch(
+        async () =>
+          (await caches.open(MAP_CACHE)).match(event.request) ??
+          Response.error(),
+      ),
+    );
     return;
   }
 
