@@ -17,7 +17,7 @@ export function Premium() {
         </RevealItem>
         <RevealItem>
           <h2 className="mt-4 max-w-2xl font-display text-3xl sm:text-5xl">
-            The weekend, planned.{" "}
+            The city, quested.{" "}
             <span className="italic text-under">The underground, open.</span>
           </h2>
         </RevealItem>
@@ -25,17 +25,17 @@ export function Premium() {
         <div className="mt-16 grid gap-6 sm:grid-cols-2">
           <RevealItem>
             <div className="flex h-full flex-col gap-4 rounded-card border border-line bg-surface p-7">
-              <Badge variant="under" className="self-start">
-                Premium
+              <Badge variant="accent" className="self-start">
+                Free
               </Badge>
-              <h3 className="font-display text-2xl">Weekend Planner</h3>
+              <h3 className="font-display text-2xl">Quests &amp; reels</h3>
               <p className="text-sm leading-relaxed text-ink-dim">
-                Friday evening to Sunday night, planned around your taste,
-                your energy curve, and your budget - then editable down to
-                the brunch table. Save it, share it, actually do it.
+                A day built around your taste, stop by stop - shoot each one,
+                finish the run, and get a reel with your outsider number on
+                it. Free, because this is the whole point.
               </p>
               <div className="mt-auto flex flex-col gap-2 pt-4">
-                {["FRI · slow start, loud finish", "SAT · the long one", "SUN · repair day"].map(
+                {["STOP 1 · unlocked", "STOP 2 · shoot the room", "REEL · yours to post"].map(
                   (row) => (
                     <div
                       key={row}

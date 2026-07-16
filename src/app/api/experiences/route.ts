@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getApiContext } from "@/lib/api-auth";
 import { isOpenNow, openStatusLabel } from "@/lib/places/hours";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { resolveCity } from "@/lib/cities";
 import type { PlaceKind } from "@/types/database";
 
 /**
@@ -30,12 +31,19 @@ export async function GET(request: NextRequest) {
   const openNow = params.get("openNow") === "true";
   const limit = Math.min(Number(params.get("limit")) || 30, 100);
 
+  const { data: profile } = await ctx.supabase
+    .from("profiles")
+    .select("home_city")
+    .eq("id", ctx.user.id)
+    .maybeSingle();
+  const city = await resolveCity(ctx.supabase, profile?.home_city);
+
   let q = ctx.supabase
     .from("places")
     .select(LIST_FIELDS)
     .eq("is_published", true)
     .eq("is_chain", false)
-    .eq("city", "delhi")
+    .eq("city", city.slug)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (kind) q = q.eq("kind", kind as PlaceKind);

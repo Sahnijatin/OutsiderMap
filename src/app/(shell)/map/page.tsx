@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { FALLBACK_DELHI } from "@/lib/cities";
 import { MapCanvas } from "./map-canvas";
 
 export const metadata: Metadata = {
@@ -34,9 +35,7 @@ export default async function MapPage({
   return (
     <main className="fixed inset-0 bottom-16">
       <MapCanvas
-        city={
-          city ?? { slug: "delhi", name: "Delhi", lat: 28.6139, lng: 77.209, zoom: 11.2 }
-        }
+        city={city ?? FALLBACK_DELHI}
         cities={live}
         welcome={welcome === "1"}
         outsiderNumber={profile.outsider_number}

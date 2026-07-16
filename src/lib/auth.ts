@@ -62,6 +62,6 @@ export async function isPremium() {
 export async function requireAdmin() {
   const profile = await getProfile();
   if (!profile) redirect("/sign-in");
-  if (!profile.is_admin) redirect("/now");
+  if (!profile.is_admin) redirect("/map");
   return profile;
 }

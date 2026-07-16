@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { isPremium, requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { resolveCity } from "@/lib/cities";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { formatEventTime } from "@/lib/utils";
@@ -11,9 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default async function EventsPage() {
-  await requireOnboarded();
+  const profile = await requireOnboarded();
   const premium = await isPremium();
   const supabase = await createClient();
+  const city = await resolveCity(supabase, profile.home_city);
 
   // RLS already scopes this to the viewer's tier.
   const since = new Date();
@@ -36,9 +38,9 @@ export default async function EventsPage() {
   const teaserCount = teasers?.length ?? 0;
 
   return (
-    <main className="flex flex-col gap-10">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-24 pt-8">
       <header className="flex flex-col gap-2">
-        <p className="voice">Events · Delhi</p>
+        <p className="voice">Events · {city.name}</p>
         <h1 className="font-display text-3xl sm:text-4xl">
           What&rsquo;s actually on.
         </h1>
