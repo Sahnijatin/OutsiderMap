@@ -112,3 +112,41 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Leaflet map skin. The container floor is brand-dark so any tile gap reads
+ * as night, never Leaflet's default grey. */
+.leaflet-container {
+  background: var(--color-night);
+  font-family: var(--font-body);
+}
+.leaflet-container .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  color: var(--color-ink-dim);
+  font-size: 0.6rem;
+}
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--color-ink-dim);
+}
+
+/* Our own place labels: amber ink on a night halo, no tooltip chrome.
+ * Hidden until the map is zoomed in enough to read them without clutter. */
+.leaflet-tooltip.om-place-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #e6c789;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0;
+  text-shadow:
+    0 0 2px var(--color-night),
+    0 0 4px var(--color-night);
+  white-space: nowrap;
+}
+.leaflet-tooltip.om-place-label::before {
+  display: none;
+}
+.leaflet-container:not(.labels-on) .om-place-label {
+  display: none;
+}

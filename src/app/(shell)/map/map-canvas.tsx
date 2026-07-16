@@ -1,42 +1,33 @@
 "use client";
 
-import maplibregl, {
-  type GeoJSONSource,
-  type MapMouseEvent,
-} from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import Link from "next/link";
+import "leaflet/dist/leaflet.css";
+import type {
+  Map as LeafletMap,
+  CircleMarker,
+  LayerGroup,
+} from "leaflet";
 import { LocateFixed } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  baseMapStyle,
-  MAP_ACCENT as ACCENT,
-  MAP_ATTRIBUTION,
-  MAP_INK as INK,
-  MAP_LABEL_AMBER,
-  MAP_NIGHT as NIGHT,
-} from "@/lib/map/style";
+import { MAP_ACCENT as ACCENT, MAP_NIGHT as NIGHT } from "@/lib/map/style";
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { MapSearch } from "./map-search";
 import { PlaceSheet, type SelectedPlace } from "./place-sheet";
 
-function LocateIcon({ spinning }: { spinning: boolean }) {
-  return (
-    <LocateFixed className={spinning ? "size-3.5 animate-spin" : "size-3.5"} />
-  );
-}
+/**
+ * The map, on Leaflet.
+ *
+ * We render with Leaflet (plain <img> raster tiles) rather than a WebGL
+ * engine: on some phones the GL canvas never painted and left the map black
+ * with no error to catch. Leaflet needs no WebGL and no background worker,
+ * so it draws on effectively any device - the reliability the map has to
+ * have as the home screen. Tiles are CARTO's dark, label-free basemap; the
+ * only labels are our own amber place names.
+ */
 
-/** maplibre v5 has no supported() - probe for a WebGL context directly. */
-function webglAvailable() {
-  try {
-    const canvas = document.createElement("canvas");
-    return Boolean(
-      canvas.getContext("webgl2") ?? canvas.getContext("webgl"),
-    );
-  } catch {
-    return false;
-  }
-}
+const CARTO_TILE_URL =
+  "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
+const MAP_ATTRIBUTION =
+  '&copy; OpenStreetMap contributors &copy; CARTO';
 
 export type CityOption = {
   slug: string;
@@ -81,7 +72,15 @@ export function MapCanvas({
   initialPlaceSlug: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  // The Leaflet module, loaded on the client only (it touches window/document
+  // at import, which would break SSR).
+  const LRef = useRef<typeof import("leaflet") | null>(null);
+  const placeLayerRef = useRef<LayerGroup | null>(null);
+  const locationLayerRef = useRef<LayerGroup | null>(null);
+  const selectedRingRef = useRef<CircleMarker | null>(null);
+
+  const [ready, setReady] = useState(false);
   const [activeCity, setActiveCity] = useState(city);
   const [places, setPlaces] = useState<PlaceCollection>(EMPTY);
   const [selected, setSelected] = useState<SelectedPlace | null>(null);
@@ -89,36 +88,26 @@ export function MapCanvas({
   const [loadError, setLoadError] = useState(false);
   const [loadedEmpty, setLoadedEmpty] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [unsupported, setUnsupported] = useState(false);
   const [tileTrouble, setTileTrouble] = useState(false);
   const [locating, setLocating] = useState(false);
   const lastTileErrorAt = useRef(0);
-  const geolocateRef = useRef<maplibregl.GeolocateControl | null>(null);
 
   const selectPlace = useCallback(
     (props: PlaceFeatureProps, lng: number, lat: number) => {
       setSelected({ ...props, lng, lat });
       const map = mapRef.current;
-      if (!map) return;
-      const ring: PlaceCollection = {
-        type: "FeatureCollection",
-        features: [
-          {
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [lng, lat] },
-            properties: props,
-          },
-        ],
-      };
-      (map.getSource("selected-place") as GeoJSONSource | undefined)?.setData(
-        ring,
-      );
-      // Land the pin in the top half; the sheet owns the bottom.
-      map.easeTo({
-        center: [lng, lat],
-        zoom: Math.max(map.getZoom(), 13.5),
-        padding: { top: 0, left: 0, right: 0, bottom: 320 },
-        duration: 600,
+      const L = LRef.current;
+      if (!map || !L) return;
+      selectedRingRef.current?.remove();
+      selectedRingRef.current = L.circleMarker([lat, lng], {
+        radius: 13,
+        color: "#ede7db",
+        weight: 2,
+        fill: false,
+      }).addTo(map);
+      // Land the pin in the upper third; the sheet owns the bottom.
+      map.setView([lat, lng], Math.max(map.getZoom(), 14), {
+        animate: true,
       });
     },
     [],
@@ -126,259 +115,161 @@ export function MapCanvas({
 
   const closeSheet = useCallback(() => {
     setSelected(null);
+    selectedRingRef.current?.remove();
+    selectedRingRef.current = null;
+  }, []);
+
+  const runLocate = useCallback(() => {
     const map = mapRef.current;
-    (map?.getSource("selected-place") as GeoJSONSource | undefined)?.setData(
-      EMPTY,
-    );
-    map?.easeTo({
-      padding: { top: 0, left: 0, right: 0, bottom: 0 },
-      duration: 300,
+    if (!map) return;
+    setLocating(true);
+    map.locate({
+      setView: true,
+      maxZoom: 15,
+      enableHighAccuracy: true,
+      timeout: 10_000,
     });
   }, []);
 
-  // One map for the component's lifetime; city changes fly, not remount.
+  // Build the map once, on the client.
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    let cancelled = false;
+    let map: LeafletMap | null = null;
 
-    if (!webglAvailable()) {
-      queueMicrotask(() => setUnsupported(true));
-      return;
-    }
-    let map: maplibregl.Map;
-    try {
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: baseMapStyle(),
-        center: [city.lng, city.lat],
+    (async () => {
+      if (!containerRef.current || mapRef.current) return;
+      const L = (await import("leaflet")).default;
+      if (cancelled || !containerRef.current) return;
+      LRef.current = L;
+
+      map = L.map(containerRef.current, {
+        center: [city.lat, city.lng],
         zoom: city.zoom,
-        attributionControl: false,
-        // The basemap carries only quiet area names; keep rotation off so
-        // the city stays oriented the way people hold their phones.
-        dragRotate: false,
-        pitchWithRotate: false,
+        zoomControl: false,
+        attributionControl: true,
+        minZoom: 3,
+        maxZoom: 20,
+        worldCopyJump: true,
       });
-    } catch {
-      queueMicrotask(() => setUnsupported(true));
-      return;
-    }
-    mapRef.current = map;
+      mapRef.current = map;
+      map.attributionControl.setPrefix(false);
 
-    // A silent black map was indistinguishable from a working empty one.
-    // Surface real tile/style failures as a throttled pill; ignore benign
-    // aborted requests from fast panning.
-    map.on("error", (e) => {
-      const err = e?.error as (Error & { status?: number }) | undefined;
-      const message = err?.message ?? "";
-      if (err?.name === "AbortError" || /abort/i.test(message)) return;
-      const now = Date.now();
-      if (now - lastTileErrorAt.current < 30_000) return;
-      lastTileErrorAt.current = now;
-      setTileTrouble(true);
-      setTimeout(() => setTileTrouble(false), 6000);
-    });
+      L.tileLayer(CARTO_TILE_URL, {
+        subdomains: "abcd",
+        detectRetina: true,
+        maxZoom: 20,
+        attribution: MAP_ATTRIBUTION,
+      })
+        .on("tileerror", () => {
+          const now = Date.now();
+          if (now - lastTileErrorAt.current < 30_000) return;
+          lastTileErrorAt.current = now;
+          setTileTrouble(true);
+          setTimeout(() => setTileTrouble(false), 6000);
+        })
+        .addTo(map);
 
-    map.addControl(
-      new maplibregl.AttributionControl({
-        compact: true,
-        customAttribution: MAP_ATTRIBUTION,
-      }),
-      "bottom-left",
-    );
-    const geolocate = new maplibregl.GeolocateControl({
-      positionOptions: { enableHighAccuracy: true, timeout: 10_000 },
-      trackUserLocation: true,
-      showUserLocation: true,
-      // Land the member at a street-level zoom where the night map clearly
-      // reads - roads, water and area names all render. The distant city
-      // overview looked like a black void on phones.
-      fitBoundsOptions: { maxZoom: 15 },
-    });
-    geolocateRef.current = geolocate;
-    map.addControl(geolocate, "bottom-right");
-    geolocate.on("geolocate", () => setLocating(false));
-    geolocate.on("error", () => setLocating(false));
-    geolocate.on("outofmaxbounds", () => setLocating(false));
-    map.touchZoomRotate.disableRotation();
+      placeLayerRef.current = L.layerGroup().addTo(map);
 
-    map.on("load", () => {
-      map.addSource("places", {
-        type: "geojson",
-        data: EMPTY,
-        cluster: true,
-        clusterMaxZoom: 14,
-        clusterRadius: 48,
-        promoteId: "id",
-      });
-      map.addSource("selected-place", { type: "geojson", data: EMPTY });
+      // Show our place labels only once the city is close enough to read.
+      const applyLabelZoom = () => {
+        containerRef.current?.classList.toggle(
+          "labels-on",
+          (map?.getZoom() ?? 0) >= 14,
+        );
+      };
+      map.on("zoomend", applyLabelZoom);
+      applyLabelZoom();
 
-      // Clusters: a sodium-lamp pool of light with a count.
-      map.addLayer({
-        id: "cluster-glow",
-        type: "circle",
-        source: "places",
-        filter: ["has", "point_count"],
-        paint: {
-          "circle-color": ACCENT,
-          "circle-opacity": 0.16,
-          "circle-radius": [
-            "step",
-            ["get", "point_count"],
-            26,
-            10,
-            34,
-            25,
-            44,
-          ],
-        },
+      map.on("locationfound", (e) => {
+        setLocating(false);
+        if (!locationLayerRef.current) {
+          locationLayerRef.current = L.layerGroup().addTo(map!);
+        }
+        locationLayerRef.current.clearLayers();
+        L.circle(e.latlng, {
+          radius: e.accuracy,
+          color: ACCENT,
+          weight: 1,
+          opacity: 0.25,
+          fillColor: ACCENT,
+          fillOpacity: 0.06,
+        }).addTo(locationLayerRef.current);
+        L.circleMarker(e.latlng, {
+          radius: 7,
+          color: "#0c0a08",
+          weight: 2,
+          fillColor: "#4aa3ff",
+          fillOpacity: 1,
+        }).addTo(locationLayerRef.current);
       });
-      map.addLayer({
-        id: "clusters",
-        type: "circle",
-        source: "places",
-        filter: ["has", "point_count"],
-        paint: {
-          "circle-color": NIGHT,
-          "circle-stroke-color": ACCENT,
-          "circle-stroke-width": 1.5,
-          "circle-radius": ["step", ["get", "point_count"], 14, 10, 18, 25, 24],
-        },
-      });
-      map.addLayer({
-        id: "cluster-count",
-        type: "symbol",
-        source: "places",
-        filter: ["has", "point_count"],
-        layout: {
-          "text-field": ["get", "point_count_abbreviated"],
-          "text-font": ["Noto Sans Regular"],
-          "text-size": 12,
-        },
-        paint: { "text-color": INK },
-      });
+      map.on("locationerror", () => setLocating(false));
 
-      // Single places: a warm dot with a faint halo.
-      map.addLayer({
-        id: "place-glow",
-        type: "circle",
-        source: "places",
-        filter: ["!", ["has", "point_count"]],
-        paint: {
-          "circle-color": ACCENT,
-          "circle-opacity": 0.18,
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            10,
-            8,
-            15,
-            16,
-          ],
-        },
-      });
-      map.addLayer({
-        id: "place-dot",
-        type: "circle",
-        source: "places",
-        filter: ["!", ["has", "point_count"]],
-        paint: {
-          "circle-color": ACCENT,
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 3.5, 15, 6],
-          "circle-stroke-color": NIGHT,
-          "circle-stroke-width": 1.5,
-        },
-      });
-      // Our place names, under the dots once the city is close enough.
-      // These are the only place labels on the whole map.
-      map.addLayer({
-        id: "place-names",
-        type: "symbol",
-        source: "places",
-        filter: ["!", ["has", "point_count"]],
-        minzoom: 13,
-        layout: {
-          "text-field": ["get", "name"],
-          "text-font": ["Noto Sans Regular"],
-          "text-size": 11.5,
-          "text-anchor": "top",
-          "text-offset": [0, 0.9],
-          "text-optional": true,
-          "text-max-width": 8,
-        },
-        paint: {
-          "text-color": MAP_LABEL_AMBER,
-          "text-halo-color": NIGHT,
-          "text-halo-width": 1.2,
-        },
-      });
-      // Selection ring, driven by its own single-feature source.
-      map.addLayer({
-        id: "selected-ring",
-        type: "circle",
-        source: "selected-place",
-        paint: {
-          "circle-color": "rgba(0,0,0,0)",
-          "circle-stroke-color": INK,
-          "circle-stroke-width": 2,
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 9, 15, 14],
-        },
-      });
+      // iOS Safari can size a fixed container late; recompute now and on the
+      // next frame so the tiles fill the box instead of a 0-height canvas.
+      map.invalidateSize();
+      requestAnimationFrame(() => map?.invalidateSize());
+      setTimeout(() => map?.invalidateSize(), 400);
 
-      map.on("click", "clusters", async (e: MapMouseEvent) => {
-        const feature = map.queryRenderedFeatures(e.point, {
-          layers: ["clusters"],
-        })[0];
-        if (!feature) return;
-        const clusterId = feature.properties?.cluster_id as number;
-        const source = map.getSource("places") as GeoJSONSource;
-        const zoom = await source.getClusterExpansionZoom(clusterId);
-        map.easeTo({
-          center: (feature.geometry as GeoJSON.Point).coordinates as [
-            number,
-            number,
-          ],
-          zoom: zoom + 0.3,
-          duration: 500,
-        });
-      });
+      setReady(true);
 
-      for (const clickable of ["place-dot", "place-names"]) {
-        map.on("click", clickable, (e: MapMouseEvent) => {
-          const feature = map.queryRenderedFeatures(e.point, {
-            layers: [clickable],
-          })[0];
-          if (!feature) return;
-          const props = feature.properties as PlaceFeatureProps;
-          const [lng, lat] = (feature.geometry as GeoJSON.Point).coordinates;
-          selectPlace(props, lng, lat);
-        });
-      }
-
-      for (const layer of ["clusters", "place-dot", "place-names"]) {
-        map.on("mouseenter", layer, () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", layer, () => {
-          map.getCanvas().style.cursor = "";
-        });
-      }
-
-      // Drop the member onto the map at their own location on first paint.
-      // iOS Safari may hold the permission prompt for a tap, so this is a
-      // best-effort nudge; the locate button below is the reliable path.
+      // Drop the member onto their own location on first paint (best effort;
+      // the "Near me" button is the reliable path if the prompt is held).
       setLocating(true);
-      requestAnimationFrame(() => {
-        const started = geolocate.trigger();
-        if (!started) setLocating(false);
+      map.locate({
+        setView: true,
+        maxZoom: 15,
+        enableHighAccuracy: true,
+        timeout: 10_000,
       });
-    });
+    })();
 
     return () => {
-      map.remove();
+      cancelled = true;
+      map?.remove();
       mapRef.current = null;
+      setReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the canvas sized to the container across rotation / toolbar changes.
+  useEffect(() => {
+    const onResize = () => mapRef.current?.invalidateSize();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, []);
+
+  // Render the place markers whenever the catalog (or map readiness) changes.
+  useEffect(() => {
+    const L = LRef.current;
+    const layer = placeLayerRef.current;
+    if (!ready || !L || !layer) return;
+    layer.clearLayers();
+    for (const f of places.features) {
+      const [lng, lat] = f.geometry.coordinates;
+      const props = f.properties;
+      const marker = L.circleMarker([lat, lng], {
+        radius: 6,
+        color: NIGHT,
+        weight: 2,
+        fillColor: ACCENT,
+        fillOpacity: 1,
+      });
+      marker.bindTooltip(props.name, {
+        permanent: true,
+        direction: "bottom",
+        offset: [0, 6],
+        className: "om-place-label",
+      });
+      marker.on("click", () => selectPlace(props, lng, lat));
+      marker.addTo(layer);
+    }
+  }, [places, ready, selectPlace]);
 
   // Load the city's catalog whenever the active city changes.
   useEffect(() => {
@@ -400,13 +291,6 @@ export function MapCanvas({
         setPlaces(data);
         setLoadError(false);
         setLoadedEmpty(data.features.length === 0);
-        const map = mapRef.current;
-        const apply = () =>
-          (map?.getSource("places") as GeoJSONSource | undefined)?.setData(
-            data,
-          );
-        if (map?.isStyleLoaded()) apply();
-        else map?.once("load", apply);
       } catch {
         if (!cancelled) setLoadError(true);
       }
@@ -426,21 +310,20 @@ export function MapCanvas({
   // Deep link: open the requested place once the catalog is in.
   const deepLinked = useRef(false);
   useEffect(() => {
-    if (!initialPlaceSlug || deepLinked.current) return;
+    if (!ready || !initialPlaceSlug || deepLinked.current) return;
     const feature = places.features.find(
       (f) => f.properties.slug === initialPlaceSlug,
     );
     if (!feature) return;
     deepLinked.current = true;
     const [lng, lat] = feature.geometry.coordinates;
-    const open = () => selectPlace(feature.properties, lng, lat);
-    const map = mapRef.current;
-    if (map?.isStyleLoaded()) open();
-    else map?.once("load", open);
-  }, [initialPlaceSlug, places, selectPlace]);
+    const props = feature.properties;
+    const id = requestAnimationFrame(() => selectPlace(props, lng, lat));
+    return () => cancelAnimationFrame(id);
+  }, [ready, initialPlaceSlug, places, selectPlace]);
 
   const flyTo = useCallback((lng: number, lat: number, zoom: number) => {
-    mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: 1200 });
+    mapRef.current?.flyTo([lat, lng], zoom);
   }, []);
 
   const switchCity = useCallback(
@@ -451,30 +334,6 @@ export function MapCanvas({
     },
     [closeSheet, flyTo],
   );
-
-  if (unsupported) {
-    return (
-      <div className="flex h-full items-center justify-center px-6">
-        <div className="relative max-w-sm rounded-card border border-line bg-surface p-6 text-center">
-          <div className="halo absolute -inset-8" />
-          <p className="voice relative">no night map here</p>
-          <p className="relative mt-2 font-display text-xl italic">
-            This device can&rsquo;t draw the map.
-          </p>
-          <p className="relative mt-2 text-sm text-ink-dim">
-            The night map needs WebGL, which this browser has switched off.
-            The concierge still knows {activeCity.name} cold.
-          </p>
-          <Link
-            href="/chat"
-            className="relative mt-4 inline-block rounded-full bg-accent px-5 py-2 text-sm font-medium text-night"
-          >
-            Ask the concierge
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="relative h-full w-full">
@@ -495,24 +354,22 @@ export function MapCanvas({
         }}
       />
 
-      {/* Reliable locate affordance: the auto-nudge on load may be blocked
-          until a tap on iOS Safari, so this is always here. */}
+      {/* Reliable locate affordance: the auto-nudge on load may be held for a
+          tap on iOS Safari, so this is always here. */}
       <button
         type="button"
         aria-label="Center on my location"
-        onClick={() => {
-          setLocating(true);
-          const started = geolocateRef.current?.trigger();
-          if (!started) setLocating(false);
-        }}
-        className="absolute right-4 top-20 z-10 flex items-center gap-1.5 rounded-full border border-accent/50 bg-surface/90 px-3.5 py-2 text-xs font-medium text-accent backdrop-blur transition-colors hover:bg-accent/10"
+        onClick={runLocate}
+        className="absolute right-4 top-20 z-[500] flex items-center gap-1.5 rounded-full border border-accent/50 bg-surface/90 px-3.5 py-2 text-xs font-medium text-accent backdrop-blur transition-colors hover:bg-accent/10"
       >
-        <LocateIcon spinning={locating} />
+        <LocateFixed
+          className={locating ? "size-3.5 animate-spin" : "size-3.5"}
+        />
         {locating ? "Finding you" : "Near me"}
       </button>
 
       {tileTrouble && (
-        <p className="absolute inset-x-0 top-32 z-10 mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink-dim backdrop-blur">
+        <p className="absolute inset-x-0 top-32 z-[500] mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink-dim backdrop-blur">
           Map tiles are struggling - check your connection.
         </p>
       )}
@@ -524,14 +381,14 @@ export function MapCanvas({
             setLoadError(false);
             setReloadKey((k) => k + 1);
           }}
-          className="absolute inset-x-0 top-20 z-10 mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink backdrop-blur"
+          className="absolute inset-x-0 top-20 z-[500] mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink backdrop-blur"
         >
           Couldn&rsquo;t load places · tap to retry
         </button>
       )}
 
       {!loadError && loadedEmpty && (
-        <div className="absolute inset-x-6 top-1/3 z-10 mx-auto max-w-sm rounded-card border border-line bg-surface/95 p-5 text-center backdrop-blur-md">
+        <div className="absolute inset-x-6 top-1/3 z-[500] mx-auto max-w-sm rounded-card border border-line bg-surface/95 p-5 text-center backdrop-blur-md">
           <p className="voice">quiet, for now</p>
           <p className="mt-2 font-display text-xl italic">
             Nothing lit up in {activeCity.name} yet.
@@ -547,7 +404,7 @@ export function MapCanvas({
         <button
           type="button"
           onClick={() => setShowWelcome(false)}
-          className="absolute inset-x-4 bottom-6 z-10 mx-auto max-w-sm rounded-card border border-accent/40 bg-surface/95 p-4 text-left backdrop-blur-md"
+          className="absolute inset-x-4 bottom-6 z-[500] mx-auto max-w-sm rounded-card border border-accent/40 bg-surface/95 p-4 text-left backdrop-blur-md"
         >
           <p className="voice text-accent">
             outsider {formatOutsiderNumber(outsiderNumber)}
