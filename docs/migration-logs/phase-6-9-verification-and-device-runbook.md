@@ -109,3 +109,23 @@ all config plugins). The remaining work is inherently hardware/account-gated:
 3. Walk the Phase 8 device checklist — **Moti runtime and Android edge-to-edge
    insets are the two items most likely to need a fix.**
 4. `eas build --profile preview` and merge.
+
+## Post-review refinements (2026-07-07)
+
+Two `mobile/package.json` cleanups from the PR review, both re-verified on a
+clean `npm ci` (typecheck, lint 0 errors, ios+android bundles all green):
+
+1. **`react-dom` moved from `dependencies` → `overrides`.** The app is
+   native-only (`app.json` → `platforms: ["ios","android"]`), so `react-dom` is
+   never a runtime dependency — it is only pulled transitively and needs its
+   version constrained to match react's exact-match peer. An `overrides` entry
+   (`"react-dom": "19.2.3"`) pins the transitive version without declaring a
+   phantom production dependency. Confirmed react-dom still resolves to 19.2.3.
+
+2. **`babel-preset-expo` pin widened `~57.0.1` → `^57.0.0`.** The tight `~`
+   range could drift from `expo` (`^57.0.0`): a future `expo` 57.x patch bundling
+   a newer `babel-preset-expo` would collide with a 57.0.x lock. `^57.0.0` tracks
+   the same range as `expo`, so it stays a single hoisted copy across SDK patch
+   bumps. (This dep is declared directly only to force npm to hoist the preset to
+   the top level, where `babel.config.js` resolves it — see Phase 3.) Confirmed
+   still hoisted (resolved 57.0.1).
