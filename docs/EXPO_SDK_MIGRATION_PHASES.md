@@ -6,6 +6,12 @@
 > phase until the previous phase's gate is green. If a gate fails, fix it inside
 > that phase before moving on. Every command runs from `mobile/`.
 
+> **Reconciled with the actual run (2026-07-07).** This plan has been corrected
+> against what execution actually required — the extra steps below (TypeScript 6,
+> `react-dom`, the `babel-preset-expo` hoist + `@babel/runtime` fix) and the Moti
+> scope correction were discovered during the real migration. The authoritative,
+> blow-by-blow record is in `docs/migration-logs/` (per-phase execution logs).
+
 ## Ground rules
 
 - **One phase = one commit.** Keeps `git bisect` trivial if something regresses.
@@ -61,7 +67,10 @@ errors here are expected and misleading. Just confirm the install resolved:
 npx expo install --check   # reports any dep still off the SDK 57 target
 ```
 
-**Gate:** `expo install --check` reports no mismatches. Commit as
+**Gate:** `expo install --check` reports the **native/runtime** graph aligned.
+Two toolchain items legitimately remain and are cleared in later phases — do not
+treat them as blockers here: `eslint-config-expo` (Phase 5) and `typescript`
+(bumped in Phase 2). Commit as
 `chore(mobile): bump Expo SDK 52 → 57 core + native deps`.
 
 > If this produces a wall of resolution errors, abort and use the two-hop path
@@ -72,11 +81,31 @@ npx expo install --check   # reports any dep still off the SDK 57 target
 
 ## Phase 2 — React 19
 
-SDK 53+ requires React 19. `--fix` moves `react`/`react-native`'s peer, but the
-types are a devDependency we set explicitly.
+SDK 53+ requires React 19. `--fix` moves `react`/`react-native`'s peer, but
+three devDependency/toolchain pieces must be set explicitly — and **RN 0.86
+hard-requires `@types/react` 19 to even resolve the install**, so in practice
+this phase is inseparable from Phase 1's clean install (they landed as one
+commit in the real run).
 
 ```bash
-npm i -D @types/react@~19.2
+npm i -D @types/react@~19.2 typescript@~6.0.3
+```
+
+Three required fixes (all discovered during the real migration):
+
+1. **`@types/react` → 19** — RN 0.86's `@react-native/virtualized-lists` requires
+   `@types/react@^19.2.0`; the tree will not install on the old types.
+2. **`typescript` → ~6.0.3** — SDK 57's `expo/tsconfig.base.json` uses a
+   `--module` value TS 5.3 can't parse (`error TS6046`). Without this, typecheck
+   fails before it reaches any app code.
+3. **Pin `react-dom` to react's exact version** (native-only apps: use
+   `overrides`, not a direct dependency). react-dom is pulled transitively for
+   Expo web and requires an *exact* react match; left unpinned it re-resolves to
+   a newer 19.2.x patch and conflicts with react's pin.
+
+```jsonc
+// package.json — react-dom is not a runtime dep in a native-only app
+"overrides": { "react-dom": "19.2.3" }   // match your resolved react version
 ```
 
 `ref` is a plain prop in React 19. This codebase uses no `forwardRef` or string
@@ -84,8 +113,8 @@ refs, so no source changes are expected — but run the typecheck to confirm the
 React 19 type surface is clean (Reanimated errors may still appear; that's
 Phase 3).
 
-**Gate:** no React-19-specific type errors (JSX, hooks, `ref`, component
-signatures). Commit as `chore(mobile): React 19 + @types/react 19`.
+**Gate:** `npm run typecheck` clean on TS 6 + React 19. Commit as
+`chore(mobile): React 19 + @types/react 19 + TypeScript 6`.
 
 ---
 
@@ -107,6 +136,20 @@ array:
 plugins: ["react-native-worklets/plugin"],
 ```
 
+**Two blockers the real run hit here — the bundle still fails after the plugin
+rename until both are fixed:**
+
+1. **`Cannot find module 'babel-preset-expo'`.** npm may nest `babel-preset-expo`
+   under `node_modules/expo/node_modules/`, but `babel.config.js` references the
+   preset by name and Babel resolves it from the project root. A clean reinstall
+   and `npm dedupe` do **not** fix it. **Fix:** declare `babel-preset-expo` as a
+   direct devDependency (use `^57.0.0` so it tracks `expo` and stays a single
+   hoisted copy across SDK patch bumps).
+2. **`@babel/runtime` peer conflict.** If the repo pins `@babel/runtime` to a
+   major ahead of Babel 7 (this repo had a stray `^8.0.0`), it conflicts with
+   `babel-preset-expo@57`'s `@babel/runtime@^7.x` peer. **Fix:** set
+   `@babel/runtime` to `^7.20.0` — the version the whole SDK 57 graph expects.
+
 **Gate:** `npm run typecheck` clean AND a bundle succeeds:
 
 ```bash
@@ -120,14 +163,22 @@ Commit as `chore(mobile): Reanimated 4 + worklets babel plugin`.
 
 ## Phase 4 — Moti compatibility decision
 
-`moti` is only consumed by the Expo Go fallback component
-`src/ui/convergence-field-fallback.tsx`. It either supports Reanimated 4 or it
-doesn't — decide here, in isolation.
+> **Scope correction:** `EXPO_SDK_MIGRATION.md` claims Moti is used in only the
+> Expo Go fallback. That is **wrong** — `MotiView`/`AnimatePresence` are imported
+> in **5 files**, four of them core screens: `src/ui/convergence-field-fallback.tsx`,
+> `app/(auth)/sign-in.tsx`, `app/onboarding.tsx`, `app/(app)/chat.tsx`,
+> `app/(app)/index.tsx`. So the "rewrite one file" fallback below is really a
+> **five-file** job if Moti has to be dropped — scope accordingly.
+
+Decide here, in isolation, whether Moti stays.
 
 1. After Phase 3, try the bundle. If it builds and `moti` resolves against
    Reanimated 4, **keep it** — verify the pinned version supports RN-worklets.
+   (In the real run, Moti 0.29 kept: its peer is `reanimated: *`, all 5 files
+   typecheck and bundle. Its peer being `*` means the build can't *prove* runtime
+   compatibility — the Phase 8 device pass is the real confirmation.)
 2. If `moti` blocks the build (unmet Reanimated peer, worklets error tracing to
-   moti), **rewrite that one file** in plain Reanimated —
+   moti), **rewrite all Moti sites** in plain Reanimated —
    `Animated.View` + `withRepeat`/`withTiming` — and remove the dependency:
 
 ```bash
