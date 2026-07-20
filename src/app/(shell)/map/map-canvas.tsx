@@ -1,16 +1,15 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import type {
-  Map as LeafletMap,
-  CircleMarker,
-  LayerGroup,
-} from "leaflet";
+import type { Map as LeafletMap, Marker, LayerGroup } from "leaflet";
 import { LocateFixed } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MAP_ACCENT as ACCENT, MAP_NIGHT as NIGHT } from "@/lib/map/style";
+import { MAP_ACCENT as ACCENT } from "@/lib/map/style";
+import { categoryGroup } from "@/lib/map/categories";
+import { pinHtml, PIN_W, PIN_H, PIN_ANCHOR } from "@/lib/map/pin";
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { MapSearch } from "./map-search";
+import { MapLegend } from "./map-legend";
 import { PlaceSheet, type SelectedPlace } from "./place-sheet";
 
 /**
@@ -78,7 +77,11 @@ export function MapCanvas({
   const LRef = useRef<typeof import("leaflet") | null>(null);
   const placeLayerRef = useRef<LayerGroup | null>(null);
   const locationLayerRef = useRef<LayerGroup | null>(null);
-  const selectedRingRef = useRef<CircleMarker | null>(null);
+  // Markers by slug, so search / deep-links / selection can find a pin, and
+  // the currently highlighted one to clear it.
+  const markersRef = useRef<Map<string, Marker>>(new Map());
+  const selectedMarkerRef = useRef<Marker | null>(null);
+  const selectedSlugRef = useRef<string | null>(null);
 
   const [ready, setReady] = useState(false);
   const [activeCity, setActiveCity] = useState(city);
@@ -92,32 +95,39 @@ export function MapCanvas({
   const [locating, setLocating] = useState(false);
   const lastTileErrorAt = useRef(0);
 
+  const highlightPin = useCallback((marker: Marker | null) => {
+    const prev = selectedMarkerRef.current;
+    if (prev && prev !== marker) {
+      prev.getElement()?.classList.remove("om-pin-wrap--selected");
+      prev.setZIndexOffset(0);
+    }
+    if (marker) {
+      marker.getElement()?.classList.add("om-pin-wrap--selected");
+      marker.setZIndexOffset(1000);
+    }
+    selectedMarkerRef.current = marker;
+  }, []);
+
   const selectPlace = useCallback(
     (props: PlaceFeatureProps, lng: number, lat: number) => {
       setSelected({ ...props, lng, lat });
+      selectedSlugRef.current = props.slug;
       const map = mapRef.current;
-      const L = LRef.current;
-      if (!map || !L) return;
-      selectedRingRef.current?.remove();
-      selectedRingRef.current = L.circleMarker([lat, lng], {
-        radius: 13,
-        color: "#ede7db",
-        weight: 2,
-        fill: false,
-      }).addTo(map);
+      if (!map) return;
+      highlightPin(markersRef.current.get(props.slug) ?? null);
       // Land the pin in the upper third; the sheet owns the bottom.
       map.setView([lat, lng], Math.max(map.getZoom(), 14), {
         animate: true,
       });
     },
-    [],
+    [highlightPin],
   );
 
   const closeSheet = useCallback(() => {
     setSelected(null);
-    selectedRingRef.current?.remove();
-    selectedRingRef.current = null;
-  }, []);
+    selectedSlugRef.current = null;
+    highlightPin(null);
+  }, [highlightPin]);
 
   const runLocate = useCallback(() => {
     const map = mapRef.current;
@@ -250,26 +260,39 @@ export function MapCanvas({
     const layer = placeLayerRef.current;
     if (!ready || !L || !layer) return;
     layer.clearLayers();
+    markersRef.current.clear();
+    selectedMarkerRef.current = null;
     for (const f of places.features) {
       const [lng, lat] = f.geometry.coordinates;
       const props = f.properties;
-      const marker = L.circleMarker([lat, lng], {
-        radius: 6,
-        color: NIGHT,
-        weight: 2,
-        fillColor: ACCENT,
-        fillOpacity: 1,
+      const group = categoryGroup(props.category, props.kind);
+      const icon = L.divIcon({
+        html: pinHtml(group),
+        className: "om-pin-wrap",
+        iconSize: [PIN_W, PIN_H],
+        iconAnchor: PIN_ANCHOR,
+        tooltipAnchor: [0, 4],
+      });
+      const marker = L.marker([lat, lng], {
+        icon,
+        riseOnHover: true,
+        riseOffset: 400,
+        keyboard: false,
       });
       marker.bindTooltip(props.name, {
         permanent: true,
         direction: "bottom",
-        offset: [0, 6],
+        offset: [0, 2],
         className: "om-place-label",
       });
       marker.on("click", () => selectPlace(props, lng, lat));
       marker.addTo(layer);
+      markersRef.current.set(props.slug, marker);
     }
-  }, [places, ready, selectPlace]);
+    // Re-apply the highlight if the selected place survived the catalog change.
+    const slug = selectedSlugRef.current;
+    if (slug) highlightPin(markersRef.current.get(slug) ?? null);
+  }, [places, ready, selectPlace, highlightPin]);
 
   // Load the city's catalog whenever the active city changes.
   useEffect(() => {
@@ -337,7 +360,16 @@ export function MapCanvas({
 
   return (
     <div className="relative h-full w-full">
-      <div ref={containerRef} className="absolute inset-0" />
+      {/*
+       * `isolate` gives the Leaflet container its own stacking context, so its
+       * internal panes (tiles z-200, markers z-600, tooltips z-650, controls
+       * z-1000) stay contained instead of leaking into the parent context and
+       * painting over our overlays. Without this the search bar and the place
+       * sheet render *under* the map. Every overlay below sits above it.
+       */}
+      <div ref={containerRef} className="absolute inset-0 isolate" />
+
+      <MapLegend />
 
       <MapSearch
         cityName={activeCity.name}

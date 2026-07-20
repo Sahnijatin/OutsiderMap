@@ -1,12 +1,14 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Bookmark, BookmarkCheck, Navigation, X } from "lucide-react";
+import { ArrowUpRight, Bookmark, BookmarkCheck, Navigation, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { publicMediaUrl } from "@/lib/media/url";
+import { categoryGroup, categoryLabel } from "@/lib/map/categories";
+import { googleMapsDirUrl } from "@/lib/map/directions";
 import type { PlaceFeatureProps } from "./map-canvas";
 
 export type SelectedPlace = PlaceFeatureProps & { lng: number; lat: number };
@@ -106,6 +108,9 @@ export function PlaceSheet({
     }
   }
 
+  const group = categoryGroup(place.category, place.kind);
+  const catLabel = categoryLabel(place.category) ?? place.kind;
+
   return (
     <AnimatePresence>
       <motion.section
@@ -122,7 +127,7 @@ export function PlaceSheet({
         onDragEnd={(_, info) => {
           if (info.offset.y > 90 || info.velocity.y > 500) onClose();
         }}
-        className="absolute inset-x-0 bottom-0 z-30 mx-auto flex max-h-[70%] w-full max-w-lg flex-col overflow-hidden rounded-t-card border border-b-0 border-line bg-surface/95 backdrop-blur-md"
+        className="absolute inset-x-0 bottom-0 z-[1000] mx-auto flex max-h-[70%] w-full max-w-lg flex-col overflow-hidden rounded-t-card border border-b-0 border-line bg-surface/95 backdrop-blur-md"
       >
         <div className="flex justify-center pt-2.5">
           <span className="h-1 w-10 rounded-full bg-line" />
@@ -142,6 +147,22 @@ export function PlaceSheet({
               place.kind}
           </p>
           <h2 className="mt-1 font-display text-2xl italic">{place.name}</h2>
+
+          <div className="mt-2 flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="size-2.5 rounded-full ring-1 ring-black/30"
+              style={{
+                background: `radial-gradient(circle at 35% 30%, ${group.light}, ${group.color} 55%, ${group.dark})`,
+              }}
+            />
+            <span
+              className="text-xs font-medium capitalize"
+              style={{ color: group.color }}
+            >
+              {catLabel}
+            </span>
+          </div>
 
           {cards.length > 0 && (
             <div className="-mx-1 mt-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
@@ -241,10 +262,10 @@ export function PlaceSheet({
             <Button
               variant="secondary"
               className="w-11 shrink-0 px-0"
-              aria-label="Directions"
+              aria-label="Directions on Google Maps"
               onClick={() =>
                 window.open(
-                  `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`,
+                  googleMapsDirUrl(place.lat, place.lng, place.name),
                   "_blank",
                   "noopener",
                 )
@@ -253,6 +274,14 @@ export function PlaceSheet({
               <Navigation className="size-4" />
             </Button>
           </div>
+
+          <ButtonLink
+            href={`/place/${place.slug}`}
+            variant="secondary"
+            className="mt-2 w-full"
+          >
+            View more <ArrowUpRight className="size-4" />
+          </ButtonLink>
         </div>
       </motion.section>
     </AnimatePresence>
