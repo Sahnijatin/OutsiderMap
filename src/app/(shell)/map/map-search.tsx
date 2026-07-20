@@ -114,7 +114,7 @@ export function MapSearch({
 
   return (
     <div
-      className="absolute inset-x-4 z-20"
+      className="absolute inset-x-4 z-[600]"
       style={{ top: "calc(env(safe-area-inset-top) + 0.75rem)" }}
     >
       <div className="mx-auto max-w-md">

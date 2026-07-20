@@ -128,6 +128,39 @@ body {
   color: var(--color-ink-dim);
 }
 
+/* The 3D category pins (Leaflet divIcons). No default div-icon chrome; the
+ * SVG carries the shape, gradient, gloss and ground shadow. The pin lifts and
+ * glows on hover / when its place sheet is open. */
+.om-pin-wrap {
+  background: none;
+  border: none;
+}
+.om-pin {
+  width: 30px;
+  height: 42px;
+  transform-origin: 50% 90%;
+  transition:
+    transform 0.18s var(--ease-out-expo),
+    filter 0.18s var(--ease-out-expo);
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.45));
+  cursor: pointer;
+}
+.om-pin svg {
+  display: block;
+}
+.om-pin__shadow {
+  fill: #000;
+  opacity: 0.28;
+}
+.om-pin:hover {
+  transform: scale(1.12);
+}
+.om-pin-wrap--selected .om-pin {
+  transform: scale(1.28);
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 7px color-mix(in srgb, var(--pin) 80%, transparent));
+}
+
 /* Our own place labels: amber ink on a night halo, no tooltip chrome.
  * Hidden until the map is zoomed in enough to read them without clutter. */
 .leaflet-tooltip.om-place-label {
