@@ -78,39 +78,44 @@ export function ChatThread({
       return base;
     });
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId, message }),
-      });
-      // Check status BEFORE parsing: a platform 504/timeout body isn't JSON,
-      // and Safari's parse exception must never become a bot reply (#38).
-      const body = res.ok
-        ? ((await res.json().catch(() => null)) as {
-            threadId?: string;
-            city?: string;
-            text?: string;
-            picks?: ChatPickCard[];
-          } | null)
-        : null;
+      const result = await postChatWithRetry({ threadId, message });
 
-      if (res.status === 429) {
-        const limitBody = (await res.json().catch(() => null)) as {
-          message?: string;
-        } | null;
+      if (result.status === 429) {
         setMessages((prev) => [
           ...prev,
           {
             id: `local-${prev.length}`,
             role: "assistant",
             content:
-              limitBody?.message ?? "Easy - give it a minute and ask again.",
+              (typeof result.json?.message === "string" &&
+                result.json.message) ||
+              "Easy - give it a minute and ask again.",
             tone: "limit",
           },
         ]);
         return;
       }
-      if (!res.ok || !body) throw new Error("chat failed");
+
+      const body = result.ok ? result.json : null;
+      if (!body) {
+        // Surface the server's own line when it sent one (500/503 carry a
+        // friendly message + code); fall back to the generic copy otherwise.
+        const serverMessage =
+          typeof result.json?.message === "string" ? result.json.message : null;
+        setFailedText(message);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `local-${prev.length}`,
+            role: "assistant",
+            content:
+              serverMessage ??
+              "Lost my train of thought - that one didn't go through.",
+            tone: "error",
+          },
+        ]);
+        return;
+      }
 
       if (body.threadId) {
         if (!threadId) {
@@ -128,17 +133,6 @@ export function ChatThread({
           role: "assistant",
           content: body.text ?? "",
           picks: body.picks,
-        },
-      ]);
-    } catch {
-      setFailedText(message);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `local-${prev.length}`,
-          role: "assistant",
-          content: "Lost my train of thought - that one didn't go through.",
-          tone: "error",
         },
       ]);
     } finally {
@@ -295,6 +289,58 @@ export function ChatThread({
       </form>
     </>
   );
+}
+
+type ChatResponse = {
+  threadId?: string;
+  city?: string;
+  text?: string;
+  picks?: ChatPickCard[];
+  message?: string;
+  error?: string;
+  code?: string;
+};
+
+type PostResult = { status: number; ok: boolean; json: ChatResponse | null };
+
+/**
+ * One POST to /api/chat. Reads the body exactly once and guards the JSON parse:
+ * a platform 504/timeout body isn't JSON, and Safari's parse exception must
+ * never surface as a bot reply (#38). Network failures resolve as status 0.
+ */
+async function postChat(payload: {
+  threadId?: string;
+  message: string;
+}): Promise<PostResult> {
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = (await res.json().catch(() => null)) as ChatResponse | null;
+    return { status: res.status, ok: res.ok, json };
+  } catch {
+    return { status: 0, ok: false, json: null };
+  }
+}
+
+/**
+ * Sends the turn, retrying ONCE on a transient failure (network drop or 5xx -
+ * the server's timeout/overload path) before giving up. Deterministic outcomes
+ * (2xx, 4xx like the 429 rate limit) return immediately - retrying those is
+ * pointless and would just double the wait.
+ */
+async function postChatWithRetry(payload: {
+  threadId?: string;
+  message: string;
+}): Promise<PostResult> {
+  let last = await postChat(payload);
+  const transient = last.status === 0 || last.status >= 500;
+  if (!transient) return last;
+  await new Promise((r) => setTimeout(r, 600));
+  last = await postChat(payload);
+  return last;
 }
 
 /** The user ask that produced the picks at index i - fuels the quest brief. */
