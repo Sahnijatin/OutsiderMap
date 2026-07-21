@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { serverEnv } from "@/lib/env";
 import { parseWithRepair, repairTurns } from "@/lib/ai/repair";
+import { withRetry } from "@/lib/ai/retry";
 import type {
   AIMessage,
   AIProvider,
@@ -12,6 +13,8 @@ import type {
 
 const DEFAULT_MODEL = "claude-opus-4-8";
 const DEFAULT_MAX_TOKENS = 16000;
+/** Ceiling for the one-shot token bump when a tool call gets truncated. */
+const TRUNCATION_BUMP_CAP = 8000;
 
 function splitMessages(messages: AIMessage[]) {
   const system = messages
@@ -37,7 +40,10 @@ export function createAnthropicProvider(): AIProvider {
           "AI_PROVIDER is 'anthropic' but ANTHROPIC_API_KEY is not set",
         );
       }
-      client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+      // Retries are centralized in withRetry (bounded backoff + jitter under a
+      // turn deadline), so the SDK's own retry loop is disabled to avoid
+      // stacking two backoff schedules on top of each other.
+      client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 0 });
     }
     return client;
   }
@@ -51,12 +57,16 @@ export function createAnthropicProvider(): AIProvider {
 
     async complete(req: CompletionRequest) {
       const { system, turns } = splitMessages(req.messages);
-      const response = await getClient().messages.create({
-        model: model(req),
-        max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
-        system,
-        messages: turns,
-      });
+      const response = await withRetry(
+        () =>
+          getClient().messages.create({
+            model: model(req),
+            max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+            system,
+            messages: turns,
+          }),
+        { label: "anthropic:complete" },
+      );
       const text = response.content
         .filter((block) => block.type === "text")
         .map((block) => block.text)
@@ -101,20 +111,39 @@ export function createAnthropicProvider(): AIProvider {
         const { system, turns } = splitMessages(
           repair ? repairTurns(req.messages, repair) : req.messages,
         );
-        const response = await getClient().messages.create({
-          model: model(req),
-          max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
-          system,
-          messages: turns,
-          tools: [
-            {
-              name: req.schemaName,
-              description: `Record the ${req.schemaName} extracted from the conversation.`,
-              input_schema: inputSchema,
-            },
-          ],
-          tool_choice: { type: "tool", name: req.schemaName },
-        });
+        const call = (maxTokens: number) =>
+          withRetry(
+            () =>
+              getClient().messages.create({
+                model: model(req),
+                max_tokens: maxTokens,
+                system,
+                messages: turns,
+                tools: [
+                  {
+                    name: req.schemaName,
+                    description: `Record the ${req.schemaName} extracted from the conversation.`,
+                    input_schema: inputSchema,
+                  },
+                ],
+                tool_choice: { type: "tool", name: req.schemaName },
+              }),
+            { label: `anthropic:extract:${req.schemaName}` },
+          );
+
+        let budget = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+        let response = await call(budget);
+        // A tool call cut off at max_tokens yields half-written JSON that can
+        // only fail schema validation. Give it one bigger budget before we
+        // waste the repair pass on a truncation the repair can't fix.
+        if (response.stop_reason === "max_tokens" && budget < TRUNCATION_BUMP_CAP) {
+          budget = Math.min(budget * 2, TRUNCATION_BUMP_CAP);
+          console.warn(
+            `[ai-truncation] anthropic:${req.schemaName} hit max_tokens; retrying with ${budget}`,
+          );
+          response = await call(budget);
+        }
+
         const toolUse = response.content.find(
           (block) => block.type === "tool_use",
         );

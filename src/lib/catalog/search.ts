@@ -132,3 +132,81 @@ export function preferOpen(candidates: CatalogCandidate[], min = 6) {
   const openish = candidates.filter((c) => c.open !== false);
   return openish.length >= min ? openish : candidates;
 }
+
+const KEYWORD_COLUMNS =
+  "id, slug, name, area, category, price_level, vibe_tags, description, editor_note, hours, image_path";
+
+/**
+ * Embedding-free retrieval used when the embeddings provider is unavailable, so
+ * a single OpenAI blip doesn't sink an entire chat turn. It ilike-matches the
+ * ask across name/description/editor_note, then relaxes to a city-wide sample
+ * if nothing hits. Ranking is intentionally coarse (no similarity signal) -
+ * this is a graceful floor, not a replacement for semantic search.
+ */
+export async function keywordSearch(
+  supabase: SupabaseClient<Database>,
+  opts: {
+    city: City;
+    terms: string[];
+    area?: string | null;
+    budgetMax?: number | null;
+    count?: number;
+  },
+): Promise<CatalogCandidate[]> {
+  const count = opts.count ?? 24;
+  const area =
+    opts.area && opts.city.areas.includes(opts.area) ? opts.area : null;
+
+  const cityScoped = () => {
+    let q = supabase
+      .from("places")
+      .select(KEYWORD_COLUMNS)
+      .eq("city", opts.city.slug);
+    if (opts.budgetMax != null) q = q.lte("price_level", opts.budgetMax);
+    return q;
+  };
+
+  // PostgREST's or() uses commas/parens as grammar; strip them from terms so a
+  // stray punctuation mark can't break the filter or inject clauses.
+  const terms = opts.terms
+    .flatMap((t) => t.split(/\s+/))
+    .map((t) => t.replace(/[,()*%]/g, "").trim())
+    .filter((t) => t.length >= 3)
+    .slice(0, 6);
+
+  let q = cityScoped();
+  if (area) q = q.eq("area", area);
+  if (terms.length > 0) {
+    const ors = terms.flatMap((t) => [
+      `name.ilike.%${t}%`,
+      `description.ilike.%${t}%`,
+      `editor_note.ilike.%${t}%`,
+    ]);
+    q = q.or(ors.join(","));
+  }
+
+  const { data, error } = await q.limit(count);
+  if (error) throw new Error(`keyword search failed: ${error.message}`);
+
+  let rows = data ?? [];
+  if (rows.length === 0 && (area || terms.length > 0)) {
+    // Constraints over-narrowed; fall back to a city-wide sample so the turn
+    // still has something to rank rather than dead-ending.
+    const { data: relaxed, error: relaxedError } = await cityScoped().limit(
+      count,
+    );
+    if (relaxedError) {
+      throw new Error(`keyword search relax failed: ${relaxedError.message}`);
+    }
+    rows = relaxed ?? [];
+  }
+
+  return rows.map((r) => ({
+    ...r,
+    similarity: 0,
+    hours: r.hours ?? null,
+    image_path: r.image_path ?? null,
+    open: isOpenNow(r.hours ?? null),
+    openLabel: openStatusLabel(r.hours ?? null),
+  }));
+}

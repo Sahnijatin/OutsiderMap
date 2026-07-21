@@ -3,19 +3,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getAI, getEmbeddings } from "@/lib/ai";
 import type { AIMessage } from "@/lib/ai";
+import { describeError } from "@/lib/ai/retry";
 import { serverEnv } from "@/lib/env";
 import { resolveCity } from "@/lib/cities";
 import { nowInIST } from "@/lib/places/hours";
 import {
+  keywordSearch,
   parseStoredEmbedding,
   preferOpen,
   searchCatalog,
+  type CatalogCandidate,
 } from "@/lib/catalog/search";
 import {
   ChatDecisionSchema,
   ChatPicksSchema,
   decisionSystem,
   picksSystem,
+  type ChatDecision,
+  type ChatPicks,
 } from "@/lib/chat/prompts";
 import type { Database, Json } from "@/types/database";
 
@@ -51,6 +56,34 @@ export type ChatTurnResult =
 const IntentStateSchema = z
   .object({ questions_asked: z.number().int().min(0).default(0) })
   .passthrough();
+
+/** A read of intent with nothing filled in - the base for the fallback path. */
+const EMPTY_INTENT: ChatDecision["intent"] = {
+  mood: null,
+  craving: null,
+  energy: null,
+  budget_max: null,
+  area: null,
+  company: null,
+  wants: [],
+  avoid: [],
+};
+
+/**
+ * A degraded step logs one structured line and keeps the turn alive. These are
+ * expected, recoverable events (a provider blip, a validation miss) - not the
+ * unhandled crashes the route's catch is for - so they warn, not error.
+ */
+function logStepDegraded(
+  step: string,
+  err: unknown,
+  meta: { userId: string; threadId: string | null },
+) {
+  console.warn(
+    `[chat] ${step} step degraded`,
+    JSON.stringify({ step, ...meta, ...describeError(err) }),
+  );
+}
 
 function timeLabel() {
   const { day, minutes } = nowInIST();
@@ -138,25 +171,38 @@ export async function runChatTurn(
         .maybeSingle()
     : { data: null };
 
-  const decision = await ai.extract({
-    schema: ChatDecisionSchema,
-    schemaName: "chat_decision",
-    model: fastModel,
-    messages: [
-      {
-        role: "system",
-        content: decisionSystem({
-          cityName: city.name,
-          areas: city.areas,
-          questionsAsked: intentState.questions_asked,
-          timeLabel: timeLabel(),
-        }),
-      },
-      ...history,
-      { role: "user", content: input.message },
-    ],
-    maxTokens: 1500,
-  });
+  // Decision step. If it fails (provider blip, schema miss after repair), don't
+  // sink the turn - fall back to recommending straight from their raw words.
+  let decision: ChatDecision;
+  try {
+    decision = await ai.extract({
+      schema: ChatDecisionSchema,
+      schemaName: "chat_decision",
+      model: fastModel,
+      messages: [
+        {
+          role: "system",
+          content: decisionSystem({
+            cityName: city.name,
+            areas: city.areas,
+            questionsAsked: intentState.questions_asked,
+            timeLabel: timeLabel(),
+          }),
+        },
+        ...history,
+        { role: "user", content: input.message },
+      ],
+      maxTokens: 1500,
+    });
+  } catch (err) {
+    logStepDegraded("decision", err, { userId, threadId });
+    decision = {
+      action: "recommend",
+      question: null,
+      intent: { ...EMPTY_INTENT },
+      search_query: input.message,
+    };
+  }
 
   const askAllowed = intentState.questions_asked < 2;
 
@@ -191,17 +237,36 @@ export async function runChatTurn(
   ]
     .filter(Boolean)
     .join("\n");
-  const [queryEmbedding] = await getEmbeddings().embed([searchText]);
+  // Retrieval: semantic search when embeddings are available, keyword search as
+  // a fallback so an embeddings-provider outage (a separate provider from chat)
+  // doesn't take the whole turn down with it.
+  const keywordTerms = [
+    decision.search_query ?? input.message,
+    decision.intent.craving,
+    ...decision.intent.wants,
+  ].filter((t): t is string => Boolean(t));
 
-  const candidates = await searchCatalog(supabase, {
-    city,
-    queryEmbedding,
-    tasteEmbedding: personalize
-      ? parseStoredEmbedding(tasteRow?.embedding)
-      : null,
-    area: decision.intent.area,
-    budgetMax: decision.intent.budget_max,
-  });
+  let candidates: CatalogCandidate[];
+  try {
+    const [queryEmbedding] = await getEmbeddings().embed([searchText]);
+    candidates = await searchCatalog(supabase, {
+      city,
+      queryEmbedding,
+      tasteEmbedding: personalize
+        ? parseStoredEmbedding(tasteRow?.embedding)
+        : null,
+      area: decision.intent.area,
+      budgetMax: decision.intent.budget_max,
+    });
+  } catch (err) {
+    logStepDegraded("retrieval", err, { userId, threadId });
+    candidates = await keywordSearch(supabase, {
+      city,
+      terms: keywordTerms,
+      area: decision.intent.area,
+      budgetMax: decision.intent.budget_max,
+    });
+  }
 
   if (candidates.length === 0) {
     const text = `Honestly? Nothing in the ${city.name} catalog fits that yet - it's growing every week. Try loosening one constraint, or tell me a different mood.`;
@@ -214,7 +279,12 @@ export async function runChatTurn(
   }
 
   const pool = preferOpen(candidates);
-  const composed = await ai.extract({
+  // Picks composition. On failure we still answer: the backfill loop below fills
+  // straight from the ranked pool with editor notes as reasons, so a degraded
+  // turn returns real places instead of a red error bubble.
+  let composed: ChatPicks | null = null;
+  try {
+    composed = await ai.extract({
     schema: ChatPicksSchema,
     schemaName: "chat_picks",
     // Latency matters more than prose polish here - same fast model as the
@@ -249,11 +319,14 @@ export async function runChatTurn(
       },
     ],
     maxTokens: 1500,
-  });
+    });
+  } catch (err) {
+    logStepDegraded("picks", err, { userId, threadId });
+  }
 
   const bySlug = new Map(pool.map((c) => [c.slug, c]));
   const picks: ChatPickCard[] = [];
-  for (const pick of composed.picks) {
+  for (const pick of composed?.picks ?? []) {
     const place = bySlug.get(pick.slug);
     if (place && !picks.some((p) => p.slug === place.slug)) {
       picks.push({
@@ -268,9 +341,12 @@ export async function runChatTurn(
       });
     }
   }
-  // A reranker hallucinating slugs shouldn't empty the answer.
+  // A reranker hallucinating slugs - or a failed composition - shouldn't empty
+  // the answer. Backfill from the ranked pool; reach for 3 when composition was
+  // lost entirely so the degraded turn still feels like a real recommendation.
+  const minPicks = composed ? 2 : 3;
   for (const c of pool) {
-    if (picks.length >= 2) break;
+    if (picks.length >= minPicks) break;
     if (!picks.some((p) => p.slug === c.slug)) {
       picks.push({
         id: c.id,
@@ -300,6 +376,11 @@ export async function runChatTurn(
     p.lng = c?.lng ?? null;
   }
 
+  // Composition may have been lost; a plain lead-in still frames the picks.
+  const leadIn =
+    composed?.lead_in?.trim() ||
+    "Here's what fits best right now:";
+
   const nextState: Json = {
     ...intentState,
     ...decision.intent,
@@ -309,7 +390,7 @@ export async function runChatTurn(
     supabase.from("chat_messages").insert({
       thread_id: threadId,
       role: "assistant",
-      content: composed.lead_in,
+      content: leadIn,
       picks: picks as unknown as Json,
     }),
     supabase
@@ -328,7 +409,7 @@ export async function runChatTurn(
     type: "picks",
     threadId,
     city: city.slug,
-    text: composed.lead_in,
+    text: leadIn,
     picks,
   };
 }

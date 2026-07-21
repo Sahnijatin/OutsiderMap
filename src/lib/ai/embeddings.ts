@@ -1,6 +1,7 @@
 import "server-only";
 import OpenAI from "openai";
 import { serverEnv } from "@/lib/env";
+import { withRetry } from "@/lib/ai/retry";
 import type { EmbeddingProvider } from "@/lib/ai/types";
 
 /**
@@ -18,11 +19,15 @@ export function getEmbeddings(): EmbeddingProvider {
       if (!env.OPENAI_API_KEY) {
         throw new Error("Embeddings require OPENAI_API_KEY to be set");
       }
-      const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-      const response = await client.embeddings.create({
-        model: EMBEDDING_MODEL,
-        input: texts,
-      });
+      const client = new OpenAI({ apiKey: env.OPENAI_API_KEY, maxRetries: 0 });
+      const response = await withRetry(
+        () =>
+          client.embeddings.create({
+            model: EMBEDDING_MODEL,
+            input: texts,
+          }),
+        { label: "openai:embeddings", retries: 3 },
+      );
       return response.data.map((d) => d.embedding);
     },
   };
