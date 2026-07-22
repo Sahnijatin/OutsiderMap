@@ -9,6 +9,7 @@ import {
   verifyPostObject,
 } from "@/lib/media/post";
 import { publicMediaUrl } from "@/lib/media/url";
+import { moderatePost } from "@/lib/moderation/gate";
 
 /**
  * POST — after the client PUTs to the signed URL, verify the object landed
@@ -88,6 +89,15 @@ export async function POST(
       { error: "not_editable", message: "This post can't take more media." },
       { status: 400 },
     );
+  }
+
+  // Re-screen the post now that it has media (CSAM + image); a media post is
+  // pre-screened before it can go public. Best-effort: on failure the post
+  // stays pending for human review.
+  try {
+    await moderatePost(admin, id);
+  } catch (err) {
+    console.error("post media moderation gate failed; leaving pending", err);
   }
 
   const { data: media } = await ctx.supabase

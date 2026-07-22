@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getApiContext } from "@/lib/api-auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { CreatePostSchema } from "@/lib/feed/compose";
+import { moderatePost } from "@/lib/moderation/gate";
 
 /**
  * POST /api/posts — create a post. It lands `status='pending'` (the RLS
@@ -61,5 +63,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, post: data }, { status: 201 });
+  // Pre-publish moderation gate: screen the text now and set the post's final
+  // status (media is re-screened at confirm time). A gate failure must not
+  // lose the post - it just stays pending for human review.
+  const admin = createAdminClient();
+  try {
+    await moderatePost(admin, data.id);
+  } catch (err) {
+    console.error("post moderation gate failed; leaving pending", err);
+  }
+  const { data: gated } = await ctx.supabase
+    .from("posts")
+    .select("id, status, type, visibility, created_at")
+    .eq("id", data.id)
+    .maybeSingle();
+
+  return NextResponse.json({ ok: true, post: gated ?? data }, { status: 201 });
 }
