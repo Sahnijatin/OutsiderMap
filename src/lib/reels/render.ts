@@ -1,5 +1,6 @@
 import "server-only";
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -7,6 +8,8 @@ import { promisify } from "node:util";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { QUEST_MEDIA_BUCKET } from "@/lib/media/quest";
+import { POST_MEDIA_BUCKET } from "@/lib/media/post";
+import { buildReelPost, buildReelPostMedia } from "@/lib/feed/reel-post";
 import {
   buildPosterArgs,
   buildReelArgs,
@@ -17,7 +20,6 @@ import {
 import type { Database } from "@/types/database";
 
 const execFileAsync = promisify(execFile);
-const REEL_BUCKET = "reel-media";
 
 /** Lazy so builds/tests never require the binary package. */
 async function ffmpegPath(): Promise<string> {
@@ -26,14 +28,15 @@ async function ffmpegPath(): Promise<string> {
 }
 
 /**
- * Render a completed quest's captured media into the member's reel and
- * store it as a pending `reels` row. Runs inside the job route (long
- * maxDuration); throws on any failure so the caller can mark the job.
+ * Render a completed quest's captured media into the member's reel and store
+ * it as a pending `video` post (type=video) plus one post_media row. Reels are
+ * now one post type (#76). Runs inside the job route (long maxDuration); throws
+ * on any failure so the caller can mark the job.
  */
 export async function renderQuestReel(
   admin: SupabaseClient<Database>,
   questId: string,
-): Promise<{ reelId: string; videoPath: string }> {
+): Promise<{ postId: string; videoPath: string }> {
   const { data: quest } = await admin
     .from("quests")
     .select("id, user_id, city, title, status")
@@ -141,43 +144,50 @@ export async function renderQuestReel(
       timeout: 60_000,
     });
 
-    const videoStoragePath = `r/${questId}/${Date.now()}.mp4`;
-    const posterStoragePath = videoStoragePath.replace(/\.mp4$/, ".jpg");
+    // Reels render into the public post-media bucket now. Paths are
+    // owner-prefixed (p/{user}/…) like composer uploads; the admin client
+    // bypasses storage RLS. Upload first so a DB failure can't orphan a post
+    // with no media (a failed upload just throws and the job retries).
+    const base = `p/${quest.user_id}/${randomUUID()}`;
+    const videoStoragePath = `${base}.mp4`;
+    const posterStoragePath = `${base}.jpg`;
     const [video, poster] = await Promise.all([
       readFile(outPath),
       readFile(posterPath),
     ]);
     const { error: upErr } = await admin.storage
-      .from(REEL_BUCKET)
+      .from(POST_MEDIA_BUCKET)
       .upload(videoStoragePath, video, { contentType: "video/mp4" });
     if (upErr) throw new Error(`reel upload failed: ${upErr.message}`);
     await admin.storage
-      .from(REEL_BUCKET)
+      .from(POST_MEDIA_BUCKET)
       .upload(posterStoragePath, poster, { contentType: "image/jpeg" });
 
-    const approxDuration = clips.reduce(
-      (sum, c) => sum + (c.type === "image" ? 2.6 : 3.5),
-      0,
-    );
-    const { data: reel, error: reelErr } = await admin
-      .from("reels")
-      .insert({
-        source: "user_quest",
-        user_id: quest.user_id,
-        quest_id: quest.id,
-        place_id: stops?.[0]?.place_id ?? null,
-        city: quest.city,
-        video_path: videoStoragePath,
-        poster_path: posterStoragePath,
-        caption: quest.title,
-        duration_seconds: approxDuration,
-        status: "pending",
-      })
+    const { data: post, error: postErr } = await admin
+      .from("posts")
+      .insert(
+        buildReelPost({
+          userId: quest.user_id,
+          placeId: stops?.[0]?.place_id ?? null,
+          city: quest.city,
+          caption: quest.title,
+        }),
+      )
       .select("id")
       .single();
-    if (reelErr) throw new Error(reelErr.message);
+    if (postErr) throw new Error(postErr.message);
 
-    return { reelId: reel.id, videoPath: videoStoragePath };
+    const { error: mediaErr } = await admin.from("post_media").insert(
+      buildReelPostMedia({
+        postId: post.id,
+        videoPath: videoStoragePath,
+        posterPath: posterStoragePath,
+        bucket: POST_MEDIA_BUCKET,
+      }),
+    );
+    if (mediaErr) throw new Error(mediaErr.message);
+
+    return { postId: post.id, videoPath: videoStoragePath };
   } finally {
     await rm(workDir, { recursive: true, force: true });
   }

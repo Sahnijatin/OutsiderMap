@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getApiContext, type ApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { publicMediaUrl } from "@/lib/media/url";
-import { POST_MEDIA_BUCKET } from "@/lib/media/post";
 import {
   FEED_PAGE_SIZE,
   FeedQuerySchema,
@@ -98,7 +97,7 @@ export async function GET(request: NextRequest) {
     ctx.supabase.rpc("public_authors", { ids: authorIds }),
     ctx.supabase
       .from("post_media")
-      .select("post_id, kind, path, poster_path, ordinal")
+      .select("post_id, kind, path, poster_path, ordinal, bucket")
       .in("post_id", postIds)
       .order("ordinal"),
   ]);
@@ -111,8 +110,8 @@ export async function GET(request: NextRequest) {
     const list = mediaByPost.get(m.post_id) ?? [];
     list.push({
       kind: m.kind,
-      url: publicMediaUrl(POST_MEDIA_BUCKET, m.path),
-      posterUrl: publicMediaUrl(POST_MEDIA_BUCKET, m.poster_path),
+      url: publicMediaUrl(m.bucket, m.path),
+      posterUrl: publicMediaUrl(m.bucket, m.poster_path),
     });
     mediaByPost.set(m.post_id, list);
   }

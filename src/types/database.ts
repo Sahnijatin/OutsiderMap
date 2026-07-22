@@ -1057,6 +1057,7 @@ export type Database = {
           path: string;
           poster_path: string | null;
           ordinal: number;
+          bucket: "post-media" | "reel-media";
         };
         Insert: {
           id?: string;
@@ -1065,6 +1066,7 @@ export type Database = {
           path: string;
           poster_path?: string | null;
           ordinal?: number;
+          bucket?: "post-media" | "reel-media";
         };
         Update: {
           id?: string;
@@ -1073,6 +1075,7 @@ export type Database = {
           path?: string;
           poster_path?: string | null;
           ordinal?: number;
+          bucket?: "post-media" | "reel-media";
         };
         Relationships: [];
       };

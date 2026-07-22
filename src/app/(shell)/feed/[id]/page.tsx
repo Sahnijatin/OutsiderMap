@@ -5,7 +5,6 @@ import { z } from "zod";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { publicMediaUrl } from "@/lib/media/url";
-import { POST_MEDIA_BUCKET } from "@/lib/media/post";
 import type { PostCard as PostCardData } from "@/lib/feed/read";
 import { PostCard } from "../post-card";
 import { PostActions } from "./post-actions";
@@ -37,7 +36,7 @@ export default async function PostDetailPage({
       supabase.rpc("public_authors", { ids: [post.author_id] }),
       supabase
         .from("post_media")
-        .select("kind, path, poster_path, ordinal")
+        .select("kind, path, poster_path, ordinal, bucket")
         .eq("post_id", id)
         .order("ordinal"),
       supabase
@@ -66,8 +65,8 @@ export default async function PostDetailPage({
     author: authors?.[0] ?? null,
     media: (media ?? []).map((m) => ({
       kind: m.kind,
-      url: publicMediaUrl(POST_MEDIA_BUCKET, m.path),
-      posterUrl: publicMediaUrl(POST_MEDIA_BUCKET, m.poster_path),
+      url: publicMediaUrl(m.bucket, m.path),
+      posterUrl: publicMediaUrl(m.bucket, m.poster_path),
     })),
     fromNetwork: false,
   };
