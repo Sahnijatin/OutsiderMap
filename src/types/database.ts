@@ -1187,6 +1187,186 @@ export type Database = {
         };
         Relationships: [];
       };
+      csam_staff: {
+        Row: { user_id: string; added_at: string };
+        Insert: { user_id: string; added_at?: string };
+        Update: { user_id?: string; added_at?: string };
+        Relationships: [];
+      };
+      moderation_cases: {
+        Row: {
+          id: string;
+          target_type: "post" | "comment" | "reel" | "profile" | "submission" | "price_report";
+          target_id: string;
+          author_id: string | null;
+          source: "pre_publish" | "report" | "rescan";
+          assessment: Json | null;
+          decision: "auto_approved" | "auto_rejected" | "needs_review" | "approved" | "removed" | "escalated";
+          severity: number;
+          reviewer_id: string | null;
+          reason: string | null;
+          created_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          target_type: "post" | "comment" | "reel" | "profile" | "submission" | "price_report";
+          target_id: string;
+          author_id?: string | null;
+          source: "pre_publish" | "report" | "rescan";
+          assessment?: Json | null;
+          decision?: "auto_approved" | "auto_rejected" | "needs_review" | "approved" | "removed" | "escalated";
+          severity?: number;
+          reviewer_id?: string | null;
+          reason?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          target_type?: "post" | "comment" | "reel" | "profile" | "submission" | "price_report";
+          target_id?: string;
+          author_id?: string | null;
+          source?: "pre_publish" | "report" | "rescan";
+          assessment?: Json | null;
+          decision?: "auto_approved" | "auto_rejected" | "needs_review" | "approved" | "removed" | "escalated";
+          severity?: number;
+          reviewer_id?: string | null;
+          reason?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+        Relationships: [];
+      };
+      user_trust: {
+        Row: {
+          user_id: string;
+          tier: "new" | "member" | "trusted" | "restricted";
+          strike_count: number;
+          muted_until: string | null;
+          banned_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          tier?: "new" | "member" | "trusted" | "restricted";
+          strike_count?: number;
+          muted_until?: string | null;
+          banned_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          tier?: "new" | "member" | "trusted" | "restricted";
+          strike_count?: number;
+          muted_until?: string | null;
+          banned_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      user_blocks: {
+        Row: { blocker: string; blocked: string; created_at: string };
+        Insert: { blocker: string; blocked: string; created_at?: string };
+        Update: { blocker?: string; blocked?: string; created_at?: string };
+        Relationships: [];
+      };
+      grievances: {
+        Row: {
+          id: string;
+          reporter_id: string | null;
+          target_type: string | null;
+          target_id: string | null;
+          category: string;
+          body: string | null;
+          status: "received" | "acknowledged" | "resolved" | "appealed" | "rejected";
+          received_at: string;
+          acknowledged_at: string | null;
+          resolved_at: string | null;
+          officer_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          reporter_id?: string | null;
+          target_type?: string | null;
+          target_id?: string | null;
+          category: string;
+          body?: string | null;
+          status?: "received" | "acknowledged" | "resolved" | "appealed" | "rejected";
+          received_at?: string;
+          acknowledged_at?: string | null;
+          resolved_at?: string | null;
+          officer_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          reporter_id?: string | null;
+          target_type?: string | null;
+          target_id?: string | null;
+          category?: string;
+          body?: string | null;
+          status?: "received" | "acknowledged" | "resolved" | "appealed" | "rejected";
+          received_at?: string;
+          acknowledged_at?: string | null;
+          resolved_at?: string | null;
+          officer_id?: string | null;
+        };
+        Relationships: [];
+      };
+      moderation_actions: {
+        Row: {
+          id: string;
+          case_id: string | null;
+          actor: string;
+          action: string;
+          detail: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          case_id?: string | null;
+          actor: string;
+          action: string;
+          detail?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          case_id?: string | null;
+          actor?: string;
+          action?: string;
+          detail?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      csam_reports: {
+        Row: {
+          id: string;
+          media_ref: string;
+          match_source: string | null;
+          reported_to_authority_at: string | null;
+          status: "detected" | "preserved" | "reported" | "closed";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          media_ref: string;
+          match_source?: string | null;
+          reported_to_authority_at?: string | null;
+          status?: "detected" | "preserved" | "reported" | "closed";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          media_ref?: string;
+          match_source?: string | null;
+          reported_to_authority_at?: string | null;
+          status?: "detected" | "preserved" | "reported" | "closed";
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1201,6 +1381,10 @@ export type Database = {
         }[];
       };
       is_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      is_csam_staff: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
