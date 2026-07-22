@@ -1168,6 +1168,15 @@ export type Database = {
         Args: { p_post_id: string };
         Returns: string;
       };
+      follow_state: {
+        Args: { target: string };
+        Returns: {
+          follower_count: number;
+          following_count: number;
+          is_following: boolean;
+          follows_you: boolean;
+        }[];
+      };
       is_premium: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
