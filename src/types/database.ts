@@ -1124,6 +1124,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      activity_events: {
+        Row: {
+          id: number;
+          recipient_id: string;
+          actor_id: string;
+          type: "follow" | "like" | "want_to_go" | "comment" | "quest_complete";
+          post_id: string | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          recipient_id: string;
+          actor_id: string;
+          type: "follow" | "like" | "want_to_go" | "comment" | "quest_complete";
+          post_id?: string | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          recipient_id?: string;
+          actor_id?: string;
+          type?: "follow" | "like" | "want_to_go" | "comment" | "quest_complete";
+          post_id?: string | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       content_reports: {
         Row: {
           id: string;

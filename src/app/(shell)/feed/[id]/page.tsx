@@ -8,6 +8,8 @@ import { publicMediaUrl } from "@/lib/media/url";
 import { POST_MEDIA_BUCKET } from "@/lib/media/post";
 import type { PostCard as PostCardData } from "@/lib/feed/read";
 import { PostCard } from "../post-card";
+import { PostActions } from "./post-actions";
+import { Comments } from "./comments";
 
 const CARD_FIELDS =
   "id, author_id, type, place_id, area, city, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area)";
@@ -18,7 +20,7 @@ export default async function PostDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireOnboarded();
+  const me = await requireOnboarded();
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();
 
@@ -30,14 +32,21 @@ export default async function PostDetailPage({
     .maybeSingle();
   if (!post) notFound();
 
-  const [{ data: authors }, { data: media }] = await Promise.all([
-    supabase.rpc("public_authors", { ids: [post.author_id] }),
-    supabase
-      .from("post_media")
-      .select("kind, path, poster_path, ordinal")
-      .eq("post_id", id)
-      .order("ordinal"),
-  ]);
+  const [{ data: authors }, { data: media }, { data: myReactions }] =
+    await Promise.all([
+      supabase.rpc("public_authors", { ids: [post.author_id] }),
+      supabase
+        .from("post_media")
+        .select("kind, path, poster_path, ordinal")
+        .eq("post_id", id)
+        .order("ordinal"),
+      supabase
+        .from("post_reactions")
+        .select("kind")
+        .eq("post_id", id)
+        .eq("user_id", me.id),
+    ]);
+  const reactedKinds = new Set((myReactions ?? []).map((r) => r.kind));
 
   const card: PostCardData = {
     id: post.id,
@@ -73,6 +82,16 @@ export default async function PostDetailPage({
         Feed
       </Link>
       <PostCard post={card} headingLevel="h1" />
+      <PostActions
+        postId={card.id}
+        initialLiked={reactedKinds.has("like")}
+        initialWanted={reactedKinds.has("want_to_go")}
+        likeCount={card.like_count}
+        wantCount={card.want_count}
+      />
+      <div className="mt-2 border-t border-line/60 pt-4">
+        <Comments postId={card.id} />
+      </div>
     </main>
   );
 }
