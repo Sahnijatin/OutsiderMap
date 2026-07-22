@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { normalizeFollowState } from "@/lib/feed/follows";
 
 /**
  * The member's profile screen: the system's read on their taste (the wow
@@ -19,22 +20,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const [{ data: profile }, { data: taste }] = await Promise.all([
-    ctx.supabase
-      .from("profiles")
-      .select(
-        "display_name, avatar_url, home_area, personalization_enabled, onboarding_completed_at",
-      )
-      .eq("id", ctx.user.id)
-      .maybeSingle(),
-    ctx.supabase
-      .from("taste_profiles")
-      .select("taste_summary, learned_signals, version, updated_at")
-      .eq("user_id", ctx.user.id)
-      .maybeSingle(),
-  ]);
+  const [{ data: profile }, { data: taste }, { data: follow }] =
+    await Promise.all([
+      ctx.supabase
+        .from("profiles")
+        .select(
+          "display_name, avatar_url, home_area, personalization_enabled, onboarding_completed_at",
+        )
+        .eq("id", ctx.user.id)
+        .maybeSingle(),
+      ctx.supabase
+        .from("taste_profiles")
+        .select("taste_summary, learned_signals, version, updated_at")
+        .eq("user_id", ctx.user.id)
+        .maybeSingle(),
+      ctx.supabase.rpc("follow_state", { target: ctx.user.id }),
+    ]);
 
-  return NextResponse.json({ profile, taste });
+  return NextResponse.json({
+    profile,
+    taste,
+    follows: normalizeFollowState(follow?.[0]),
+  });
 }
 
 const PatchSchema = z.object({ personalization_enabled: z.boolean() });

@@ -4,7 +4,7 @@
  * buckets need signed URLs instead.
  */
 export function publicMediaUrl(
-  bucket: "place-images" | "experience-media" | "reel-media",
+  bucket: "place-images" | "experience-media" | "reel-media" | "post-media",
   path: string | null | undefined,
 ): string | null {
   if (!path) return null;

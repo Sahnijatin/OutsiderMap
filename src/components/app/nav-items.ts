@@ -1,8 +1,8 @@
 import {
-  Clapperboard,
   Compass,
   MapIcon,
   MessageCircle,
+  Newspaper,
   UserRound,
 } from "lucide-react";
 
@@ -14,6 +14,6 @@ export const NAV_ITEMS = [
   { href: "/map", label: "Map", icon: MapIcon },
   { href: "/chat", label: "Chat", icon: MessageCircle },
   { href: "/quests", label: "Quests", icon: Compass },
-  { href: "/reels", label: "Reels", icon: Clapperboard },
+  { href: "/feed", label: "Feed", icon: Newspaper },
   { href: "/profile", label: "You", icon: UserRound },
 ] as const;

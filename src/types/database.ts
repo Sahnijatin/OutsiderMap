@@ -959,6 +959,234 @@ export type Database = {
         };
         Relationships: [];
       };
+      follows: {
+        Row: {
+          follower: string;
+          followee: string;
+          created_at: string;
+        };
+        Insert: {
+          follower: string;
+          followee: string;
+          created_at?: string;
+        };
+        Update: {
+          follower?: string;
+          followee?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      posts: {
+        Row: {
+          id: string;
+          author_id: string;
+          type: "status" | "photo" | "video" | "review" | "list";
+          place_id: string | null;
+          area: string | null;
+          city: string;
+          action: string | null;
+          mood: string | null;
+          body: string | null;
+          visibility: "public" | "followers" | "friends" | "private";
+          location_precision: "exact" | "area" | "hidden";
+          status: "pending" | "approved" | "rejected" | "removed";
+          like_count: number;
+          comment_count: number;
+          want_count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          type: "status" | "photo" | "video" | "review" | "list";
+          place_id?: string | null;
+          area?: string | null;
+          city?: string;
+          action?: string | null;
+          mood?: string | null;
+          body?: string | null;
+          visibility?: "public" | "followers" | "friends" | "private";
+          location_precision?: "exact" | "area" | "hidden";
+          status?: "pending" | "approved" | "rejected" | "removed";
+          like_count?: number;
+          comment_count?: number;
+          want_count?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          author_id?: string;
+          type?: "status" | "photo" | "video" | "review" | "list";
+          place_id?: string | null;
+          area?: string | null;
+          city?: string;
+          action?: string | null;
+          mood?: string | null;
+          body?: string | null;
+          visibility?: "public" | "followers" | "friends" | "private";
+          location_precision?: "exact" | "area" | "hidden";
+          status?: "pending" | "approved" | "rejected" | "removed";
+          like_count?: number;
+          comment_count?: number;
+          want_count?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "posts_place_id_fkey";
+            columns: ["place_id"];
+            isOneToOne: false;
+            referencedRelation: "places";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "posts_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      post_media: {
+        Row: {
+          id: string;
+          post_id: string;
+          kind: "image" | "video";
+          path: string;
+          poster_path: string | null;
+          ordinal: number;
+          bucket: "post-media" | "reel-media";
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          kind: "image" | "video";
+          path: string;
+          poster_path?: string | null;
+          ordinal?: number;
+          bucket?: "post-media" | "reel-media";
+        };
+        Update: {
+          id?: string;
+          post_id?: string;
+          kind?: "image" | "video";
+          path?: string;
+          poster_path?: string | null;
+          ordinal?: number;
+          bucket?: "post-media" | "reel-media";
+        };
+        Relationships: [];
+      };
+      post_reactions: {
+        Row: {
+          post_id: string;
+          user_id: string;
+          kind: "like" | "want_to_go";
+          created_at: string;
+        };
+        Insert: {
+          post_id: string;
+          user_id: string;
+          kind?: "like" | "want_to_go";
+          created_at?: string;
+        };
+        Update: {
+          post_id?: string;
+          user_id?: string;
+          kind?: "like" | "want_to_go";
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      post_comments: {
+        Row: {
+          id: string;
+          post_id: string;
+          author_id: string;
+          body: string;
+          status: "approved" | "removed";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          author_id: string;
+          body: string;
+          status?: "approved" | "removed";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          post_id?: string;
+          author_id?: string;
+          body?: string;
+          status?: "approved" | "removed";
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      activity_events: {
+        Row: {
+          id: number;
+          recipient_id: string;
+          actor_id: string;
+          type: "follow" | "like" | "want_to_go" | "comment" | "quest_complete";
+          post_id: string | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          recipient_id: string;
+          actor_id: string;
+          type: "follow" | "like" | "want_to_go" | "comment" | "quest_complete";
+          post_id?: string | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          recipient_id?: string;
+          actor_id?: string;
+          type?: "follow" | "like" | "want_to_go" | "comment" | "quest_complete";
+          post_id?: string | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      content_reports: {
+        Row: {
+          id: string;
+          reporter_id: string;
+          target_type: "post" | "comment" | "profile";
+          target_id: string;
+          reason: string | null;
+          created_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          reporter_id: string;
+          target_type: "post" | "comment" | "profile";
+          target_id: string;
+          reason?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          reporter_id?: string;
+          target_type?: "post" | "comment" | "profile";
+          target_id?: string;
+          reason?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -975,6 +1203,47 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
+      };
+      can_view_post: {
+        Args: { p_author: string; p_visibility: string; p_status: string };
+        Returns: boolean;
+      };
+      can_view_post_by_id: {
+        Args: { p_post_id: string };
+        Returns: boolean;
+      };
+      post_author: {
+        Args: { p_post_id: string };
+        Returns: string;
+      };
+      follow_state: {
+        Args: { target: string };
+        Returns: {
+          follower_count: number;
+          following_count: number;
+          is_following: boolean;
+          follows_you: boolean;
+        }[];
+      };
+      public_authors: {
+        Args: { ids: string[] };
+        Returns: {
+          id: string;
+          username: string | null;
+          display_name: string | null;
+          avatar_url: string | null;
+          outsider_number: number | null;
+        }[];
+      };
+      public_profile: {
+        Args: { candidate: string };
+        Returns: {
+          id: string;
+          username: string | null;
+          display_name: string | null;
+          avatar_url: string | null;
+          outsider_number: number | null;
+        }[];
       };
       is_premium: {
         Args: Record<PropertyKey, never>;
