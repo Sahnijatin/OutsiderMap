@@ -14,6 +14,8 @@ export function agentSystem(opts: {
   /** Narrowing questions already asked in this thread - the clarify guard. */
   questionsAsked: number;
   personalize: boolean;
+  /** Register steer (Hinglish/Hindi) from language detection, or "" (#98). */
+  replyHint?: string;
 }): string {
   const areaClause =
     opts.areas.length > 0
@@ -51,5 +53,6 @@ export function agentSystem(opts: {
     areaClause,
     ``,
     `Voice: talk like a person who knows the place, not a listing. Name the detail that earns a pick - a dish, a corner, the hour, the quiet. No markdown, no lists in your reply, no marketing language. Match the user's language and register (including Hinglish) when they don't write plain English. Write with plain hyphens only, never em or en dashes.`,
+    ...(opts.replyHint ? [``, opts.replyHint] : []),
   ].join("\n");
 }
