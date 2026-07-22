@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({}) }));
+// Market tools reach the store; stub it so the honesty branches test cleanly.
+vi.mock("@/lib/market/store", () => ({
+  resolveMarket: async () => null,
+  marketIntelligenceByCategory: async () => new Map(),
+  generateMarketRunPlan: async () => null,
+}));
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -55,6 +62,7 @@ describe("buildChatTools", () => {
     const tools = buildChatTools(makeCtx(), new ChatToolCollector());
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
+        "build_market_run",
         "build_plan",
         "check_open_now",
         "get_market_intelligence",
@@ -91,12 +99,26 @@ describe("show_on_map grounding", () => {
   });
 });
 
-describe("get_market_intelligence honesty", () => {
-  it("refuses to fabricate and points at build_plan", async () => {
+describe("market tools honesty", () => {
+  it("says a market is unmapped instead of inventing prices", async () => {
     const tools = buildChatTools(makeCtx(), new ChatToolCollector());
-    const out = await byName(tools, "get_market_intelligence").handler({});
-    expect(String(out)).toContain("isn't available yet");
-    expect(String(out)).toContain("build_plan");
+    const out = await byName(tools, "get_market_intelligence").handler({
+      market: "Sarojini",
+      category: "fashion",
+    });
+    expect(String(out)).toContain("mapped");
+    expect(String(out)).not.toMatch(/₹\d/); // no fabricated number
+  });
+
+  it("won't build a shopping run for an unmapped market", async () => {
+    const collector = new ChatToolCollector();
+    const tools = buildChatTools(makeCtx(), collector);
+    const out = await byName(tools, "build_market_run").handler({
+      market: "Nowhere Bazaar",
+      items: [{ category: "fashion" }],
+    });
+    expect(String(out)).toContain("mapped");
+    expect(collector.marketRunId).toBeNull();
   });
 });
 

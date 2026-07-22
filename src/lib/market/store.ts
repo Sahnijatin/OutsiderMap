@@ -34,6 +34,40 @@ export function rowToPricePoint(row: PricePointRow): PricePoint | null {
   };
 }
 
+/**
+ * Resolve a member's free-text market reference ("Sarojini", "sarojini-nagar")
+ * to a published market in their city - by exact slug first, then a name match.
+ * Returns null rather than guessing, so the agent can say "we don't have that
+ * market mapped yet" instead of inventing one.
+ */
+export async function resolveMarket(
+  admin: SupabaseClient<Database>,
+  citySlug: string,
+  query: string,
+): Promise<{ id: string; slug: string; name: string } | null> {
+  const q = query.trim();
+  if (!q) return null;
+
+  const bySlug = await admin
+    .from("markets")
+    .select("id, slug, name")
+    .eq("city", citySlug)
+    .eq("slug", q.toLowerCase())
+    .eq("is_published", true)
+    .maybeSingle();
+  if (bySlug.data) return bySlug.data;
+
+  const byName = await admin
+    .from("markets")
+    .select("id, slug, name")
+    .eq("city", citySlug)
+    .eq("is_published", true)
+    .ilike("name", `%${q}%`)
+    .limit(1)
+    .maybeSingle();
+  return byName.data ?? null;
+}
+
 export interface MarketContext {
   market: Market;
   sections: MarketSection[];
