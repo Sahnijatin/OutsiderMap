@@ -53,14 +53,23 @@ export function PostCard({
           )}
         </span>
         <div className="flex min-w-0 flex-col">
-          <span className="truncate text-sm text-ink">
-            {authorLabel(post.author)}
-            {post.author?.outsider_number != null && (
-              <span className="ml-1.5 font-mono text-[0.65rem] text-ink-dim">
-                #{post.author.outsider_number}
-              </span>
-            )}
-          </span>
+          {post.author?.username ? (
+            <Link
+              href={`/profile/${post.author.username}`}
+              className="truncate text-sm text-ink hover:underline"
+            >
+              {authorLabel(post.author)}
+              {post.author.outsider_number != null && (
+                <span className="ml-1.5 font-mono text-[0.65rem] text-ink-dim">
+                  #{post.author.outsider_number}
+                </span>
+              )}
+            </Link>
+          ) : (
+            <span className="truncate text-sm text-ink">
+              {authorLabel(post.author)}
+            </span>
+          )}
           <span className="text-xs text-ink-dim">{timeAgo(post.created_at)}</span>
         </div>
       </header>

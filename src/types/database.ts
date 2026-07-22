@@ -1235,6 +1235,16 @@ export type Database = {
           outsider_number: number | null;
         }[];
       };
+      public_profile: {
+        Args: { candidate: string };
+        Returns: {
+          id: string;
+          username: string | null;
+          display_name: string | null;
+          avatar_url: string | null;
+          outsider_number: number | null;
+        }[];
+      };
       is_premium: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
