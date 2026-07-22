@@ -1388,6 +1388,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
+      hidden_user_ids: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
       can_view_post: {
         Args: { p_author: string; p_visibility: string; p_status: string };
         Returns: boolean;

@@ -64,6 +64,14 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  // A blocked member (either direction) is invisible - treat as not found.
+  if (profile.id !== ctx.user.id) {
+    const { data: hidden } = await ctx.supabase.rpc("hidden_user_ids");
+    if (((hidden as string[] | null) ?? []).includes(profile.id)) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+  }
+
   const [{ data: follow }, friend, { data: rawPosts }] = await Promise.all([
     ctx.supabase.rpc("follow_state", { target: profile.id }),
     friendState(ctx, profile.id),
