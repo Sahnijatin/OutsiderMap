@@ -50,6 +50,23 @@ export interface RunToolsRequest {
    * several tool calls). Bounds runaway loops. Default 8.
    */
   maxSteps?: number;
+  /**
+   * Streamed assistant text deltas as the model generates - the final answer,
+   * plus any interim narration a tool-calling turn emits. When set, the adapter
+   * streams (and skips its retry wrapper, since a mid-stream retry would replay
+   * text); when absent, runTools makes ordinary non-streamed calls.
+   */
+  onText?: (delta: string) => void;
+  /** Fired after each model turn, before its tool calls run - a turn boundary. */
+  onStep?: (info: RunStepInfo) => void;
+}
+
+export interface RunStepInfo {
+  /** 1-based inference index. */
+  index: number;
+  /** True when this turn asked to call tools (so its text was interim). */
+  hadToolCalls: boolean;
+  toolNames: string[];
 }
 
 export interface RunToolsResult {
