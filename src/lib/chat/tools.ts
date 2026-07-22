@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getEmbeddings } from "@/lib/ai";
 import { defineTool } from "@/lib/ai/tool-loop";
 import type { AITool } from "@/lib/ai/types";
+import { deriveAdventurousness } from "@/lib/chat/adventurousness";
 import { effectiveTier } from "@/lib/chat/budget";
 import {
   keywordSearch,
@@ -229,13 +230,18 @@ export function buildChatTools(
   const get_user_behavior = defineTool({
     name: "get_user_behavior",
     description:
-      "Read what this person's past behaviour says about their taste (learned signals + taste summary). Use it to personalize, and to decide when to stretch them vs. play it safe. Returns nothing personal when personalization is off.",
+      "Read what this person's past behaviour says about their taste (learned signals + taste summary) and the explore/exploit dial telling you how far to stretch them vs. play it safe. Use it to personalize. Returns nothing personal when personalization is off.",
     inputSchema: z.object({}),
     handler: () => {
-      collector.trace.push({ tool: "get_user_behavior", summary: "read" });
       if (!ctx.personalize) {
+        collector.trace.push({ tool: "get_user_behavior", summary: "off" });
         return "Personalization is off for this user - recommend from the ask alone, don't reference past behaviour.";
       }
+      const dial = deriveAdventurousness(ctx.learnedSignals);
+      collector.trace.push({
+        tool: "get_user_behavior",
+        summary: `posture=${dial.posture}`,
+      });
       const signals =
         ctx.learnedSignals && typeof ctx.learnedSignals === "object"
           ? JSON.stringify(ctx.learnedSignals)
@@ -243,6 +249,11 @@ export function buildChatTools(
       return JSON.stringify({
         taste_summary: ctx.tasteSummary ?? "none yet",
         learned_signals: signals,
+        adventurousness: {
+          posture: dial.posture,
+          score: dial.score,
+          guidance: dial.guidance,
+        },
       });
     },
   });

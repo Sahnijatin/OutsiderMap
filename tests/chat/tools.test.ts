@@ -112,5 +112,7 @@ describe("get_user_behavior consent", () => {
     const tools = buildChatTools(makeCtx(), new ChatToolCollector());
     const out = await byName(tools, "get_user_behavior").handler({});
     expect(String(out)).toContain("quiet, older places");
+    // The explore/exploit dial rides along so the agent knows how far to stretch.
+    expect(String(out)).toContain("posture");
   });
 });
