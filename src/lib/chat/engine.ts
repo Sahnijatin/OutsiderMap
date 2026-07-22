@@ -77,10 +77,21 @@ function timeLabel() {
  * render whatever it chose to surface. Everything the UI needs comes back in
  * one result object; the route decides how to send it.
  */
+/**
+ * Streaming hooks for the SSE path. `onDelta` receives the model's text as it
+ * generates; `onToolStep` fires at each turn boundary so the caller can drop
+ * interim narration (a turn that called tools) and surface progress.
+ */
+export interface ChatStreamHooks {
+  onDelta?: (delta: string) => void;
+  onToolStep?: (info: { toolNames: string[] }) => void;
+}
+
 export async function runChatTurn(
   supabase: SupabaseClient<Database>,
   userId: string,
   input: { threadId?: string; message: string },
+  hooks?: ChatStreamHooks,
 ): Promise<ChatTurnResult> {
   const ai = getAI();
 
@@ -182,7 +193,19 @@ export async function runChatTurn(
   // keyword search so the turn still answers with real places.
   let text = "";
   try {
-    const result = await ai.runTools({ messages, tools, maxSteps: MAX_STEPS });
+    const result = await ai.runTools({
+      messages,
+      tools,
+      maxSteps: MAX_STEPS,
+      onText: hooks?.onDelta,
+      onStep: hooks?.onToolStep
+        ? (info) => {
+            // A turn that called tools produced only interim narration - signal
+            // a boundary so the client discards it before the next turn streams.
+            if (info.hadToolCalls) hooks.onToolStep!({ toolNames: info.toolNames });
+          }
+        : undefined,
+    });
     text = result.text.trim();
   } catch (err) {
     logStepDegraded("agent", err, { userId, threadId });

@@ -56,6 +56,7 @@ export function ChatThread({
   const [busy, setBusy] = useState(false);
   const [failedText, setFailedText] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const streamSeq = useRef(0);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -77,64 +78,112 @@ export function ChatThread({
           ];
       return base;
     });
-    try {
-      const result = await postChatWithRetry({ threadId, message });
 
-      if (result.status === 429) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `local-${prev.length}`,
-            role: "assistant",
-            content:
-              (typeof result.json?.message === "string" &&
-                result.json.message) ||
-              "Easy - give it a minute and ask again.",
-            tone: "limit",
-          },
-        ]);
-        return;
-      }
-
-      const body = result.ok ? result.json : null;
-      if (!body) {
-        // Surface the server's own line when it sent one (500/503 carry a
-        // friendly message + code); fall back to the generic copy otherwise.
-        const serverMessage =
-          typeof result.json?.message === "string" ? result.json.message : null;
-        setFailedText(message);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `local-${prev.length}`,
-            role: "assistant",
-            content:
-              serverMessage ??
-              "Lost my train of thought - that one didn't go through.",
-            tone: "error",
-          },
-        ]);
-        return;
-      }
-
-      if (body.threadId) {
-        if (!threadId) {
-          onThreadCreated?.(body.threadId, message);
-        } else {
-          onActivity?.(threadId);
-        }
-        setThreadId(body.threadId);
-      }
-      if (body.city) setCity(body.city);
+    // One streaming assistant bubble, grown token-by-token as the SSE arrives.
+    const streamId = `stream-${streamSeq.current++}`;
+    let acc = "";
+    let opened = false;
+    const openBubble = () => {
+      if (opened) return;
+      opened = true;
       setMessages((prev) => [
         ...prev,
-        {
-          id: `local-${prev.length}`,
-          role: "assistant",
-          content: body.text ?? "",
-          picks: body.picks,
-        },
+        { id: streamId, role: "assistant", content: "" },
       ]);
+    };
+    const patchBubble = (patch: Partial<Message>) =>
+      setMessages((prev) =>
+        prev.map((m) => (m.id === streamId ? { ...m, ...patch } : m)),
+      );
+    const appendAssistant = (m: Omit<Message, "id">) =>
+      setMessages((prev) => [...prev, { id: `local-${prev.length}`, ...m }]);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: JSON.stringify({ threadId, message }),
+      });
+
+      if (res.status === 429) {
+        const json = (await res.json().catch(() => null)) as ChatResponse | null;
+        appendAssistant({
+          role: "assistant",
+          content:
+            (typeof json?.message === "string" && json.message) ||
+            "Easy - give it a minute and ask again.",
+          tone: "limit",
+        });
+        return;
+      }
+
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!res.ok || !contentType.includes("text/event-stream") || !res.body) {
+        // Auth/validation/other non-stream responses carry JSON; surface the
+        // server's own friendly line (#38) when there is one.
+        const json = (await res.json().catch(() => null)) as ChatResponse | null;
+        setFailedText(message);
+        appendAssistant({
+          role: "assistant",
+          content:
+            (typeof json?.message === "string" && json.message) ||
+            "Lost my train of thought - that one didn't go through.",
+          tone: "error",
+        });
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finished = false;
+      while (!finished) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const { event, data } = parseSseFrame(buffer.slice(0, sep));
+          buffer = buffer.slice(sep + 2);
+          if (event === "delta") {
+            openBubble();
+            acc += (data as { text?: string })?.text ?? "";
+            patchBubble({ content: acc });
+          } else if (event === "reset") {
+            // A tool-calling turn's interim narration - discard it; the next
+            // turn's text streams into the same bubble.
+            acc = "";
+            openBubble();
+            patchBubble({ content: "" });
+          } else if (event === "done") {
+            const body = data as ChatResponse;
+            if (body.threadId) {
+              if (!threadId) onThreadCreated?.(body.threadId, message);
+              else onActivity?.(threadId);
+              setThreadId(body.threadId);
+            }
+            if (body.city) setCity(body.city);
+            openBubble();
+            patchBubble({ content: body.text ?? acc, picks: body.picks });
+            finished = true;
+          } else if (event === "error") {
+            setFailedText(message);
+            openBubble();
+            patchBubble({
+              content:
+                (data as { message?: string })?.message ??
+                "Lost my train of thought - say that again?",
+              tone: "error",
+            });
+            finished = true;
+          }
+        }
+      }
+    } catch {
+      setFailedText(message);
+      const fallback = "Lost my train of thought - that one didn't go through.";
+      if (opened) patchBubble({ content: fallback, tone: "error" });
+      else appendAssistant({ role: "assistant", content: fallback, tone: "error" });
     } finally {
       setBusy(false);
     }
@@ -301,46 +350,23 @@ type ChatResponse = {
   code?: string;
 };
 
-type PostResult = { status: number; ok: boolean; json: ChatResponse | null };
-
-/**
- * One POST to /api/chat. Reads the body exactly once and guards the JSON parse:
- * a platform 504/timeout body isn't JSON, and Safari's parse exception must
- * never surface as a bot reply (#38). Network failures resolve as status 0.
- */
-async function postChat(payload: {
-  threadId?: string;
-  message: string;
-}): Promise<PostResult> {
-  try {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = (await res.json().catch(() => null)) as ChatResponse | null;
-    return { status: res.status, ok: res.ok, json };
-  } catch {
-    return { status: 0, ok: false, json: null };
+/** Parse one SSE frame (`event: X\ndata: {...}`) into its event name + payload. */
+function parseSseFrame(frame: string): { event: string | null; data: unknown } {
+  let event: string | null = null;
+  let dataStr = "";
+  for (const line of frame.split("\n")) {
+    if (line.startsWith("event:")) event = line.slice(6).trim();
+    else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
   }
-}
-
-/**
- * Sends the turn, retrying ONCE on a transient failure (network drop or 5xx -
- * the server's timeout/overload path) before giving up. Deterministic outcomes
- * (2xx, 4xx like the 429 rate limit) return immediately - retrying those is
- * pointless and would just double the wait.
- */
-async function postChatWithRetry(payload: {
-  threadId?: string;
-  message: string;
-}): Promise<PostResult> {
-  let last = await postChat(payload);
-  const transient = last.status === 0 || last.status >= 500;
-  if (!transient) return last;
-  await new Promise((r) => setTimeout(r, 600));
-  last = await postChat(payload);
-  return last;
+  let data: unknown = null;
+  if (dataStr) {
+    try {
+      data = JSON.parse(dataStr);
+    } catch {
+      data = null;
+    }
+  }
+  return { event, data };
 }
 
 /** The user ask that produced the picks at index i - fuels the quest brief. */

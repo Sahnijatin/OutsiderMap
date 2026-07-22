@@ -46,6 +46,65 @@ export async function POST(request: NextRequest) {
   }
 
   const startedAt = Date.now();
+
+  // Streaming path: the client sends `Accept: text/event-stream` and gets the
+  // reply token-by-token (masking the multi-step agent latency), a `reset` at
+  // each tool-calling turn boundary, and a final `done` frame with the picks.
+  const wantsStream = request.headers
+    .get("accept")
+    ?.includes("text/event-stream");
+  if (wantsStream) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const send = (event: string, data: unknown) => {
+          controller.enqueue(
+            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+          );
+        };
+        try {
+          const result = await withTimeout(
+            runChatTurn(ctx.supabase, ctx.user.id, parsed.data, {
+              onDelta: (text) => send("delta", { text }),
+              onToolStep: ({ toolNames }) => send("reset", { tools: toolNames }),
+            }),
+            TURN_BUDGET_MS,
+            "chat turn",
+          );
+          send("done", result);
+        } catch (err) {
+          const timedOut = err instanceof TimeoutError;
+          console.error(
+            "chat turn failed",
+            JSON.stringify({
+              userId: ctx.user.id,
+              threadId: parsed.data.threadId ?? null,
+              elapsedMs: Date.now() - startedAt,
+              timedOut,
+              streamed: true,
+              ...describeError(err),
+            }),
+          );
+          send("error", {
+            error: timedOut ? "chat_timeout" : "chat_failed",
+            message: timedOut
+              ? "That took a beat too long on my end - give it another go."
+              : "Lost my train of thought - say that again?",
+          });
+        } finally {
+          controller.close();
+        }
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+      },
+    });
+  }
+
   try {
     const result = await withTimeout(
       runChatTurn(ctx.supabase, ctx.user.id, parsed.data),

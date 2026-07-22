@@ -2,6 +2,7 @@ import "server-only";
 import type { z } from "zod";
 import type {
   AITool,
+  RunStepInfo,
   RunToolsRequest,
   RunToolsResult,
   TokenUsage,
@@ -121,6 +122,7 @@ export async function runToolLoop(
   driver: ToolLoopDriver,
   tools: AITool[],
   maxSteps: number = DEFAULT_MAX_STEPS,
+  onStep?: (info: RunStepInfo) => void,
 ): Promise<RunToolsResult> {
   const steps = Math.max(1, Math.floor(maxSteps));
   const byName = new Map(tools.map((t) => [t.name, t]));
@@ -129,6 +131,11 @@ export async function runToolLoop(
   for (let step = 1; step <= steps; step += 1) {
     const turn = await driver.step();
     usage = addUsage(usage, turn.usage);
+    onStep?.({
+      index: step,
+      hadToolCalls: turn.toolCalls.length > 0,
+      toolNames: turn.toolCalls.map((c) => c.name),
+    });
 
     if (turn.toolCalls.length === 0) {
       return { text: turn.text, usage, steps: step, stoppedAtStepCap: false };

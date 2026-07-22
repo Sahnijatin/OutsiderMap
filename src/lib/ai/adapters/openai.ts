@@ -7,6 +7,7 @@ import { withRetry } from "@/lib/ai/retry";
 import {
   DEFAULT_MAX_STEPS,
   runToolLoop,
+  type ModelTurn,
   type ToolCall,
   type ToolLoopDriver,
 } from "@/lib/ai/tool-loop";
@@ -162,8 +163,81 @@ export function createOpenAIProvider(): AIProvider {
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] =
         req.messages.map((m) => ({ role: m.role, content: m.content }));
 
+      const onText = req.onText;
+
+      // Both paths (streamed / not) end up with the same three parts; build the
+      // turn once. `content` and the accumulated function calls become the
+      // assistant param (pushed onto the conversation) and the loop's ToolCalls.
+      function buildTurn(
+        content: string,
+        fnCalls: Array<{ id: string; name: string; arguments: string }>,
+        usage: { inputTokens: number; outputTokens: number },
+      ): ModelTurn {
+        const assistant: OpenAI.Chat.ChatCompletionAssistantMessageParam = {
+          role: "assistant",
+          content,
+        };
+        if (fnCalls.length > 0) {
+          assistant.tool_calls = fnCalls.map((call) => ({
+            id: call.id,
+            type: "function",
+            function: { name: call.name, arguments: call.arguments },
+          }));
+        }
+        messages.push(assistant);
+        const toolCalls: ToolCall[] = fnCalls.map((call) => ({
+          id: call.id,
+          name: call.name,
+          // Malformed JSON is handed through so the loop's schema validation
+          // reports it as an error the model can correct.
+          input: safeParseJson(call.arguments),
+        }));
+        return { text: content, toolCalls, usage };
+      }
+
       const driver: ToolLoopDriver = {
         async step() {
+          if (onText) {
+            // Stream: forward content deltas, assemble tool_calls by index.
+            const stream = await getClient().chat.completions.create({
+              model: mdl,
+              max_tokens: maxTokens,
+              messages,
+              tools,
+              tool_choice: "auto",
+              stream: true,
+              stream_options: { include_usage: true },
+            });
+            let content = "";
+            const acc = new Map<
+              number,
+              { id: string; name: string; arguments: string }
+            >();
+            let usage = { inputTokens: 0, outputTokens: 0 };
+            for await (const chunk of stream) {
+              const delta = chunk.choices[0]?.delta;
+              if (delta?.content) {
+                content += delta.content;
+                onText(delta.content);
+              }
+              for (const tc of delta?.tool_calls ?? []) {
+                const cur = acc.get(tc.index) ?? { id: "", name: "", arguments: "" };
+                if (tc.id) cur.id = tc.id;
+                if (tc.function?.name) cur.name = tc.function.name;
+                if (tc.function?.arguments) cur.arguments += tc.function.arguments;
+                acc.set(tc.index, cur);
+              }
+              if (chunk.usage) {
+                usage = {
+                  inputTokens: chunk.usage.prompt_tokens ?? 0,
+                  outputTokens: chunk.usage.completion_tokens ?? 0,
+                };
+              }
+            }
+            const fnCalls = [...acc.values()].filter((c) => c.name);
+            return buildTurn(content, fnCalls, usage);
+          }
+
           const response = await withRetry(
             () =>
               getClient().chat.completions.create({
@@ -176,42 +250,21 @@ export function createOpenAIProvider(): AIProvider {
             { label: "openai:runTools" },
           );
           const message = response.choices[0]?.message;
-          const fnCalls = (message?.tool_calls ?? []).filter(
-            (call) => call.type === "function",
-          );
-          // Rebuild the assistant turn in param shape (the response message type
-          // isn't directly assignable to the request param type).
-          const assistant: OpenAI.Chat.ChatCompletionAssistantMessageParam = {
-            role: "assistant",
-            content: message?.content ?? "",
-          };
-          if (fnCalls.length > 0) {
-            assistant.tool_calls = fnCalls.map((call) => ({
+          const fnCalls = (message?.tool_calls ?? [])
+            .filter((call) => call.type === "function")
+            .map((call) => ({
               id: call.id,
-              type: "function",
-              function: {
-                name: call.function.name,
-                arguments: call.function.arguments,
-              },
+              name: call.function.name,
+              arguments: call.function.arguments,
             }));
-          }
-          messages.push(assistant);
-          const toolCalls: ToolCall[] = fnCalls.map((call) => ({
-            id: call.id,
-            name: call.function.name,
-            // Arguments arrive as a JSON string; hand malformed JSON straight
-            // through so the loop's schema validation reports it as an error
-            // the model can correct, rather than throwing here.
-            input: safeParseJson(call.function.arguments),
-          }));
-          return {
-            text: message?.content ?? "",
-            toolCalls,
-            usage: {
+          return buildTurn(
+            message?.content ?? "",
+            fnCalls,
+            {
               inputTokens: response.usage?.prompt_tokens ?? 0,
               outputTokens: response.usage?.completion_tokens ?? 0,
             },
-          };
+          );
         },
         appendResults(results) {
           for (const r of results) {
@@ -224,7 +277,12 @@ export function createOpenAIProvider(): AIProvider {
         },
       };
 
-      return runToolLoop(driver, req.tools, req.maxSteps ?? DEFAULT_MAX_STEPS);
+      return runToolLoop(
+        driver,
+        req.tools,
+        req.maxSteps ?? DEFAULT_MAX_STEPS,
+        req.onStep,
+      );
     },
   };
 }

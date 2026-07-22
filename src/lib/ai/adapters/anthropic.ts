@@ -181,19 +181,34 @@ export function createAnthropicProvider(): AIProvider {
         content: t.content,
       }));
 
+      const onText = req.onText;
       const driver: ToolLoopDriver = {
         async step() {
-          const response = await withRetry(
-            () =>
-              getClient().messages.create({
-                model: mdl,
-                max_tokens: maxTokens,
-                system,
-                messages,
-                tools,
-              }),
-            { label: "anthropic:runTools" },
-          );
+          // Stream when a text sink is provided (skip withRetry - a mid-stream
+          // retry would replay deltas to the client); otherwise a plain call.
+          const response = onText
+            ? await (() => {
+                const stream = getClient().messages.stream({
+                  model: mdl,
+                  max_tokens: maxTokens,
+                  system,
+                  messages,
+                  tools,
+                });
+                stream.on("text", (delta) => onText(delta));
+                return stream.finalMessage();
+              })()
+            : await withRetry(
+                () =>
+                  getClient().messages.create({
+                    model: mdl,
+                    max_tokens: maxTokens,
+                    system,
+                    messages,
+                    tools,
+                  }),
+                { label: "anthropic:runTools" },
+              );
           messages.push({ role: "assistant", content: response.content });
           const text = response.content
             .filter((block) => block.type === "text")
@@ -228,7 +243,12 @@ export function createAnthropicProvider(): AIProvider {
         },
       };
 
-      return runToolLoop(driver, req.tools, req.maxSteps ?? DEFAULT_MAX_STEPS);
+      return runToolLoop(
+        driver,
+        req.tools,
+        req.maxSteps ?? DEFAULT_MAX_STEPS,
+        req.onStep,
+      );
     },
   };
 }
