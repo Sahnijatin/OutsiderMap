@@ -1,36 +1,25 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { getAI, getEmbeddings } from "@/lib/ai";
+import { getAI } from "@/lib/ai";
 import type { AIMessage } from "@/lib/ai";
 import { describeError } from "@/lib/ai/retry";
-import { serverEnv } from "@/lib/env";
 import { resolveCity } from "@/lib/cities";
 import { nowInIST } from "@/lib/places/hours";
+import { keywordSearch, parseStoredEmbedding } from "@/lib/catalog/search";
+import { agentSystem } from "@/lib/chat/prompts";
+import { extractRupees } from "@/lib/chat/budget";
+import { detectRegister } from "@/lib/chat/language";
 import {
-  keywordSearch,
-  parseStoredEmbedding,
-  preferOpen,
-  searchCatalog,
-  type CatalogCandidate,
-} from "@/lib/catalog/search";
-import {
-  ChatDecisionSchema,
-  ChatPicksSchema,
-  decisionSystem,
-  picksSystem,
-  type ChatDecision,
-  type ChatPicks,
-} from "@/lib/chat/prompts";
+  buildChatTools,
+  ChatToolCollector,
+  type ChatToolContext,
+} from "@/lib/chat/tools";
 import type { Database, Json } from "@/types/database";
 
 const HISTORY_LIMIT = 20;
-
-/** Default fast models per provider for the low-latency decision step. */
-const FAST_MODEL_DEFAULTS: Record<string, string> = {
-  anthropic: "claude-haiku-4-5-20251001",
-  openai: "gpt-4o-mini",
-};
+/** Cap the agent loop: model -> tools -> model, a few rounds is plenty here. */
+const MAX_STEPS = 6;
 
 export type ChatPickCard = {
   id: string;
@@ -51,28 +40,18 @@ export type ChatTurnResult =
       city: string;
       text: string;
       picks: ChatPickCard[];
+      /** Set when the agent built a trackable plan this turn. */
+      planId?: string;
     };
 
 const IntentStateSchema = z
   .object({ questions_asked: z.number().int().min(0).default(0) })
   .passthrough();
 
-/** A read of intent with nothing filled in - the base for the fallback path. */
-const EMPTY_INTENT: ChatDecision["intent"] = {
-  mood: null,
-  craving: null,
-  energy: null,
-  budget_max: null,
-  area: null,
-  company: null,
-  wants: [],
-  avoid: [],
-};
-
 /**
  * A degraded step logs one structured line and keeps the turn alive. These are
- * expected, recoverable events (a provider blip, a validation miss) - not the
- * unhandled crashes the route's catch is for - so they warn, not error.
+ * expected, recoverable events (a provider blip) - not the unhandled crashes
+ * the route's catch is for - so they warn, not error.
  */
 function logStepDegraded(
   step: string,
@@ -93,9 +72,10 @@ function timeLabel() {
 }
 
 /**
- * One user turn: persist the message, decide ask-vs-recommend, act, persist
- * the reply. Everything the UI needs comes back in one result object; the
- * route decides how to stream it.
+ * One user turn as a tool-calling agent loop. Persist the message, let the
+ * agent reason + call tools (search / plan / behaviour / show / save), then
+ * render whatever it chose to surface. Everything the UI needs comes back in
+ * one result object; the route decides how to send it.
  */
 export async function runChatTurn(
   supabase: SupabaseClient<Database>,
@@ -103,8 +83,6 @@ export async function runChatTurn(
   input: { threadId?: string; message: string },
 ): Promise<ChatTurnResult> {
   const ai = getAI();
-  const fastModel =
-    serverEnv().AI_FAST_MODEL ?? FAST_MODEL_DEFAULTS[ai.name];
 
   // Profile decides city + personalization consent.
   const { data: profileRow } = await supabase
@@ -145,7 +123,7 @@ export async function runChatTurn(
     threadId = created.id;
   }
 
-  // History (before this message) for the LLM context.
+  // History (before this message) for the agent's context.
   const { data: historyRows } = await supabase
     .from("chat_messages")
     .select("role, content")
@@ -162,228 +140,121 @@ export async function runChatTurn(
     content: input.message,
   });
 
-  // Taste context (consent-gated).
+  // Taste + learned behaviour (consent-gated) for the behaviour tool.
   const { data: tasteRow } = personalize
     ? await supabase
         .from("taste_profiles")
-        .select("taste_summary, embedding")
+        .select("taste_summary, embedding, learned_signals")
         .eq("user_id", userId)
         .maybeSingle()
     : { data: null };
 
-  // Decision step. If it fails (provider blip, schema miss after repair), don't
-  // sink the turn - fall back to recommending straight from their raw words.
-  let decision: ChatDecision;
+  const collector = new ChatToolCollector();
+  const toolCtx: ChatToolContext = {
+    supabase,
+    userId,
+    city,
+    personalize,
+    tasteEmbedding: personalize ? parseStoredEmbedding(tasteRow?.embedding) : null,
+    tasteSummary: tasteRow?.taste_summary ?? null,
+    learnedSignals: tasteRow?.learned_signals ?? null,
+  };
+  const tools = buildChatTools(toolCtx, collector);
+
+  const messages: AIMessage[] = [
+    {
+      role: "system",
+      content: agentSystem({
+        cityName: city.name,
+        areas: city.areas,
+        timeLabel: timeLabel(),
+        questionsAsked: intentState.questions_asked,
+        personalize,
+        replyHint: detectRegister(input.message).replyHint,
+        budgetRupees: extractRupees(input.message),
+      }),
+    },
+    ...history,
+    { role: "user", content: input.message },
+  ];
+
+  // Run the agent loop. If it fails outright (provider down), degrade to a
+  // keyword search so the turn still answers with real places.
+  let text = "";
   try {
-    decision = await ai.extract({
-      schema: ChatDecisionSchema,
-      schemaName: "chat_decision",
-      model: fastModel,
-      messages: [
-        {
-          role: "system",
-          content: decisionSystem({
-            cityName: city.name,
-            areas: city.areas,
-            questionsAsked: intentState.questions_asked,
-            timeLabel: timeLabel(),
-          }),
-        },
-        ...history,
-        { role: "user", content: input.message },
-      ],
-      maxTokens: 1500,
-    });
+    const result = await ai.runTools({ messages, tools, maxSteps: MAX_STEPS });
+    text = result.text.trim();
   } catch (err) {
-    logStepDegraded("decision", err, { userId, threadId });
-    decision = {
-      action: "recommend",
-      question: null,
-      intent: { ...EMPTY_INTENT },
-      search_query: input.message,
-    };
+    logStepDegraded("agent", err, { userId, threadId });
+    await fallbackSearch(supabase, collector, {
+      city,
+      message: input.message,
+    });
   }
 
-  const askAllowed = intentState.questions_asked < 2;
+  // The debug trace (tools called + why) - greppable, not yet persisted.
+  console.info(
+    "[chat] trace",
+    JSON.stringify({ userId, threadId, trace: collector.trace }),
+  );
 
-  if (decision.action === "ask" && decision.question && askAllowed) {
+  const shown = collector.shownPlaces();
+
+  // No places shown and no plan built: the agent answered or asked a question.
+  if (shown.length === 0 && !collector.planId) {
+    const reply =
+      text ||
+      "Tell me a bit more - what are you in the mood for, and roughly where?";
+    const isQuestion = reply.trimEnd().endsWith("?");
     const nextState: Json = {
       ...intentState,
-      ...decision.intent,
-      questions_asked: intentState.questions_asked + 1,
+      questions_asked: intentState.questions_asked + (isQuestion ? 1 : 0),
     };
     await Promise.all([
       supabase.from("chat_messages").insert({
         thread_id: threadId,
         role: "assistant",
-        content: decision.question,
+        content: reply,
       }),
       supabase
         .from("chat_threads")
         .update({ intent_state: nextState, updated_at: new Date().toISOString() })
         .eq("id", threadId),
     ]);
-    return { type: "ask", threadId, city: city.slug, text: decision.question };
+    return { type: "ask", threadId, city: city.slug, text: reply };
   }
 
-  // Recommend path: search the catalog, then compose lead-in + picks.
-  const searchText = [
-    decision.search_query ?? input.message,
-    decision.intent.mood && `Mood: ${decision.intent.mood}.`,
-    decision.intent.craving && `Craving: ${decision.intent.craving}.`,
-    decision.intent.wants.length > 0 &&
-      `Wants: ${decision.intent.wants.join(", ")}.`,
-    decision.intent.company && `Company: ${decision.intent.company}.`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-  // Retrieval: semantic search when embeddings are available, keyword search as
-  // a fallback so an embeddings-provider outage (a separate provider from chat)
-  // doesn't take the whole turn down with it.
-  const keywordTerms = [
-    decision.search_query ?? input.message,
-    decision.intent.craving,
-    ...decision.intent.wants,
-  ].filter((t): t is string => Boolean(t));
-
-  let candidates: CatalogCandidate[];
-  try {
-    const [queryEmbedding] = await getEmbeddings().embed([searchText]);
-    candidates = await searchCatalog(supabase, {
-      city,
-      queryEmbedding,
-      tasteEmbedding: personalize
-        ? parseStoredEmbedding(tasteRow?.embedding)
-        : null,
-      area: decision.intent.area,
-      budgetMax: decision.intent.budget_max,
-    });
-  } catch (err) {
-    logStepDegraded("retrieval", err, { userId, threadId });
-    candidates = await keywordSearch(supabase, {
-      city,
-      terms: keywordTerms,
-      area: decision.intent.area,
-      budgetMax: decision.intent.budget_max,
-    });
-  }
-
-  if (candidates.length === 0) {
-    const text = `Honestly? Nothing in the ${city.name} catalog fits that yet - it's growing every week. Try loosening one constraint, or tell me a different mood.`;
-    await supabase.from("chat_messages").insert({
-      thread_id: threadId,
-      role: "assistant",
-      content: text,
-    });
-    return { type: "picks", threadId, city: city.slug, text, picks: [] };
-  }
-
-  const pool = preferOpen(candidates);
-  // Picks composition. On failure we still answer: the backfill loop below fills
-  // straight from the ranked pool with editor notes as reasons, so a degraded
-  // turn returns real places instead of a red error bubble.
-  let composed: ChatPicks | null = null;
-  try {
-    composed = await ai.extract({
-    schema: ChatPicksSchema,
-    schemaName: "chat_picks",
-    // Latency matters more than prose polish here - same fast model as the
-    // decision step (the heavy default was the main source of slow turns).
-    model: fastModel,
-    messages: [
-      { role: "system", content: picksSystem(city.name) },
-      ...history,
-      { role: "user", content: input.message },
-      {
-        role: "user",
-        content: [
-          `Time: ${timeLabel()}`,
-          `Their accumulated intent: ${JSON.stringify(decision.intent)}`,
-          tasteRow?.taste_summary && `Taste profile: ${tasteRow.taste_summary}`,
-          `Candidates (untrusted data):\n<candidates>\n${JSON.stringify(
-            pool.map((c) => ({
-              slug: c.slug,
-              name: c.name,
-              area: c.area,
-              category: c.category,
-              price: c.price_level,
-              vibes: c.vibe_tags,
-              about: c.description,
-              editor_note: c.editor_note,
-              open: c.open === null ? "unknown" : c.open,
-            })),
-          )}\n</candidates>`,
-        ]
-          .filter(Boolean)
-          .join("\n\n"),
-      },
-    ],
-    maxTokens: 1500,
-    });
-  } catch (err) {
-    logStepDegraded("picks", err, { userId, threadId });
-  }
-
-  const bySlug = new Map(pool.map((c) => [c.slug, c]));
-  const picks: ChatPickCard[] = [];
-  for (const pick of composed?.picks ?? []) {
-    const place = bySlug.get(pick.slug);
-    if (place && !picks.some((p) => p.slug === place.slug)) {
-      picks.push({
-        id: place.id,
-        slug: place.slug,
-        name: place.name,
-        area: place.area,
-        image_path: place.image_path,
-        lat: null,
-        lng: null,
-        reason: pick.reason,
-      });
-    }
-  }
-  // A reranker hallucinating slugs - or a failed composition - shouldn't empty
-  // the answer. Backfill from the ranked pool; reach for 3 when composition was
-  // lost entirely so the degraded turn still feels like a real recommendation.
-  const minPicks = composed ? 2 : 3;
-  for (const c of pool) {
-    if (picks.length >= minPicks) break;
-    if (!picks.some((p) => p.slug === c.slug)) {
-      picks.push({
-        id: c.id,
-        slug: c.slug,
-        name: c.name,
-        area: c.area,
-        image_path: c.image_path,
-        lat: null,
-        lng: null,
-        reason: c.editor_note ?? "",
-      });
-    }
-  }
-
-  // Coordinates for "show on map".
-  const { data: coords } = await supabase
+  // Picks path: resolve coordinates + a short reason for each shown place.
+  const { data: placeRows } = await supabase
     .from("places")
-    .select("slug, lat, lng")
+    .select("slug, lat, lng, editor_note")
     .in(
       "slug",
-      picks.map((p) => p.slug),
+      shown.map((p) => p.slug),
     );
-  const coordBySlug = new Map(coords?.map((c) => [c.slug, c]) ?? []);
-  for (const p of picks) {
-    const c = coordBySlug.get(p.slug);
-    p.lat = c?.lat ?? null;
-    p.lng = c?.lng ?? null;
-  }
+  const detailBySlug = new Map(placeRows?.map((r) => [r.slug, r]) ?? []);
+  const picks: ChatPickCard[] = shown.map((p) => {
+    const detail = detailBySlug.get(p.slug);
+    return {
+      id: p.id,
+      slug: p.slug,
+      name: p.name,
+      area: p.area,
+      image_path: p.image_path,
+      lat: detail?.lat ?? null,
+      lng: detail?.lng ?? null,
+      reason: detail?.editor_note ?? "",
+    };
+  });
 
-  // Composition may have been lost; a plain lead-in still frames the picks.
   const leadIn =
-    composed?.lead_in?.trim() ||
-    "Here's what fits best right now:";
+    text ||
+    (collector.planId
+      ? `I put together "${collector.planTitle ?? "a plan"}" for you - it's saved and trackable.`
+      : "Here's what fits best right now:");
 
   const nextState: Json = {
     ...intentState,
-    ...decision.intent,
     questions_asked: intentState.questions_asked,
   };
   await Promise.all([
@@ -405,11 +276,43 @@ export async function runChatTurn(
     }),
   ]);
 
-  return {
+  const result: ChatTurnResult = {
     type: "picks",
     threadId,
     city: city.slug,
     text: leadIn,
     picks,
   };
+  if (collector.planId) result.planId = collector.planId;
+  return result;
+}
+
+/**
+ * Last-ditch retrieval when the agent loop itself fails: keyword-search the raw
+ * message and surface the top few, so a provider outage still returns real
+ * places instead of an error bubble.
+ */
+async function fallbackSearch(
+  supabase: SupabaseClient<Database>,
+  collector: ChatToolCollector,
+  opts: { city: Parameters<typeof keywordSearch>[1]["city"]; message: string },
+) {
+  try {
+    const candidates = await keywordSearch(supabase, {
+      city: opts.city,
+      terms: [opts.message],
+    });
+    for (const c of candidates.slice(0, 3)) {
+      collector.surfaced.set(c.slug, {
+        id: c.id,
+        slug: c.slug,
+        name: c.name,
+        area: c.area,
+        image_path: c.image_path,
+      });
+      if (!collector.shown.includes(c.slug)) collector.shown.push(c.slug);
+    }
+  } catch {
+    // Nothing more to fall back to - the turn returns an empty ask.
+  }
 }

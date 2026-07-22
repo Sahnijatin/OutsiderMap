@@ -4,11 +4,18 @@ import { z } from "zod";
 import { serverEnv } from "@/lib/env";
 import { parseWithRepair, repairTurns } from "@/lib/ai/repair";
 import { withRetry } from "@/lib/ai/retry";
+import {
+  DEFAULT_MAX_STEPS,
+  runToolLoop,
+  type ToolLoopDriver,
+} from "@/lib/ai/tool-loop";
 import type {
   AIMessage,
   AIProvider,
   CompletionRequest,
   ExtractRequest,
+  RunToolsRequest,
+  RunToolsResult,
 } from "@/lib/ai/types";
 
 const DEFAULT_MODEL = "claude-opus-4-8";
@@ -154,6 +161,74 @@ export function createAnthropicProvider(): AIProvider {
         }
         return toolUse.input;
       });
+    },
+
+    async runTools(req: RunToolsRequest): Promise<RunToolsResult> {
+      const { system, turns } = splitMessages(req.messages);
+      const tools: Anthropic.Tool[] = req.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: z.toJSONSchema(t.inputSchema, {
+          target: "draft-7",
+        }) as Anthropic.Tool["input_schema"],
+      }));
+      const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+      const mdl = req.model ?? serverEnv().AI_MODEL ?? DEFAULT_MODEL;
+      // The loop mutates this array in place - each assistant turn and each
+      // batch of tool_results is appended as the conversation grows.
+      const messages: Anthropic.MessageParam[] = turns.map((t) => ({
+        role: t.role,
+        content: t.content,
+      }));
+
+      const driver: ToolLoopDriver = {
+        async step() {
+          const response = await withRetry(
+            () =>
+              getClient().messages.create({
+                model: mdl,
+                max_tokens: maxTokens,
+                system,
+                messages,
+                tools,
+              }),
+            { label: "anthropic:runTools" },
+          );
+          messages.push({ role: "assistant", content: response.content });
+          const text = response.content
+            .filter((block) => block.type === "text")
+            .map((block) => block.text)
+            .join("");
+          const toolCalls = response.content
+            .filter((block) => block.type === "tool_use")
+            .map((block) => ({
+              id: block.id,
+              name: block.name,
+              input: block.input,
+            }));
+          return {
+            text,
+            toolCalls,
+            usage: {
+              inputTokens: response.usage.input_tokens,
+              outputTokens: response.usage.output_tokens,
+            },
+          };
+        },
+        appendResults(results) {
+          messages.push({
+            role: "user",
+            content: results.map((r) => ({
+              type: "tool_result",
+              tool_use_id: r.id,
+              content: r.content,
+              is_error: r.isError,
+            })),
+          });
+        },
+      };
+
+      return runToolLoop(driver, req.tools, req.maxSteps ?? DEFAULT_MAX_STEPS);
     },
   };
 }
