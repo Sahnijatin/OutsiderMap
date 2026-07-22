@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
@@ -38,5 +39,40 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Open a moderation case for the reported target (service role) if one
+  // isn't already open, so the report lands in the review queue. Best-effort:
+  // the report itself is already recorded.
+  if (parsed.data.target_type === "post" || parsed.data.target_type === "comment") {
+    try {
+      const admin = createAdminClient();
+      const { data: open } = await admin
+        .from("moderation_cases")
+        .select("id, severity")
+        .eq("target_type", parsed.data.target_type)
+        .eq("target_id", parsed.data.target_id)
+        .is("resolved_at", null)
+        .maybeSingle();
+      if (open) {
+        // Another report on an open case bumps its queue priority.
+        await admin
+          .from("moderation_cases")
+          .update({ severity: Math.min(100, (open.severity ?? 0) + 10) })
+          .eq("id", open.id);
+      } else {
+        await admin.from("moderation_cases").insert({
+          target_type: parsed.data.target_type,
+          target_id: parsed.data.target_id,
+          source: "report",
+          decision: "needs_review",
+          severity: 40,
+          reason: parsed.data.reason ?? null,
+        });
+      }
+    } catch (err) {
+      console.error("report: failed to open moderation case", err);
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

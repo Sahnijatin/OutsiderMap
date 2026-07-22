@@ -56,7 +56,11 @@ export async function GET(request: NextRequest) {
   }
   const { tab, cursor } = parsed.data;
 
-  const network = new Set(await networkAuthorIds(ctx));
+  const [network, { data: hiddenRows }] = await Promise.all([
+    networkAuthorIds(ctx).then((ids) => new Set(ids)),
+    ctx.supabase.rpc("hidden_user_ids"),
+  ]);
+  const hidden = new Set<string>((hiddenRows as string[] | null) ?? []);
 
   let query = ctx.supabase
     .from("posts")
@@ -80,14 +84,17 @@ export async function GET(request: NextRequest) {
   }
 
   const hasMore = (rows?.length ?? 0) > FEED_PAGE_SIZE;
-  const page = (rows ?? []).slice(0, FEED_PAGE_SIZE);
-  // Cursor is derived from DB order (oldest in the page), before any Discover
-  // re-ordering, so pagination stays correct regardless of display order.
+  // The DB page drives the keyset cursor; the displayed page drops anyone in a
+  // block relationship with the caller (either direction).
+  const dbPage = (rows ?? []).slice(0, FEED_PAGE_SIZE);
+  const page = dbPage.filter((r) => !hidden.has(r.author_id));
+  // Cursor is derived from DB order (oldest in the page), before block
+  // filtering or any Discover re-ordering, so pagination stays correct.
   const nextCursor =
-    hasMore && page.length > 0 ? page[page.length - 1].created_at : null;
+    hasMore && dbPage.length > 0 ? dbPage[dbPage.length - 1].created_at : null;
 
   if (page.length === 0) {
-    return NextResponse.json({ tab, posts: [], nextCursor: null });
+    return NextResponse.json({ tab, posts: [], nextCursor });
   }
 
   // Author identities + first media, both batched for the page.
