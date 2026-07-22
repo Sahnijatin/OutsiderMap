@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getEmbeddings } from "@/lib/ai";
 import { defineTool } from "@/lib/ai/tool-loop";
 import type { AITool } from "@/lib/ai/types";
+import { effectiveTier } from "@/lib/chat/budget";
 import {
   keywordSearch,
   preferOpen,
@@ -106,6 +107,13 @@ const SearchInput = z.object({
     .max(4)
     .nullish()
     .describe("Price tier ceiling 1-4, if implied ('broke', 'fancy')."),
+  budget_rupees: z
+    .number()
+    .positive()
+    .nullish()
+    .describe(
+      "Per-head rupee budget if the user gave a number (e.g. 200 for '200 mein dinner'). Mapped to a price tier.",
+    ),
 });
 
 const SlugInput = z.object({
@@ -127,6 +135,7 @@ export function buildChatTools(
       "Search the OutsiderMap catalog for real places matching a query (mood / craving / vibe), optionally filtered by neighbourhood and price tier. Returns catalog places only - never invent places. Call this before recommending anything.",
     inputSchema: SearchInput,
     handler: async (input) => {
+      const budgetMax = effectiveTier(input.budget_max, input.budget_rupees);
       let candidates: CatalogCandidate[];
       try {
         const [embedding] = await getEmbeddings().embed([input.query]);
@@ -135,7 +144,7 @@ export function buildChatTools(
           queryEmbedding: embedding,
           tasteEmbedding: ctx.personalize ? ctx.tasteEmbedding : null,
           area: input.area ?? null,
-          budgetMax: input.budget_max ?? null,
+          budgetMax,
         });
       } catch {
         // Embeddings provider blip - fall back to keyword retrieval.
@@ -143,7 +152,7 @@ export function buildChatTools(
           city: ctx.city,
           terms: [input.query],
           area: input.area ?? null,
-          budgetMax: input.budget_max ?? null,
+          budgetMax,
         });
       }
       const pool = preferOpen(candidates).slice(0, 12);
@@ -248,6 +257,11 @@ export function buildChatTools(
     interests: z.array(z.string()).max(6).nullish(),
     hours: z.number().int().min(2).max(12).nullish(),
     budget_max: z.number().int().min(1).max(4).nullish(),
+    budget_rupees: z
+      .number()
+      .positive()
+      .nullish()
+      .describe("Per-head rupee budget if given; mapped to a price tier."),
   });
 
   const build_plan = defineTool({
@@ -261,7 +275,8 @@ export function buildChatTools(
           brief: input.brief,
           interests: input.interests ?? [],
           hours: input.hours ?? 5,
-          budget_max: input.budget_max ?? undefined,
+          budget_max:
+            effectiveTier(input.budget_max, input.budget_rupees) ?? undefined,
           city: ctx.city.slug,
           first_time: false,
         });
