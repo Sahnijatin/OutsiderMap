@@ -4,10 +4,18 @@ import { z } from "zod";
 import { serverEnv } from "@/lib/env";
 import { parseWithRepair, repairTurns } from "@/lib/ai/repair";
 import { withRetry } from "@/lib/ai/retry";
+import {
+  DEFAULT_MAX_STEPS,
+  runToolLoop,
+  type ToolCall,
+  type ToolLoopDriver,
+} from "@/lib/ai/tool-loop";
 import type {
   AIProvider,
   CompletionRequest,
   ExtractRequest,
+  RunToolsRequest,
+  RunToolsResult,
 } from "@/lib/ai/types";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
@@ -135,5 +143,96 @@ export function createOpenAIProvider(): AIProvider {
         }
       });
     },
+
+    async runTools(req: RunToolsRequest): Promise<RunToolsResult> {
+      const tools: OpenAI.Chat.ChatCompletionTool[] = req.tools.map((t) => ({
+        type: "function",
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: z.toJSONSchema(t.inputSchema, {
+            target: "draft-7",
+          }) as Record<string, unknown>,
+        },
+      }));
+      const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+      const mdl = req.model ?? serverEnv().AI_MODEL ?? DEFAULT_MODEL;
+      // The loop mutates this in place - assistant turns and `tool` role
+      // results are appended as the conversation grows.
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] =
+        req.messages.map((m) => ({ role: m.role, content: m.content }));
+
+      const driver: ToolLoopDriver = {
+        async step() {
+          const response = await withRetry(
+            () =>
+              getClient().chat.completions.create({
+                model: mdl,
+                max_tokens: maxTokens,
+                messages,
+                tools,
+                tool_choice: "auto",
+              }),
+            { label: "openai:runTools" },
+          );
+          const message = response.choices[0]?.message;
+          const fnCalls = (message?.tool_calls ?? []).filter(
+            (call) => call.type === "function",
+          );
+          // Rebuild the assistant turn in param shape (the response message type
+          // isn't directly assignable to the request param type).
+          const assistant: OpenAI.Chat.ChatCompletionAssistantMessageParam = {
+            role: "assistant",
+            content: message?.content ?? "",
+          };
+          if (fnCalls.length > 0) {
+            assistant.tool_calls = fnCalls.map((call) => ({
+              id: call.id,
+              type: "function",
+              function: {
+                name: call.function.name,
+                arguments: call.function.arguments,
+              },
+            }));
+          }
+          messages.push(assistant);
+          const toolCalls: ToolCall[] = fnCalls.map((call) => ({
+            id: call.id,
+            name: call.function.name,
+            // Arguments arrive as a JSON string; hand malformed JSON straight
+            // through so the loop's schema validation reports it as an error
+            // the model can correct, rather than throwing here.
+            input: safeParseJson(call.function.arguments),
+          }));
+          return {
+            text: message?.content ?? "",
+            toolCalls,
+            usage: {
+              inputTokens: response.usage?.prompt_tokens ?? 0,
+              outputTokens: response.usage?.completion_tokens ?? 0,
+            },
+          };
+        },
+        appendResults(results) {
+          for (const r of results) {
+            messages.push({
+              role: "tool",
+              tool_call_id: r.id,
+              content: r.content,
+            });
+          }
+        },
+      };
+
+      return runToolLoop(driver, req.tools, req.maxSteps ?? DEFAULT_MAX_STEPS);
+    },
   };
+}
+
+function safeParseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
