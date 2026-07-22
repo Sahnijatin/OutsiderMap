@@ -1,34 +1,42 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getApiContext } from "@/lib/api-auth";
+import { getApiContext, type ApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
-import { resolveCity } from "@/lib/cities";
+import { publicMediaUrl } from "@/lib/media/url";
+import { POST_MEDIA_BUCKET } from "@/lib/media/post";
+import {
+  FEED_PAGE_SIZE,
+  FeedQuerySchema,
+  rankDiscover,
+  type PostAuthor,
+  type PostCard,
+} from "@/lib/feed/read";
 
 /**
- * The home/lobby feed: the proactive engine living in a scroll (no push yet).
- *  - forYou: experiences nearest the member's taste vector (consent-gated;
- *    falls back to freshest when off or cold).
- *  - fresh: newest published drops.
- *  - tonight: events starting soon, already tier-scoped by RLS.
- * Embeddings are never returned to the client.
+ * GET /api/feed?tab=home|discover&cursor=<iso> — the social feed.
+ *  - home: reverse-chronological posts from people you follow + friends (+ you)
+ *  - discover: public approved posts, re-ranked by a light Discover score
+ * Visibility is enforced by RLS (can_view_post); the tab filters narrow which
+ * approved posts are candidates. Keyset-paginated by created_at.
  */
-const SLIM_FIELDS =
-  "id, slug, name, area, kind, category, price_level, vibe_tags, description, image_path";
 
-function parseStoredEmbedding(raw: unknown): number[] | null {
-  if (typeof raw !== "string") return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      Array.isArray(parsed) &&
-      parsed.length > 0 &&
-      parsed.every((v) => typeof v === "number" && Number.isFinite(v))
-    ) {
-      return parsed as number[];
-    }
-  } catch {
-    // corrupt -> no taste vector
+const CARD_FIELDS =
+  "id, author_id, type, place_id, area, city, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area)";
+
+/** followees + accepted-friend counterparts + self - the "home" author set. */
+async function networkAuthorIds(ctx: ApiContext): Promise<string[]> {
+  const [{ data: follows }, { data: friends }] = await Promise.all([
+    ctx.supabase.from("follows").select("followee").eq("follower", ctx.user.id),
+    ctx.supabase
+      .from("friendships")
+      .select("requester, addressee")
+      .eq("status", "accepted"),
+  ]);
+  const ids = new Set<string>([ctx.user.id]);
+  for (const f of follows ?? []) ids.add(f.followee);
+  for (const fr of friends ?? []) {
+    ids.add(fr.requester === ctx.user.id ? fr.addressee : fr.requester);
   }
-  return null;
+  return [...ids];
 }
 
 export async function GET(request: NextRequest) {
@@ -36,67 +44,100 @@ export async function GET(request: NextRequest) {
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const { supabase } = ctx;
-
-  const allowed = await checkRateLimit(`feed:${ctx.user.id}`, 60, 60);
+  const allowed = await checkRateLimit(`feed:${ctx.user.id}`, 120, 60);
   if (!allowed) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const [{ data: profile }, { data: taste }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("personalization_enabled, home_city")
-      .eq("id", ctx.user.id)
-      .maybeSingle(),
-    supabase
-      .from("taste_profiles")
-      .select("embedding")
-      .eq("user_id", ctx.user.id)
-      .maybeSingle(),
-  ]);
+  const parsed = FeedQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  }
+  const { tab, cursor } = parsed.data;
 
-  const personalize = profile?.personalization_enabled !== false;
-  const city = await resolveCity(supabase, profile?.home_city);
-  const tasteEmbedding = personalize ? parseStoredEmbedding(taste?.embedding) : null;
+  const network = new Set(await networkAuthorIds(ctx));
 
-  // forYou: taste-matched if we have a vector, else freshest.
-  let forYou: unknown[] = [];
-  if (tasteEmbedding) {
-    const { data } = await supabase.rpc("match_places", {
-      query_embedding: JSON.stringify(tasteEmbedding),
-      match_count: 10,
-      filter_city: city.slug,
-      filter_area: null,
-      max_price_level: null,
-    });
-    forYou = data ?? [];
+  let query = ctx.supabase
+    .from("posts")
+    .select(CARD_FIELDS)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(FEED_PAGE_SIZE + 1);
+  if (tab === "home") {
+    query = query.in("author_id", [...network]);
+  } else {
+    query = query.eq("visibility", "public");
+  }
+  if (cursor) {
+    query = query.lt("created_at", cursor);
   }
 
-  const { data: fresh } = await supabase
-    .from("places")
-    .select(SLIM_FIELDS)
-    .eq("is_published", true)
-    .eq("is_chain", false)
-    .eq("city", city.slug)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  if (forYou.length === 0) forYou = fresh ?? [];
+  const { data: rows, error } = await query;
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  const now = new Date();
-  const cutoff = new Date(now.getTime() + 14 * 60 * 60 * 1000);
-  const { data: tonight } = await supabase
-    .from("events")
-    .select("id, title, venue_name, area, starts_at, is_underground")
-    .eq("is_published", true)
-    .gte("starts_at", new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString())
-    .lte("starts_at", cutoff.toISOString())
-    .order("starts_at", { ascending: true })
-    .limit(5);
+  const hasMore = (rows?.length ?? 0) > FEED_PAGE_SIZE;
+  const page = (rows ?? []).slice(0, FEED_PAGE_SIZE);
+  // Cursor is derived from DB order (oldest in the page), before any Discover
+  // re-ordering, so pagination stays correct regardless of display order.
+  const nextCursor =
+    hasMore && page.length > 0 ? page[page.length - 1].created_at : null;
 
-  return NextResponse.json({
-    forYou,
-    fresh: fresh ?? [],
-    tonight: tonight ?? [],
-  });
+  if (page.length === 0) {
+    return NextResponse.json({ tab, posts: [], nextCursor: null });
+  }
+
+  // Author identities + first media, both batched for the page.
+  const authorIds = [...new Set(page.map((p) => p.author_id))];
+  const postIds = page.map((p) => p.id);
+  const [{ data: authors }, { data: media }] = await Promise.all([
+    ctx.supabase.rpc("public_authors", { ids: authorIds }),
+    ctx.supabase
+      .from("post_media")
+      .select("post_id, kind, path, poster_path, ordinal")
+      .in("post_id", postIds)
+      .order("ordinal"),
+  ]);
+
+  const authorById = new Map<string, PostAuthor>(
+    (authors ?? []).map((a) => [a.id, a]),
+  );
+  const mediaByPost = new Map<string, PostCard["media"]>();
+  for (const m of media ?? []) {
+    const list = mediaByPost.get(m.post_id) ?? [];
+    list.push({
+      kind: m.kind,
+      url: publicMediaUrl(POST_MEDIA_BUCKET, m.path),
+      posterUrl: publicMediaUrl(POST_MEDIA_BUCKET, m.poster_path),
+    });
+    mediaByPost.set(m.post_id, list);
+  }
+
+  const cards: PostCard[] = page.map((p) => ({
+    id: p.id,
+    author_id: p.author_id,
+    type: p.type,
+    place: p.place ?? null,
+    area: p.area,
+    city: p.city,
+    action: p.action,
+    mood: p.mood,
+    body: p.body,
+    visibility: p.visibility,
+    created_at: p.created_at,
+    like_count: p.like_count,
+    comment_count: p.comment_count,
+    want_count: p.want_count,
+    author: authorById.get(p.author_id) ?? null,
+    media: mediaByPost.get(p.id) ?? [],
+    fromNetwork: network.has(p.author_id),
+  }));
+
+  const posts = tab === "discover" ? rankDiscover(cards, Date.now()) : cards;
+
+  return NextResponse.json({ tab, posts, nextCursor });
 }

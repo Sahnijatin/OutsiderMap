@@ -1032,7 +1032,22 @@ export type Database = {
           want_count?: number;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "posts_place_id_fkey";
+            columns: ["place_id"];
+            isOneToOne: false;
+            referencedRelation: "places";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "posts_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       post_media: {
         Row: {
@@ -1175,6 +1190,16 @@ export type Database = {
           following_count: number;
           is_following: boolean;
           follows_you: boolean;
+        }[];
+      };
+      public_authors: {
+        Args: { ids: string[] };
+        Returns: {
+          id: string;
+          username: string | null;
+          display_name: string | null;
+          avatar_url: string | null;
+          outsider_number: number | null;
         }[];
       };
       is_premium: {
