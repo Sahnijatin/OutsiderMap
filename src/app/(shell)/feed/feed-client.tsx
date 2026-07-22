@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Bell, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -94,7 +94,7 @@ export function FeedClient() {
       <div
         role="tablist"
         aria-label="Feed"
-        className="sticky top-0 z-10 -mx-4 mb-4 flex gap-1 border-b border-line/60 bg-night/85 px-4 py-2 backdrop-blur-md"
+        className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-1 border-b border-line/60 bg-night/85 px-4 py-2 backdrop-blur-md"
       >
         {FEED_TABS.map((t) => (
           <button
@@ -110,6 +110,13 @@ export function FeedClient() {
             {TAB_LABEL[t]}
           </button>
         ))}
+        <Link
+          href="/activity"
+          aria-label="Activity"
+          className="ml-auto flex size-9 items-center justify-center rounded-full text-ink-dim hover:text-ink"
+        >
+          <Bell className="size-5" />
+        </Link>
       </div>
 
       {initialLoading ? (
