@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { effectiveTier, rupeesToTier } from "@/lib/chat/budget";
+import { effectiveTier, extractRupees, rupeesToTier } from "@/lib/chat/budget";
+
+describe("extractRupees", () => {
+  it("pulls a per-head rupee budget from free text", () => {
+    expect(extractRupees("200 mie dinner krna hai")).toBe(200);
+    expect(extractRupees("₹500 date")).toBe(500);
+    expect(extractRupees("budget 1200 for two")).toBe(1200);
+  });
+
+  it("ignores list numbers and returns null when there's no budget", () => {
+    expect(extractRupees("1. tops 2. jeans 3. shoes")).toBeNull();
+    expect(extractRupees("quiet place with a view")).toBeNull();
+    expect(extractRupees("my budget is xyz")).toBeNull();
+  });
+});
 
 describe("rupeesToTier", () => {
   it("maps per-head rupee budgets to the fitting tier ceiling", () => {

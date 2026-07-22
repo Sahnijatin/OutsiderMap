@@ -16,6 +16,8 @@ export function agentSystem(opts: {
   personalize: boolean;
   /** Register steer (Hinglish/Hindi) from language detection, or "" (#98). */
   replyHint?: string;
+  /** A per-head rupee budget detected in the message, if any (#96/#100). */
+  budgetRupees?: number | null;
 }): string {
   const areaClause =
     opts.areas.length > 0
@@ -53,6 +55,12 @@ export function agentSystem(opts: {
     areaClause,
     ``,
     `Voice: talk like a person who knows the place, not a listing. Name the detail that earns a pick - a dish, a corner, the hour, the quiet. No markdown, no lists in your reply, no marketing language. Match the user's language and register (including Hinglish) when they don't write plain English. Write with plain hyphens only, never em or en dashes.`,
+    ...(opts.budgetRupees
+      ? [
+          ``,
+          `The user seems to have named a per-head budget of about ₹${opts.budgetRupees}. If that's a budget, pass budget_rupees: ${opts.budgetRupees} to search_places / build_plan.`,
+        ]
+      : []),
     ...(opts.replyHint ? [``, opts.replyHint] : []),
   ].join("\n");
 }

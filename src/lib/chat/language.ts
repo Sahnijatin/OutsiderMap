@@ -61,7 +61,6 @@ const HINGLISH_TOKENS = new Set([
   "sasta",
   "mehenga",
   "paise",
-  "budget",
   "dhoondh",
   "dhundo",
   "pyaar",

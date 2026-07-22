@@ -29,6 +29,22 @@ export function rupeesToTier(rupees: number): PriceTier | null {
 }
 
 /**
+ * Best-effort extraction of a per-head rupee budget from free text - "200 mein
+ * dinner", "₹200", "rs 500", "budget 1200". Returns the first 2-5 digit number
+ * in a plausible per-head range, else null. Deliberately conservative: single
+ * digits (list items like "1. tops") don't match. The model still owns the real
+ * judgment via the budget_rupees tool arg; this is a hint and an eval anchor.
+ */
+export function extractRupees(text: string): number | null {
+  const match = text.match(/(?:₹|\brs\.?\s*)?(\d{2,5})\b/i);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) && value >= 20 && value <= 100_000
+    ? value
+    : null;
+}
+
+/**
  * Combine an explicit tier ceiling and a rupee budget into a single price
  * ceiling, taking whichever is stricter (lower). Either may be absent.
  */

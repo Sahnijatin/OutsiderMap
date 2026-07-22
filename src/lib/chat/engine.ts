@@ -8,6 +8,7 @@ import { resolveCity } from "@/lib/cities";
 import { nowInIST } from "@/lib/places/hours";
 import { keywordSearch, parseStoredEmbedding } from "@/lib/catalog/search";
 import { agentSystem } from "@/lib/chat/prompts";
+import { extractRupees } from "@/lib/chat/budget";
 import { detectRegister } from "@/lib/chat/language";
 import {
   buildChatTools,
@@ -170,6 +171,7 @@ export async function runChatTurn(
         questionsAsked: intentState.questions_asked,
         personalize,
         replyHint: detectRegister(input.message).replyHint,
+        budgetRupees: extractRupees(input.message),
       }),
     },
     ...history,
