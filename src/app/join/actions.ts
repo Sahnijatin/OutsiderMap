@@ -13,6 +13,7 @@ import { sendEmail } from "@/lib/email/resend";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { verifyTurnstile } from "@/lib/security/turnstile";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { IMAGE_EXT_MIME, sniffImageExt } from "@/lib/media/image";
 import { putVettingImage } from "@/lib/vetting/media";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -59,47 +60,10 @@ const ApplicationSchema = z.object({
 const MAX_VETTING_PHOTOS = 5;
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
-const EXT_MIME: Record<"jpg" | "png" | "webp", string> = {
-  jpg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-};
 
-/**
- * Identifies an image by its magic bytes, not the client-supplied MIME type -
- * the bucket is public-read, so we must not trust the caller's Content-Type.
- * Returns the canonical extension, or null if the bytes aren't an allowed image.
- */
-async function sniffImageExt(
-  file: File,
-): Promise<"jpg" | "png" | "webp" | null> {
-  const b = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpg";
-  if (
-    b[0] === 0x89 &&
-    b[1] === 0x50 &&
-    b[2] === 0x4e &&
-    b[3] === 0x47 &&
-    b[4] === 0x0d &&
-    b[5] === 0x0a &&
-    b[6] === 0x1a &&
-    b[7] === 0x0a
-  )
-    return "png";
-  // RIFF....WEBP
-  if (
-    b[0] === 0x52 &&
-    b[1] === 0x49 &&
-    b[2] === 0x46 &&
-    b[3] === 0x46 &&
-    b[8] === 0x57 &&
-    b[9] === 0x45 &&
-    b[10] === 0x42 &&
-    b[11] === 0x50
-  )
-    return "webp";
-  return null;
-}
+// Image identification (magic-byte sniff, not the client-supplied MIME - the
+// bucket is public-read, so we must not trust the caller's Content-Type) is
+// shared with the other media paths in @/lib/media/image.
 
 export type ApplicationResult = {
   ok: true;
@@ -441,7 +405,7 @@ async function insertDroppedSpot(
       const path = `submitted/${id}.${ext}`;
       const { error: uploadError } = await admin.storage
         .from("place-images")
-        .upload(path, photo, { contentType: EXT_MIME[ext], upsert: true });
+        .upload(path, photo, { contentType: IMAGE_EXT_MIME[ext], upsert: true });
       if (!uploadError) imagePath = path;
     }
   }

@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       )
       .eq("slug", slug)
       .eq("is_published", true)
+      .eq("is_chain", false)
       .maybeSingle(),
     supabase
       .from("taste_profiles")

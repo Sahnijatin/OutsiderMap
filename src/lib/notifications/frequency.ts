@@ -56,11 +56,18 @@ export async function canSendNotification(
   return true;
 }
 
-/** Records that a notification was sent, so future caps account for it. */
+/**
+ * Records that a notification was sent, so future caps account for it. Throws on
+ * a failed write: a swallowed insert would under-count the daily cap and let the
+ * next send slip through, so the caller must know the log is out of sync.
+ */
 export async function recordNotificationSend(
   admin: Client,
   userId: string,
   kind: string,
 ): Promise<void> {
-  await admin.from("notification_sends").insert({ user_id: userId, kind });
+  const { error } = await admin
+    .from("notification_sends")
+    .insert({ user_id: userId, kind });
+  if (error) throw new Error(`recordNotificationSend failed: ${error.message}`);
 }
