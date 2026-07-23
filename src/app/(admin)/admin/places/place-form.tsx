@@ -2,15 +2,10 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import type { PlaceKind, Tables } from "@/types/database";
+import type { MapCategory } from "@/lib/map/categories";
 import { PlaceLocation } from "./place-location";
 import { StoryEditor } from "./story-editor";
 import { deletePlace, upsertPlace } from "./actions";
-
-const CATEGORIES = [
-  "cafe", "restaurant", "bar", "club", "street-food", "dessert", "bakery",
-  "bookstore", "gallery", "park", "market", "music-venue", "late-night-eats",
-  "chai", "experience", "viewpoint",
-];
 
 // Experience kinds (places.kind, migration 0006). Keep in sync with PlaceKind.
 const KINDS: PlaceKind[] = [
@@ -19,9 +14,12 @@ const KINDS: PlaceKind[] = [
 
 export function PlaceForm({
   place,
+  categories,
   googleMapsApiKey,
 }: {
   place?: Tables<"places">;
+  /** Admin-managed map categories (drives the pin color + legend). */
+  categories: MapCategory[];
   googleMapsApiKey: string | null;
 }) {
   return (
@@ -38,16 +36,20 @@ export function PlaceForm({
         <Field label="Area" htmlFor="area">
           <Input id="area" name="area" defaultValue={place?.area ?? ""} />
         </Field>
-        <Field label="Category" htmlFor="category">
+        <Field
+          label="Category"
+          htmlFor="category_id"
+          hint="Sets the pin color + legend group"
+        >
           <Select
-            id="category"
-            name="category"
-            defaultValue={place?.category ?? ""}
+            id="category_id"
+            name="category_id"
+            defaultValue={place?.category_id ?? ""}
           >
             <option value="">-</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
               </option>
             ))}
           </Select>

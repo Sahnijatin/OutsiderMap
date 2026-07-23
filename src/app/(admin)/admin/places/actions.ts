@@ -78,7 +78,7 @@ const FormSchema = z.object({
   area: z.string().trim().optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
-  category: z.string().trim().optional(),
+  category_id: z.string().uuid().optional(),
   kind: z
     .enum([
       "spot",
@@ -111,7 +111,7 @@ export async function upsertPlace(formData: FormData) {
     area: (formData.get("area") as string) || undefined,
     lat: (formData.get("lat") as string) || undefined,
     lng: (formData.get("lng") as string) || undefined,
-    category: (formData.get("category") as string) || undefined,
+    category_id: (formData.get("category_id") as string) || undefined,
     kind: (formData.get("kind") as string) || undefined,
     is_chain: formData.get("is_chain") === "on",
     price_level: (formData.get("price_level") as string) || undefined,
@@ -136,7 +136,7 @@ export async function upsertPlace(formData: FormData) {
     area: input.area ?? null,
     lat: input.lat ?? null,
     lng: input.lng ?? null,
-    category: input.category ?? null,
+    category_id: input.category_id ?? null,
     kind: input.kind,
     is_chain: input.is_chain,
     price_level: input.price_level ?? null,
@@ -149,6 +149,18 @@ export async function upsertPlace(formData: FormData) {
     is_published: input.is_published,
     updated_at: new Date().toISOString(),
   };
+
+  // Keep the legacy free-text `category` in sync with the chosen managed
+  // category's slug (some readers still use it); leave it untouched when none
+  // is selected so an edit never silently wipes it.
+  if (input.category_id) {
+    const { data: cat } = await admin
+      .from("map_categories")
+      .select("slug")
+      .eq("id", input.category_id)
+      .maybeSingle();
+    row.category = cat?.slug ?? null;
+  }
 
   // Image upload to the public bucket; the path is stored on the row.
   const image = formData.get("image");

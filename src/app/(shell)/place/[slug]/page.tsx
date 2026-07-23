@@ -7,14 +7,18 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { publicMediaUrl } from "@/lib/media/url";
-import { categoryGroup, categoryLabel } from "@/lib/map/categories";
+import {
+  listMapCategories,
+  buildCategoryIndex,
+  resolveCategory,
+} from "@/lib/map/categories";
 import { googleMapsDirUrl } from "@/lib/map/directions";
 import { isOpenNow, openStatusLabel } from "@/lib/places/hours";
 import type { Json } from "@/types/database";
 import { PlaceGallery, type GalleryCard } from "./place-gallery";
 
 const DETAIL_FIELDS =
-  "id, slug, name, area, kind, category, price_level, vibe_tags, description, editor_note, hours, best_for, image_path, story, lat, lng";
+  "id, slug, name, area, kind, category, category_id, price_level, vibe_tags, description, editor_note, hours, best_for, image_path, story, lat, lng";
 
 type StoryCard = {
   media_path?: string;
@@ -95,8 +99,12 @@ export default async function PlacePage({
   const place = await loadPlace(slug);
   if (!place) notFound();
 
-  const group = categoryGroup(place.category, place.kind);
-  const catLabel = categoryLabel(place.category) ?? place.kind;
+  const supabase = await createClient();
+  const categories = await listMapCategories(supabase);
+  const { color: catColor, label: catLabel } = resolveCategory(
+    buildCategoryIndex(categories),
+    { categoryId: place.category_id, category: place.category, kind: place.kind },
+  );
   const openLabel = openStatusLabel(place.hours);
   const open = isOpenNow(place.hours);
 
@@ -162,13 +170,11 @@ export default async function PlacePage({
             <span
               aria-hidden
               className="size-2.5 rounded-full ring-1 ring-black/40"
-              style={{
-                background: `radial-gradient(circle at 35% 30%, ${group.light}, ${group.color} 55%, ${group.dark})`,
-              }}
+              style={{ background: catColor }}
             />
             <span
               className="text-xs font-medium capitalize"
-              style={{ color: group.color }}
+              style={{ color: catColor }}
             >
               {catLabel}
             </span>

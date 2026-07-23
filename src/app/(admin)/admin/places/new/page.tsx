@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { listMapCategories } from "@/lib/map/categories";
 import { PlaceForm } from "../place-form";
 
 export const metadata: Metadata = {
@@ -9,6 +11,7 @@ export const metadata: Metadata = {
 
 export default async function NewPlacePage() {
   await requireAdmin();
+  const categories = await listMapCategories(createAdminClient());
   return (
     <main className="flex flex-col gap-6">
       <Link
@@ -19,6 +22,7 @@ export default async function NewPlacePage() {
       </Link>
       <h1 className="font-display text-3xl">New place</h1>
       <PlaceForm
+        categories={categories}
         googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null}
       />
     </main>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { FALLBACK_DELHI } from "@/lib/cities";
+import { listMapCategories } from "@/lib/map/categories";
 import { MapCanvas } from "./map-canvas";
 
 export const metadata: Metadata = {
@@ -22,11 +23,14 @@ export default async function MapPage({
   const supabase = await createClient();
   const { welcome, place } = await searchParams;
 
-  const { data: cities } = await supabase
-    .from("cities")
-    .select("slug, name, lat, lng, zoom")
-    .eq("is_live", true)
-    .order("name");
+  const [{ data: cities }, categories] = await Promise.all([
+    supabase
+      .from("cities")
+      .select("slug, name, lat, lng, zoom")
+      .eq("is_live", true)
+      .order("name"),
+    listMapCategories(supabase),
+  ]);
 
   const live = cities ?? [];
   const city =
@@ -37,6 +41,7 @@ export default async function MapPage({
       <MapCanvas
         city={city ?? FALLBACK_DELHI}
         cities={live}
+        categories={categories}
         welcome={welcome === "1"}
         outsiderNumber={profile.outsider_number}
         username={profile.username}

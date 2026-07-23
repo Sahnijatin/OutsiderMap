@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { publicMediaUrl } from "@/lib/media/url";
-import { categoryGroup, categoryLabel } from "@/lib/map/categories";
 import { googleMapsDirUrl } from "@/lib/map/directions";
 import type { PlaceFeatureProps } from "./map-canvas";
 
@@ -108,8 +107,8 @@ export function PlaceSheet({
     }
   }
 
-  const group = categoryGroup(place.category, place.kind);
-  const catLabel = categoryLabel(place.category) ?? place.kind;
+  const catColor = place.categoryColor;
+  const catLabel = place.categoryLabel;
 
   return (
     <AnimatePresence>
@@ -152,13 +151,11 @@ export function PlaceSheet({
             <span
               aria-hidden
               className="size-2.5 rounded-full ring-1 ring-black/30"
-              style={{
-                background: `radial-gradient(circle at 35% 30%, ${group.light}, ${group.color} 55%, ${group.dark})`,
-              }}
+              style={{ background: catColor }}
             />
             <span
               className="text-xs font-medium capitalize"
-              style={{ color: group.color }}
+              style={{ color: catColor }}
             >
               {catLabel}
             </span>
