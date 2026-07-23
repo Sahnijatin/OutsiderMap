@@ -76,7 +76,10 @@ export default async function GrievanceDesk() {
                   </div>
                   {g.body && <p className="text-sm text-ink-dim">{g.body}</p>}
                   <div className="flex flex-wrap gap-2">
-                    {(["acknowledge", "resolve", "reject"] as const).map((action) => (
+                    {(g.status === "appealed"
+                      ? (["overturn", "uphold"] as const)
+                      : (["acknowledge", "resolve", "reject"] as const)
+                    ).map((action) => (
                       <form key={action} action={actOnGrievance}>
                         <input type="hidden" name="id" value={g.id} />
                         <input type="hidden" name="action" value={action} />

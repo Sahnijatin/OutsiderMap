@@ -215,6 +215,10 @@ export function MapCanvas({
       });
       map.on("locationerror", () => setLocating(false));
 
+      // TODO(#47): long-press (contextmenu / touch-hold) to submit a place —
+      // the intended replacement for the retired /submit flow. Not built yet;
+      // no contextmenu handler is wired here.
+
       // iOS Safari can size a fixed container late; recompute now and on the
       // next frame so the tiles fill the box instead of a 0-height canvas.
       map.invalidateSize();

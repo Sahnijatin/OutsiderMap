@@ -51,6 +51,14 @@ until the corresponding env vars are set.
    `update profiles set is_admin = true where id = '<your-uuid>';` — and the
    curation desk appears at `/admin`.
 
+## Membership & access
+
+Signup is open by default. The earlier invite-gated vetting flow
+(`/join` + `/thank-you`, with referral codes and selfie/ID review in the admin
+waitlist desk) is **kept but dormant** — it is not linked from any public
+marketing surface and is reachable only via a referral URL (`/join?ref=…`).
+It's retained for a possible future invite phase; there is no live CTA to it.
+
 ## Project layout
 
 ```

@@ -1519,6 +1519,9 @@ export type Database = {
           acknowledged_at: string | null;
           resolved_at: string | null;
           officer_id: string | null;
+          appealed_at: string | null;
+          appeal_decision: "upheld" | "overturned" | null;
+          appeal_decided_at: string | null;
         };
         Insert: {
           id?: string;
@@ -1532,6 +1535,9 @@ export type Database = {
           acknowledged_at?: string | null;
           resolved_at?: string | null;
           officer_id?: string | null;
+          appealed_at?: string | null;
+          appeal_decision?: "upheld" | "overturned" | null;
+          appeal_decided_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1545,6 +1551,9 @@ export type Database = {
           acknowledged_at?: string | null;
           resolved_at?: string | null;
           officer_id?: string | null;
+          appealed_at?: string | null;
+          appeal_decision?: "upheld" | "overturned" | null;
+          appeal_decided_at?: string | null;
         };
         Relationships: [];
       };
@@ -1618,6 +1627,10 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
+      };
+      appeal_grievance: {
+        Args: { p_id: string };
+        Returns: undefined;
       };
       is_csam_staff: {
         Args: Record<PropertyKey, never>;
