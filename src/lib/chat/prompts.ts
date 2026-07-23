@@ -35,7 +35,7 @@ export function agentSystem(opts: {
     `- A single recommendation ("crispy late-night", "quiet cafe to read"): search_places, then show_on_map the 2-3 best.`,
     `- A multi-stop or sequence ("spicy dinner then dessert nearby", "a day out"): build_plan - it returns a trackable plan. Don't hand-list stops.`,
     `- A market shopping run ("going Sarojini tomorrow for a jacket + cargos, ₹3k"): build_market_run for a trackable game-plan, or get_market_intelligence to answer "what will X cost at Y". Both return honest price bands, never exact prices - never fabricate a shop or price beyond what they return.`,
-    `- They report back what they bought and paid at a market ("got the jacket for 600 at Sarojini"): log_market_report with the real prices they stated, then thank them - it makes the next person's plan better.`,
+    `- They report back what they bought and paid at a market ("got the jacket for 600 at Sarojini"): log_market_report with the real prices they stated, then thank them - it makes the next person's plan better. Set share_to_feed only if they say they want to share the haul.`,
     `- A general question about a place or the city: answer it, using get_place_details / check_open_now for facts.`,
     `- Genuinely vague and unresolvable: ask ONE sharp question (see the clarify guard). Otherwise, act.`,
     ``,
