@@ -4,12 +4,14 @@
  * content-mined price pass, so day-one shopping plans have real, corroborated
  * data instead of empty bands.
  *
- * Reads data/markets.delhi.json and upserts markets, sections, category guides,
- * and price_points.
+ * Reads data/markets.<city>.json (default city: delhi) and upserts markets,
+ * sections, category guides, and price_points. A new city needs only a new
+ * data file - no code change - which is the #68 generalization requirement.
  *
  * Usage:
  *   NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
- *     node scripts/seed-markets.mjs [--dry-run]
+ *     node scripts/seed-markets.mjs [city] [--dry-run]
+ *   e.g. `node scripts/seed-markets.mjs mumbai` reads data/markets.mumbai.json
  *
  * Idempotent: markets upsert by slug and guides by (market_id, category);
  * sections and the seeded price_points are replaced per market on each run
@@ -25,6 +27,8 @@ import { readFile } from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
 
 const DRY_RUN = process.argv.includes("--dry-run");
+// First non-flag arg is the city; defaults to delhi. New city = new data file.
+const CITY = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? "delhi";
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -49,7 +53,11 @@ async function loadJson(relPath) {
   return JSON.parse(await readFile(new URL(`../${relPath}`, import.meta.url), "utf8"));
 }
 
-const markets = await loadJson("data/markets.delhi.json");
+const dataFile = `data/markets.${CITY}.json`;
+const markets = await loadJson(dataFile).catch(() => {
+  console.error(`No seed file for city "${CITY}" (expected ${dataFile}).`);
+  process.exit(1);
+});
 
 const totals = markets.reduce(
   (acc, m) => ({
@@ -93,7 +101,7 @@ for (const m of markets) {
       {
         slug: m.slug,
         name: m.name,
-        city: m.city ?? "delhi",
+        city: m.city ?? CITY,
         area: m.area ?? null,
         categories: m.categories ?? [],
         character: m.character ?? null,

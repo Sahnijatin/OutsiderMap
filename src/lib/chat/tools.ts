@@ -479,6 +479,10 @@ export function buildChatTools(
       .string()
       .nullish()
       .describe("The market_run id this trip came from, if this turn built one."),
+    share_to_feed: z
+      .boolean()
+      .nullish()
+      .describe("Set true only if the user wants to share the haul to the feed."),
   });
 
   const log_market_report = defineTool({
@@ -499,6 +503,7 @@ export function buildChatTools(
             price: p.price,
           })),
           runId: input.run_id ?? null,
+          shareToFeed: input.share_to_feed ?? false,
         });
         collector.trace.push({
           tool: "log_market_report",
@@ -510,7 +515,9 @@ export function buildChatTools(
         if (result.outcome === "no_prices") {
           return "No usable prices in that report - ask them what they paid, don't make one up.";
         }
-        return `Logged ${result.staged} price(s) from ${result.marketName}. Thank them warmly - their report helps the next person's plan (it's reviewed before it counts).`;
+        return `Logged ${result.staged} price(s) from ${result.marketName}${
+          result.posted ? ", and shared the haul to the feed (pending review)" : ""
+        }. Thank them warmly - their report helps the next person's plan (it's reviewed before it counts).`;
       } catch (error) {
         collector.trace.push({
           tool: "log_market_report",

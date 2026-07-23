@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reportToPricePoint } from "@/lib/market/report";
+import { buildReportPostBody, reportToPricePoint } from "@/lib/market/report";
 
 const NOW = new Date("2026-07-22T00:00:00Z");
 const ctx = { marketId: "m1", userId: "u1", now: NOW };
@@ -25,5 +25,15 @@ describe("reportToPricePoint", () => {
     expect(reportToPricePoint({ category: "fashion", price: 0 }, ctx)).toBeNull();
     expect(reportToPricePoint({ category: "fashion", price: -50 }, ctx)).toBeNull();
     expect(reportToPricePoint({ category: "fashion", price: Number.NaN }, ctx)).toBeNull();
+  });
+});
+
+describe("buildReportPostBody", () => {
+  it("names the item when given, else the category, with rounded rupees", () => {
+    const body = buildReportPostBody("Sarojini Nagar", [
+      { category: "fashion", item: "denim jacket", price: 600 },
+      { category: "cargos", price: 449.5 },
+    ]);
+    expect(body).toBe("Sarojini Nagar haul: denim jacket ₹600, cargos ₹450.");
   });
 });
