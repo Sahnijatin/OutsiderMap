@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getApiContext } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MEMBER_VETTING_BUCKET } from "@/lib/vetting/media";
 
@@ -20,6 +21,18 @@ export async function DELETE(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Throttle this destructive, service-role, cascade-heavy purge. A legitimate
+  // caller deletes their account at most a handful of times; anything above
+  // that is abuse or a retry storm hammering the admin cascade.
+  const allowed = await checkRateLimit(
+    `account-delete:${ctx.user.id}`,
+    3,
+    3600,
+  );
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const admin = createAdminClient();

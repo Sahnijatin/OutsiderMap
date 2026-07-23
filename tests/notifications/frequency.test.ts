@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   canSendNotification,
+  recordNotificationSend,
   type FrequencyCap,
 } from "@/lib/notifications/frequency";
 
@@ -57,5 +58,28 @@ describe("canSendNotification", () => {
   it("fails closed when the log can't be read", async () => {
     const admin = capAdmin({ data: null, error: { message: "db down" } });
     expect(await canSendNotification(admin, "u", CAP, NOW)).toBe(false);
+  });
+});
+
+function insertAdmin(result: { error: unknown }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { from: () => ({ insert: () => Promise.resolve(result) }) } as any;
+}
+
+describe("recordNotificationSend", () => {
+  it("resolves when the insert succeeds", async () => {
+    await expect(
+      recordNotificationSend(insertAdmin({ error: null }), "u", "now"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws when the insert fails (never silently under-counts the cap)", async () => {
+    await expect(
+      recordNotificationSend(
+        insertAdmin({ error: { message: "db down" } }),
+        "u",
+        "now",
+      ),
+    ).rejects.toThrow(/recordNotificationSend failed: db down/);
   });
 });
