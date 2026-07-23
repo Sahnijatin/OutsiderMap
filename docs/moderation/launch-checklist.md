@@ -9,6 +9,10 @@ notes what it unblocks and the code hook already waiting for it.
 > ⚠️ This is an engineering tracking document, not legal advice. Every legal
 > item must be confirmed with qualified Indian counsel before go-live.
 
+_Last reviewed 2026-07-23. The code hooks below were re-verified against `main`
+on that date. Every row remains a pending **business / legal decision** — there
+is no outstanding engineering work gating any of them._
+
 ## Blocking for public launch
 
 | # | Item | Owner | Status | Unblocks | Code hook (already in place) |
@@ -16,13 +20,14 @@ notes what it unblocks and the code hook already waiting for it.
 | 1 | **Community Guidelines** authored + published | Product + counsel | ☐ TODO | Public feed (#67) | Enforced by the whole pipeline; see `policy-docs-outline.md` |
 | 2 | **Terms of Service** authored + published | Counsel | ☐ TODO | Public feed (#67) | — |
 | 3 | **Privacy / DPDP notice** authored + published | Counsel | ☐ TODO | Public feed (#67) | — |
-| 4 | **Grievance Officer** designated (resident in India), name + contact published | Business | ☐ TODO | #90 | `grievances.officer_id`; officer works `/admin/grievances` |
+| 4 | **Grievance Officer** designated (resident in India), name + contact published | Business | ☐ TODO | #90 | `grievances.officer_id`; officer works `/admin/grievances`. Appellate (GAC) path now merged (#105): `appeal_grievance()` RPC + `actOnGrievance()` records upheld/overturned |
 | 5 | **CSAM vendor** onboarded (PhotoDNA / Cloudflare / Thorn) | Eng + legal | ☐ TODO | #85 | Swap `createCsamScanner()` in `src/lib/moderation/csam.ts`; set env (see `env.example`) |
 | 6 | **CSAM reporting channel** confirmed (local police / SJPU per IT Act §67B + POCSO §19) + evidence retention | Counsel | ☐ TODO | #85 | `quarantineAndReport()` + `csam_reports` workflow; wire the report step |
 | 7 | **Image/video provider** selected (Hive / Rekognition / Vision) | Eng | ☐ TODO | #84 | Swap `createImageModerator()` in `src/lib/moderation/image.ts`; set env. See `vendor-selection.md` |
 | 8 | **Retention periods** set (audit log + CSAM evidence) | Counsel | ☐ TODO | #81 / #85 / #90 | `moderation_actions` is append-only; retention is a deliberate superuser op |
 | 9 | Designate **CSAM staff** members | Business | ☐ TODO | #85 | Insert into `public.csam_staff` (service role); gates `is_csam_staff()` |
-| 10 | Confirm exact **statutory SLA windows** with counsel | Counsel | ☐ TODO | #90 | `src/lib/moderation/sla.ts` encodes the researched defaults |
+| 10 | Confirm exact **statutory SLA windows** with counsel | Counsel | ☐ TODO | #90 | `src/lib/moderation/sla.ts` encodes the researched defaults (incl. 30-day `APPEAL_WINDOW_MS`) |
+| 11 | **Grievance Appellate Committee (GAC)** constituted + contact published | Business + counsel | ☐ TODO | #90 appeals | Appeal path in code (`appeal_grievance()`, 30-day window); GAC upheld/overturned recorded via `actOnGrievance()` |
 
 ## Interim posture (what happens today, pre-vendor)
 
@@ -34,12 +39,15 @@ notes what it unblocks and the code hook already waiting for it.
 - **CSAM** scanner is a no-op until item 5; the moment a real scanner returns a
   hit, `quarantineAndReport()` runs. Until then, media held-for-review is the
   backstop.
-- **Grievances** can be filed and worked in `/admin/grievances`; the named
-  officer (item 4) and published contact are still required for compliance.
+- **Grievances** can be filed and worked in `/admin/grievances`; a reporter can
+  appeal a closed grievance within 30 days and the GAC records upheld/overturned
+  in code (#105). The named officer (item 4), a constituted GAC (item 11), and
+  their published contacts are still required for compliance.
 
 ## Definition of done for public launch
 
-All rows 1–10 checked, plus a dry-run: file a test report → case appears in
+All rows 1–11 checked, plus a dry-run: file a test report → case appears in
 `/admin/moderation`; file a test grievance → SLA countdown in
-`/admin/grievances`; confirm a media post stays pending until a reviewer or the
-image provider clears it.
+`/admin/grievances`; appeal a closed test grievance → it re-opens as `appealed`
+and a GAC decision records upheld/overturned; confirm a media post stays pending
+until a reviewer or the image provider clears it.
