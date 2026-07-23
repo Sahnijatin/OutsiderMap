@@ -136,6 +136,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      map_categories: {
+        Row: {
+          id: string;
+          slug: string;
+          label: string;
+          color: string;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          label: string;
+          color: string;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          label?: string;
+          color?: string;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       subscriptions: {
         Row: {
           user_id: string;
@@ -220,6 +250,7 @@ export type Database = {
           is_published: boolean;
           source: "curated" | "submitted" | "ingested";
           submitted_by: string | null;
+          category_id: string | null;
           kind: PlaceKind;
           is_chain: boolean;
           story: Json;
@@ -246,6 +277,7 @@ export type Database = {
           is_published?: boolean;
           source?: "curated" | "submitted" | "ingested";
           submitted_by?: string | null;
+          category_id?: string | null;
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;
@@ -272,6 +304,7 @@ export type Database = {
           is_published?: boolean;
           source?: "curated" | "submitted" | "ingested";
           submitted_by?: string | null;
+          category_id?: string | null;
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;

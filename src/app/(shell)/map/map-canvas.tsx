@@ -1,12 +1,11 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import type { Map as LeafletMap, Marker, LayerGroup } from "leaflet";
+import type { Map as LeafletMap, CircleMarker, LayerGroup } from "leaflet";
 import { LocateFixed } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MAP_ACCENT as ACCENT } from "@/lib/map/style";
-import { categoryGroup } from "@/lib/map/categories";
-import { pinHtml, PIN_W, PIN_H, PIN_ANCHOR } from "@/lib/map/pin";
+import type { MapCategory } from "@/lib/map/categories";
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { MapSearch } from "./map-search";
 import { MapLegend } from "./map-legend";
@@ -28,6 +27,13 @@ const CARTO_TILE_URL =
 const MAP_ATTRIBUTION =
   '&copy; OpenStreetMap contributors &copy; CARTO';
 
+// Colored category dots: a crisp fill on a dark night-outline, growing to an
+// amber-ringed dot when selected. (Replaces the earlier 3D teardrop pins.)
+const DOT_STROKE = "#0c0a08";
+const DOT_RADIUS = 6;
+const DOT_WEIGHT = 1.5;
+const DOT_RADIUS_SELECTED = 9;
+
 export type CityOption = {
   slug: string;
   name: string;
@@ -43,6 +49,9 @@ export type PlaceFeatureProps = {
   area: string | null;
   kind: string;
   category: string | null;
+  /** Category color + label, resolved server-side (see /api/map/places). */
+  categoryColor: string;
+  categoryLabel: string;
   price_level: number | null;
   image_path: string | null;
 };
@@ -57,6 +66,7 @@ const EMPTY: PlaceCollection = { type: "FeatureCollection", features: [] };
 export function MapCanvas({
   city,
   cities,
+  categories,
   welcome,
   outsiderNumber,
   username,
@@ -64,6 +74,8 @@ export function MapCanvas({
 }: {
   city: CityOption;
   cities: CityOption[];
+  /** Active map categories, for the legend key. */
+  categories: MapCategory[];
   welcome: boolean;
   outsiderNumber: number | null;
   username: string | null;
@@ -79,8 +91,8 @@ export function MapCanvas({
   const locationLayerRef = useRef<LayerGroup | null>(null);
   // Markers by slug, so search / deep-links / selection can find a pin, and
   // the currently highlighted one to clear it.
-  const markersRef = useRef<Map<string, Marker>>(new Map());
-  const selectedMarkerRef = useRef<Marker | null>(null);
+  const markersRef = useRef<Map<string, CircleMarker>>(new Map());
+  const selectedMarkerRef = useRef<CircleMarker | null>(null);
   const selectedSlugRef = useRef<string | null>(null);
 
   const [ready, setReady] = useState(false);
@@ -95,15 +107,14 @@ export function MapCanvas({
   const [locating, setLocating] = useState(false);
   const lastTileErrorAt = useRef(0);
 
-  const highlightPin = useCallback((marker: Marker | null) => {
+  const highlightPin = useCallback((marker: CircleMarker | null) => {
     const prev = selectedMarkerRef.current;
     if (prev && prev !== marker) {
-      prev.getElement()?.classList.remove("om-pin-wrap--selected");
-      prev.setZIndexOffset(0);
+      prev.setStyle({ radius: DOT_RADIUS, weight: DOT_WEIGHT, color: DOT_STROKE });
     }
     if (marker) {
-      marker.getElement()?.classList.add("om-pin-wrap--selected");
-      marker.setZIndexOffset(1000);
+      marker.setStyle({ radius: DOT_RADIUS_SELECTED, weight: 2.5, color: ACCENT });
+      marker.bringToFront();
     }
     selectedMarkerRef.current = marker;
   }, []);
@@ -269,24 +280,17 @@ export function MapCanvas({
     for (const f of places.features) {
       const [lng, lat] = f.geometry.coordinates;
       const props = f.properties;
-      const group = categoryGroup(props.category, props.kind);
-      const icon = L.divIcon({
-        html: pinHtml(group),
-        className: "om-pin-wrap",
-        iconSize: [PIN_W, PIN_H],
-        iconAnchor: PIN_ANCHOR,
-        tooltipAnchor: [0, 4],
-      });
-      const marker = L.marker([lat, lng], {
-        icon,
-        riseOnHover: true,
-        riseOffset: 400,
-        keyboard: false,
+      const marker = L.circleMarker([lat, lng], {
+        radius: DOT_RADIUS,
+        weight: DOT_WEIGHT,
+        color: DOT_STROKE,
+        fillColor: props.categoryColor,
+        fillOpacity: 1,
       });
       marker.bindTooltip(props.name, {
         permanent: true,
         direction: "bottom",
-        offset: [0, 2],
+        offset: [0, 6],
         className: "om-place-label",
       });
       marker.on("click", () => selectPlace(props, lng, lat));
@@ -373,7 +377,7 @@ export function MapCanvas({
        */}
       <div ref={containerRef} className="absolute inset-0 isolate" />
 
-      <MapLegend />
+      <MapLegend categories={categories} />
 
       <MapSearch
         cityName={activeCity.name}

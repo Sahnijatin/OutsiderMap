@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listMapCategories } from "@/lib/map/categories";
 import { PlaceForm } from "../place-form";
 
 export const metadata: Metadata = {
@@ -17,11 +18,10 @@ export default async function EditPlacePage({
   await requireAdmin();
   const { id } = await params;
   const admin = createAdminClient();
-  const { data: place } = await admin
-    .from("places")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data: place }, categories] = await Promise.all([
+    admin.from("places").select("*").eq("id", id).maybeSingle(),
+    listMapCategories(admin),
+  ]);
   if (!place) notFound();
 
   return (
@@ -40,6 +40,7 @@ export default async function EditPlacePage({
       </div>
       <PlaceForm
         place={place}
+        categories={categories}
         googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null}
       />
     </main>

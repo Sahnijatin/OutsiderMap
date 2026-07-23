@@ -3,15 +3,18 @@
 import { ChevronDown, Layers } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { CATEGORY_GROUPS } from "@/lib/map/categories";
+import type { MapCategory } from "@/lib/map/categories";
 
 /**
- * The map key: one swatch per color group, so the colored pins decode at a
- * glance. Collapsible — open by default on lg+ where there's room, a single
- * pill on phones so it never eats the map.
+ * The map key: one swatch per category, so the colored dots decode at a glance.
+ * Categories are admin-managed (`map_categories`), passed in from the map page.
+ * Collapsible — open by default on lg+ where there's room, a single pill on
+ * phones so it never eats the map.
  */
-export function MapLegend() {
+export function MapLegend({ categories }: { categories: MapCategory[] }) {
   const [open, setOpen] = useState(true);
+
+  if (categories.length === 0) return null;
 
   return (
     <div
@@ -45,16 +48,14 @@ export function MapLegend() {
         >
           <li className="min-h-0 overflow-hidden">
             <div className="flex flex-col gap-2 border-t border-line/60 px-3.5 pb-3 pt-2.5">
-              {CATEGORY_GROUPS.map((group) => (
-                <div key={group.id} className="flex items-center gap-2.5">
+              {categories.map((category) => (
+                <div key={category.id} className="flex items-center gap-2.5">
                   <span
                     aria-hidden
                     className="size-3 shrink-0 rounded-full ring-1 ring-black/30"
-                    style={{
-                      background: `radial-gradient(circle at 35% 30%, ${group.light}, ${group.color} 55%, ${group.dark})`,
-                    }}
+                    style={{ background: category.color }}
                   />
-                  <span className="text-xs text-ink-dim">{group.label}</span>
+                  <span className="text-xs text-ink-dim">{category.label}</span>
                 </div>
               ))}
             </div>
