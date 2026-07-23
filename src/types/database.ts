@@ -70,6 +70,7 @@ export type Database = {
           outsider_number: number | null;
           username: string | null;
           home_city: string | null;
+          curator_score: number;
           created_at: string;
         };
         Insert: {
@@ -83,6 +84,7 @@ export type Database = {
           outsider_number?: number | null;
           username?: string | null;
           home_city?: string | null;
+          curator_score?: number;
           created_at?: string;
         };
         Update: {
@@ -96,6 +98,7 @@ export type Database = {
           outsider_number?: number | null;
           username?: string | null;
           home_city?: string | null;
+          curator_score?: number;
           created_at?: string;
         };
         Relationships: [];
@@ -216,6 +219,7 @@ export type Database = {
           embedding: string | null;
           is_published: boolean;
           source: "curated" | "submitted" | "ingested";
+          submitted_by: string | null;
           kind: PlaceKind;
           is_chain: boolean;
           story: Json;
@@ -241,6 +245,7 @@ export type Database = {
           embedding?: string | null;
           is_published?: boolean;
           source?: "curated" | "submitted" | "ingested";
+          submitted_by?: string | null;
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;
@@ -266,6 +271,7 @@ export type Database = {
           embedding?: string | null;
           is_published?: boolean;
           source?: "curated" | "submitted" | "ingested";
+          submitted_by?: string | null;
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;
@@ -1750,6 +1756,7 @@ export type Database = {
           captured_at: string | null;
           geo_ok: boolean | null;
           independence_ok: boolean | null;
+          anomaly: boolean;
           created_at: string;
         };
         Insert: {
@@ -1764,6 +1771,7 @@ export type Database = {
           captured_at?: string | null;
           geo_ok?: boolean | null;
           independence_ok?: boolean | null;
+          anomaly?: boolean;
           created_at?: string;
         };
         Update: {
@@ -1778,6 +1786,7 @@ export type Database = {
           captured_at?: string | null;
           geo_ok?: boolean | null;
           independence_ok?: boolean | null;
+          anomaly?: boolean;
           created_at?: string;
         };
         Relationships: [];
@@ -1851,6 +1860,34 @@ export type Database = {
       };
       grant_threshold: {
         Args: { p_user_id: string; p_threshold_id: string };
+        Returns: undefined;
+      };
+      spawn_verify_bounty: {
+        Args: { p_place_id: string; p_bounty_points?: number };
+        Returns: string;
+      };
+      geo_distance_m: {
+        Args: { lat1: number; lng1: number; lat2: number; lng2: number };
+        Returns: number;
+      };
+      can_validate: {
+        Args: { p_user: string };
+        Returns: boolean;
+      };
+      points_balance: {
+        Args: { p_user: string };
+        Returns: number;
+      };
+      points_escrowed: {
+        Args: { p_user: string };
+        Returns: number;
+      };
+      scout_metric: {
+        Args: { p_user: string; p_metric: string };
+        Returns: number;
+      };
+      check_reward_thresholds: {
+        Args: { p_user: string };
         Returns: undefined;
       };
       is_csam_staff: {

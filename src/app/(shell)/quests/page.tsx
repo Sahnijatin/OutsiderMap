@@ -53,6 +53,20 @@ export default async function QuestsPage() {
         <span className="shrink-0 text-sm text-accent">→</span>
       </Link>
 
+      <Link
+        href="/quests/bounties"
+        className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] hover:-translate-y-0.5 hover:border-accent/50"
+      >
+        <div className="min-w-0">
+          <p className="font-display text-lg italic">Scout bounties</p>
+          <p className="mt-0.5 text-xs text-ink-dim">
+            Verify hidden spots on-site, or list your own — earn points as the
+            map grows.
+          </p>
+        </div>
+        <span className="shrink-0 text-sm text-accent">→</span>
+      </Link>
+
       <div className="mt-6 flex flex-col gap-3">
         <ButtonLink href="/quests/new" className="lg:hidden">
           Plan a new quest
