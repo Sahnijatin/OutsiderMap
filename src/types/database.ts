@@ -47,7 +47,13 @@ export type InteractionEventType =
   | "quest_complete"
   | "chat_pick_click"
   | "reel_share"
-  | "market_report";
+  | "market_report"
+  | "bounty_created"
+  | "confirmation_submitted"
+  | "spot_published"
+  | "spot_rejected"
+  | "scout_warning"
+  | "points_clawback";
 
 /** Quest lifecycle (see quests.status). */
 export type QuestStatus = "draft" | "active" | "completed" | "abandoned";
@@ -1978,6 +1984,33 @@ export type Database = {
           avatar_url: string | null;
           curator_score: number;
           verified_spots: number;
+        }[];
+      };
+      metrics_accept_rate: {
+        Args: { p_days?: number; p_window_minutes?: number };
+        Returns: { asks: number; accepts: number }[];
+      };
+      metrics_daily: {
+        Args: { p_days?: number };
+        Returns: {
+          day: string;
+          asks: number;
+          accepts: number;
+          active_users: number;
+        }[];
+      };
+      metrics_funnel: {
+        Args: { p_days?: number };
+        Returns: { stage: string; n: number; ord: number }[];
+      };
+      metrics_retention: {
+        Args: { p_weeks?: number };
+        Returns: {
+          cohort_week: string;
+          cohort_size: number;
+          d1: number;
+          d7: number;
+          d30: number;
         }[];
       };
       is_csam_staff: {
