@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getApiContext } from "@/lib/api-auth";
+import { getOptionalApiContext } from "@/lib/api-auth";
 import { isOpenNow, openStatusLabel } from "@/lib/places/hours";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { rateLimitSubject } from "@/lib/security/ip";
 
 /**
  * Experience detail incl. the ordered story cards. Embedding is never selected.
@@ -13,12 +14,16 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const ctx = await getApiContext(request);
-  if (!ctx) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  // Anonymous-tolerant (#116): place detail is public (place pages are the
+  // indexable, anon-viewable surface). RLS restricts to published, non-chain
+  // rows; anon requests are rate-limited by IP.
+  const ctx = await getOptionalApiContext(request);
 
-  const allowed = await checkRateLimit(`experiences:${ctx.user.id}`, 120, 60);
+  const allowed = await checkRateLimit(
+    `experiences:${rateLimitSubject(ctx.user, request)}`,
+    120,
+    60,
+  );
   if (!allowed) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }

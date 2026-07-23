@@ -20,6 +20,15 @@ export async function getUser() {
   return user;
 }
 
+/**
+ * Anon-tolerant user read for the anonymous-explore paths (#116): the same as
+ * getUser(), named to make intent explicit at call sites that render for both
+ * signed-in and signed-out visitors. Returns null when signed out.
+ */
+export async function getOptionalUser() {
+  return getUser();
+}
+
 /** Redirects to /sign-in when not authenticated. */
 export async function requireUser() {
   const user = await getUser();
