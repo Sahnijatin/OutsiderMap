@@ -77,6 +77,7 @@ export type Database = {
           username: string | null;
           home_city: string | null;
           curator_score: number;
+          taste_card_public: boolean;
           created_at: string;
         };
         Insert: {
@@ -91,6 +92,7 @@ export type Database = {
           username?: string | null;
           home_city?: string | null;
           curator_score?: number;
+          taste_card_public?: boolean;
           created_at?: string;
         };
         Update: {
@@ -105,6 +107,7 @@ export type Database = {
           username?: string | null;
           home_city?: string | null;
           curator_score?: number;
+          taste_card_public?: boolean;
           created_at?: string;
         };
         Relationships: [];
@@ -2060,6 +2063,21 @@ export type Database = {
           display_name: string | null;
           avatar_url: string | null;
           outsider_number: number | null;
+        }[];
+      };
+      set_taste_card_public: {
+        Args: { p_public: boolean };
+        Returns: undefined;
+      };
+      public_taste_card: {
+        Args: { p_username: string };
+        Returns: {
+          username: string | null;
+          display_name: string | null;
+          outsider_number: number | null;
+          home_city: string | null;
+          taste_summary: string | null;
+          vibe_keywords: Json;
         }[];
       };
       is_premium: {

@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { priceGlyph } from "@/lib/utils";
 import { resolveCity } from "@/lib/cities";
 import { DangerZone, PersonalizationToggle } from "./settings-cards";
+import { TasteCardShare } from "./taste-card-share";
 import { IdentityCard } from "./identity-card";
 import { StatsRow } from "./stats-row";
 import { FriendsPanel } from "./friends";
@@ -231,6 +232,13 @@ export default async function ProfilePage({
             </ul>
           </Card>
         </section>
+      )}
+
+      {taste?.taste_summary && (
+        <TasteCardShare
+          username={profile.username}
+          initialPublic={profile.taste_card_public}
+        />
       )}
 
       <Card className="flex flex-col gap-3">
