@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { reportCaseSeverity } from "@/lib/moderation/reports";
 
 /**
  * POST /api/reports — file a content report. Intake only; the review queue and
@@ -40,38 +41,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Open a moderation case for the reported target (service role) if one
-  // isn't already open, so the report lands in the review queue. Best-effort:
-  // the report itself is already recorded.
-  if (parsed.data.target_type === "post" || parsed.data.target_type === "comment") {
-    try {
-      const admin = createAdminClient();
-      const { data: open } = await admin
+  // Open a moderation case for the reported target (service role) if one isn't
+  // already open, so every report — including a report of a *person* — lands in
+  // the review queue. Person-reports get a higher base severity (priority
+  // review) and carry the reported user as author_id so the reviewer's
+  // warn/mute/ban acts on them directly. Best-effort: the report is recorded
+  // regardless.
+  const { target_type, target_id, reason } = parsed.data;
+  try {
+    const admin = createAdminClient();
+    const { data: open } = await admin
+      .from("moderation_cases")
+      .select("id, severity")
+      .eq("target_type", target_type)
+      .eq("target_id", target_id)
+      .is("resolved_at", null)
+      .maybeSingle();
+    if (open) {
+      // Another report on an open case bumps its queue priority.
+      await admin
         .from("moderation_cases")
-        .select("id, severity")
-        .eq("target_type", parsed.data.target_type)
-        .eq("target_id", parsed.data.target_id)
-        .is("resolved_at", null)
-        .maybeSingle();
-      if (open) {
-        // Another report on an open case bumps its queue priority.
-        await admin
-          .from("moderation_cases")
-          .update({ severity: Math.min(100, (open.severity ?? 0) + 10) })
-          .eq("id", open.id);
-      } else {
-        await admin.from("moderation_cases").insert({
-          target_type: parsed.data.target_type,
-          target_id: parsed.data.target_id,
-          source: "report",
-          decision: "needs_review",
-          severity: 40,
-          reason: parsed.data.reason ?? null,
-        });
-      }
-    } catch (err) {
-      console.error("report: failed to open moderation case", err);
+        .update({ severity: Math.min(100, (open.severity ?? 0) + 10) })
+        .eq("id", open.id);
+    } else {
+      await admin.from("moderation_cases").insert({
+        target_type,
+        target_id,
+        source: "report",
+        decision: "needs_review",
+        severity: reportCaseSeverity(target_type),
+        reason: reason ?? null,
+        ...(target_type === "profile" ? { author_id: target_id } : {}),
+      });
     }
+  } catch (err) {
+    console.error("report: failed to open moderation case", err);
   }
 
   return NextResponse.json({ ok: true });

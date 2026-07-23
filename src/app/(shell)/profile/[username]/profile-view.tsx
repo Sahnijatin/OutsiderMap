@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import type { FollowState } from "@/lib/feed/follows";
 import type { PostCard as PostCardData } from "@/lib/feed/read";
 import { PostCard } from "../../feed/post-card";
+import { SafetyMenu } from "./safety-menu";
 
 type FriendStatus = "self" | "none" | "pending_out" | "pending_in" | "accepted";
 
@@ -238,6 +239,10 @@ function ProfileActions({
           Friends
         </Button>
       )}
+
+      <div className="ml-auto">
+        <SafetyMenu targetId={targetId} username={username} />
+      </div>
     </div>
   );
 }
