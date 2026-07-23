@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveWindowMs, slaStatus } from "@/lib/moderation/sla";
+import { appealWindowOpen, resolveWindowMs, slaStatus } from "@/lib/moderation/sla";
 
 const HOUR = 3600_000;
+const DAY = 24 * HOUR;
 const RECEIVED = "2026-07-22T00:00:00.000Z";
 const recMs = Date.parse(RECEIVED);
 
@@ -50,5 +51,32 @@ describe("slaStatus", () => {
         recMs + 100 * HOUR,
       ).resolveOverdue,
     ).toBe(false);
+  });
+});
+
+describe("appealWindowOpen", () => {
+  it("opens only for a closed grievance within 30 days of resolution", () => {
+    expect(
+      appealWindowOpen({ status: "resolved", resolved_at: RECEIVED }, recMs + 10 * DAY),
+    ).toBe(true);
+    expect(
+      appealWindowOpen({ status: "rejected", resolved_at: RECEIVED }, recMs + 29 * DAY),
+    ).toBe(true);
+  });
+
+  it("closes after 30 days", () => {
+    expect(
+      appealWindowOpen({ status: "resolved", resolved_at: RECEIVED }, recMs + 31 * DAY),
+    ).toBe(false);
+  });
+
+  it("is closed while the grievance is still open or unresolved", () => {
+    expect(appealWindowOpen({ status: "received", resolved_at: null }, recMs)).toBe(false);
+    expect(
+      appealWindowOpen({ status: "acknowledged", resolved_at: null }, recMs),
+    ).toBe(false);
+    expect(appealWindowOpen({ status: "appealed", resolved_at: RECEIVED }, recMs)).toBe(
+      false,
+    );
   });
 });

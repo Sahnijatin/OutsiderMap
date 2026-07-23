@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { deriveTier, resolveEnforcement } from "@/lib/moderation/trust";
 
 /**
  * Human review actions on a moderation case. Each writes to the immutable
@@ -15,7 +16,8 @@ const ActionSchema = z.object({
   action: z.enum(["approve", "remove", "escalate", "warn", "mute", "ban"]),
 });
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 export async function actOnCase(formData: FormData) {
   const me = await requireAdmin();
@@ -33,6 +35,8 @@ export async function actOnCase(formData: FormData) {
   if (!c) throw new Error("Case not found.");
 
   const now = new Date().toISOString();
+  let applied: { action: string; muteHours: number; strikeCount: number } | null =
+    null;
 
   if (input.action === "approve" || input.action === "remove") {
     const status = input.action === "approve" ? "approved" : "removed";
@@ -59,21 +63,48 @@ export async function actOnCase(formData: FormData) {
       .eq("id", c.id);
   } else if (c.author_id) {
     // warn / mute / ban — enforcement on the author (a strike either way).
-    const { data: trust } = await admin
-      .from("user_trust")
-      .select("strike_count")
-      .eq("user_id", c.author_id)
-      .maybeSingle();
-    const strikes = (trust?.strike_count ?? 0) + 1;
+    // The escalating ladder (trust.ts) drives duration by strike count; the
+    // reviewer's pick can only escalate past it, never soften it.
+    const [{ data: trust }, { data: profile }] = await Promise.all([
+      admin
+        .from("user_trust")
+        .select("strike_count")
+        .eq("user_id", c.author_id)
+        .maybeSingle(),
+      admin
+        .from("profiles")
+        .select("created_at")
+        .eq("id", c.author_id)
+        .maybeSingle(),
+    ]);
+
+    const enforcement = resolveEnforcement(
+      trust?.strike_count ?? 0,
+      input.action as "warn" | "mute" | "ban",
+    );
+    const accountAgeDays = profile?.created_at
+      ? Math.floor((Date.now() - Date.parse(profile.created_at)) / DAY_MS)
+      : 0;
+    const tier = deriveTier({
+      accountAgeDays,
+      strikeCount: enforcement.strikeCount,
+    });
+    applied = enforcement;
+
     await admin.from("user_trust").upsert(
       {
         user_id: c.author_id,
-        strike_count: strikes,
+        strike_count: enforcement.strikeCount,
+        tier,
         updated_at: now,
-        ...(input.action === "mute"
-          ? { muted_until: new Date(Date.now() + DAY_MS).toISOString() }
+        ...(enforcement.action === "mute"
+          ? {
+              muted_until: new Date(
+                Date.now() + enforcement.muteHours * HOUR_MS,
+              ).toISOString(),
+            }
           : {}),
-        ...(input.action === "ban" ? { banned_at: now } : {}),
+        ...(enforcement.action === "ban" ? { banned_at: now } : {}),
       },
       { onConflict: "user_id" },
     );
@@ -83,7 +114,12 @@ export async function actOnCase(formData: FormData) {
     case_id: c.id,
     actor: me.id,
     action: input.action,
-    detail: { target_type: c.target_type, target_id: c.target_id },
+    detail: {
+      target_type: c.target_type,
+      target_id: c.target_id,
+      // the effective enforcement, which the ladder may escalate past the pick
+      ...(applied ? { applied } : {}),
+    },
   });
   revalidatePath("/admin/moderation");
 }

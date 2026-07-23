@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   deriveTier,
   enforcementForStrike,
+  resolveEnforcement,
   screeningPosture,
 } from "@/lib/moderation/trust";
 
@@ -24,6 +25,53 @@ describe("enforcementForStrike", () => {
     expect(enforcementForStrike(2)).toEqual({ action: "mute", muteHours: 24 });
     expect(enforcementForStrike(3)).toEqual({ action: "mute", muteHours: 168 });
     expect(enforcementForStrike(4)).toEqual({ action: "ban" });
+  });
+});
+
+describe("resolveEnforcement", () => {
+  it("follows the ladder when the reviewer picks the ladder's action", () => {
+    // prevStrikes 0 → strike 1 → warn
+    expect(resolveEnforcement(0, "warn")).toEqual({
+      strikeCount: 1,
+      action: "warn",
+      muteHours: 0,
+    });
+    // prevStrikes 1 → strike 2 → 24h mute
+    expect(resolveEnforcement(1, "mute")).toEqual({
+      strikeCount: 2,
+      action: "mute",
+      muteHours: 24,
+    });
+    // prevStrikes 3 → strike 4 → ban
+    expect(resolveEnforcement(3, "ban")).toEqual({
+      strikeCount: 4,
+      action: "ban",
+      muteHours: 0,
+    });
+  });
+
+  it("escalates a soft pick up to the ladder floor (repeat offender)", () => {
+    // reviewer clicks 'mute' on a 3rd strike → ladder says 7d, not 24h
+    expect(resolveEnforcement(2, "mute")).toEqual({
+      strikeCount: 3,
+      action: "mute",
+      muteHours: 168,
+    });
+    // reviewer clicks 'warn' on a 2nd strike → ladder floor is a 24h mute
+    expect(resolveEnforcement(1, "warn")).toEqual({
+      strikeCount: 2,
+      action: "mute",
+      muteHours: 24,
+    });
+  });
+
+  it("lets the reviewer escalate past the ladder floor for an egregious strike", () => {
+    // ban on a first strike: ladder floor is 'warn', reviewer's ban wins
+    expect(resolveEnforcement(0, "ban")).toEqual({
+      strikeCount: 1,
+      action: "ban",
+      muteHours: 0,
+    });
   });
 });
 

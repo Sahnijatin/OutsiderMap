@@ -32,6 +32,35 @@ export function enforcementForStrike(strikeCount: number): Enforcement {
   return { action: "ban" };
 }
 
+export type StrikeAction = "warn" | "mute" | "ban";
+
+export type ResolvedEnforcement = {
+  strikeCount: number;
+  action: StrikeAction;
+  muteHours: number;
+};
+
+/**
+ * Combine a fresh strike with the reviewer's chosen action into the effective
+ * enforcement. The result is the *more severe* of the ladder outcome (keyed by
+ * the new strike count) and the reviewer's explicit pick — so the ladder drives
+ * escalation automatically (repeat offenders get 7d, then a ban), while a
+ * reviewer can still escalate past the ladder floor for an egregious first
+ * strike. Mute duration always comes from the ladder.
+ */
+export function resolveEnforcement(
+  prevStrikes: number,
+  chosen: StrikeAction,
+): ResolvedEnforcement {
+  const strikeCount = prevStrikes + 1;
+  const ladder = enforcementForStrike(strikeCount);
+  const rank: Record<StrikeAction, number> = { warn: 0, mute: 1, ban: 2 };
+  const action = rank[chosen] >= rank[ladder.action] ? chosen : ladder.action;
+  const muteHours =
+    action === "mute" ? (ladder.action === "mute" ? ladder.muteHours : 24) : 0;
+  return { strikeCount, action, muteHours };
+}
+
 export type Posture = "pre_screen" | "optimistic" | "hold";
 
 /**
