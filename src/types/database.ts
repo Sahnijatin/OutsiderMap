@@ -1791,6 +1791,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      scout_verification_audit: {
+        Row: {
+          id: string;
+          bounty_id: string;
+          admin_id: string | null;
+          decision: "publish" | "reject";
+          active_validators: number | null;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          bounty_id: string;
+          admin_id?: string | null;
+          decision: "publish" | "reject";
+          active_validators?: number | null;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          bounty_id?: string;
+          admin_id?: string | null;
+          decision?: "publish" | "reject";
+          active_validators?: number | null;
+          note?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1889,6 +1919,33 @@ export type Database = {
       check_reward_thresholds: {
         Args: { p_user: string };
         Returns: undefined;
+      };
+      area_validator_density: {
+        Args: { p_city?: string | null };
+        Returns: {
+          city: string;
+          open_bounties: number;
+          active_validators: number;
+          thin: boolean;
+        }[];
+      };
+      admin_resolve_bounty: {
+        Args: { p_bounty_id: string; p_decision: string; p_note?: string | null };
+        Returns: undefined;
+      };
+      admin_create_discover_bounty: {
+        Args: { p_area: string | null; p_city: string; p_bounty_points?: number };
+        Returns: string;
+      };
+      scout_leaderboard: {
+        Args: { p_limit?: number };
+        Returns: {
+          user_id: string;
+          display_name: string | null;
+          avatar_url: string | null;
+          curator_score: number;
+          verified_spots: number;
+        }[];
       };
       is_csam_staff: {
         Args: Record<PropertyKey, never>;

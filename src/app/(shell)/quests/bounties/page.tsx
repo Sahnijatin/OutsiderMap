@@ -27,6 +27,10 @@ export default async function BountiesPage() {
         <p className="mt-2 text-sm text-ink-dim">
           Go to a listed spot, prove it exists with a live photo, and both you
           and the scout who found it earn points.{" "}
+          <Link href="/quests/leaderboard" className="underline">
+            See standings
+          </Link>{" "}
+          ·{" "}
           <Link href="/quests" className="underline">
             Back to your quests
           </Link>
