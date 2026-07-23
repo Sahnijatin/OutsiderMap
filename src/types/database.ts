@@ -70,6 +70,7 @@ export type Database = {
           outsider_number: number | null;
           username: string | null;
           home_city: string | null;
+          curator_score: number;
           created_at: string;
         };
         Insert: {
@@ -83,6 +84,7 @@ export type Database = {
           outsider_number?: number | null;
           username?: string | null;
           home_city?: string | null;
+          curator_score?: number;
           created_at?: string;
         };
         Update: {
@@ -96,6 +98,7 @@ export type Database = {
           outsider_number?: number | null;
           username?: string | null;
           home_city?: string | null;
+          curator_score?: number;
           created_at?: string;
         };
         Relationships: [];
@@ -216,6 +219,7 @@ export type Database = {
           embedding: string | null;
           is_published: boolean;
           source: "curated" | "submitted" | "ingested";
+          submitted_by: string | null;
           kind: PlaceKind;
           is_chain: boolean;
           story: Json;
@@ -241,6 +245,7 @@ export type Database = {
           embedding?: string | null;
           is_published?: boolean;
           source?: "curated" | "submitted" | "ingested";
+          submitted_by?: string | null;
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;
@@ -266,6 +271,7 @@ export type Database = {
           embedding?: string | null;
           is_published?: boolean;
           source?: "curated" | "submitted" | "ingested";
+          submitted_by?: string | null;
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;
@@ -1611,6 +1617,180 @@ export type Database = {
         };
         Relationships: [];
       };
+      points_ledger: {
+        Row: {
+          id: string;
+          user_id: string;
+          delta: number;
+          reason: "spot_verified" | "confirmation" | "discovery" | "clawback";
+          ref_type: string | null;
+          ref_id: string | null;
+          status: "escrow" | "confirmed" | "clawed_back";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          delta: number;
+          reason: "spot_verified" | "confirmation" | "discovery" | "clawback";
+          ref_type?: string | null;
+          ref_id?: string | null;
+          status?: "escrow" | "confirmed" | "clawed_back";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          delta?: number;
+          reason?: "spot_verified" | "confirmation" | "discovery" | "clawback";
+          ref_type?: string | null;
+          ref_id?: string | null;
+          status?: "escrow" | "confirmed" | "clawed_back";
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      reward_thresholds: {
+        Row: {
+          id: string;
+          name: string;
+          metric: "verified_spots" | "confirmations" | "points";
+          threshold: number;
+          grant: Json;
+          is_active: boolean;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          metric: "verified_spots" | "confirmations" | "points";
+          threshold: number;
+          grant: Json;
+          is_active?: boolean;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          metric?: "verified_spots" | "confirmations" | "points";
+          threshold?: number;
+          grant?: Json;
+          is_active?: boolean;
+        };
+        Relationships: [];
+      };
+      reward_grants: {
+        Row: {
+          id: string;
+          user_id: string;
+          threshold_id: string;
+          granted_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          threshold_id: string;
+          granted_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          threshold_id?: string;
+          granted_at?: string;
+        };
+        Relationships: [];
+      };
+      bounty_quests: {
+        Row: {
+          id: string;
+          quest_id: string | null;
+          type: "verify" | "discover";
+          submission_id: string | null;
+          area: string | null;
+          city: string | null;
+          lister_id: string | null;
+          bounty_points: number;
+          quorum_needed: number;
+          quorum_needed_reject: number;
+          status: "open" | "resolving" | "published" | "rejected" | "expired";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          quest_id?: string | null;
+          type: "verify" | "discover";
+          submission_id?: string | null;
+          area?: string | null;
+          city?: string | null;
+          lister_id?: string | null;
+          bounty_points?: number;
+          quorum_needed?: number;
+          quorum_needed_reject?: number;
+          status?: "open" | "resolving" | "published" | "rejected" | "expired";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          quest_id?: string | null;
+          type?: "verify" | "discover";
+          submission_id?: string | null;
+          area?: string | null;
+          city?: string | null;
+          lister_id?: string | null;
+          bounty_points?: number;
+          quorum_needed?: number;
+          quorum_needed_reject?: number;
+          status?: "open" | "resolving" | "published" | "rejected" | "expired";
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      quest_confirmations: {
+        Row: {
+          id: string;
+          bounty_id: string;
+          validator_id: string;
+          verdict: "exists" | "not_exists";
+          quality: number | null;
+          media: Json | null;
+          captured_lat: number | null;
+          captured_lng: number | null;
+          captured_at: string | null;
+          geo_ok: boolean | null;
+          independence_ok: boolean | null;
+          anomaly: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          bounty_id: string;
+          validator_id: string;
+          verdict: "exists" | "not_exists";
+          quality?: number | null;
+          media?: Json | null;
+          captured_lat?: number | null;
+          captured_lng?: number | null;
+          captured_at?: string | null;
+          geo_ok?: boolean | null;
+          independence_ok?: boolean | null;
+          anomaly?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          bounty_id?: string;
+          validator_id?: string;
+          verdict?: "exists" | "not_exists";
+          quality?: number | null;
+          media?: Json | null;
+          captured_lat?: number | null;
+          captured_lng?: number | null;
+          captured_at?: string | null;
+          geo_ok?: boolean | null;
+          independence_ok?: boolean | null;
+          anomaly?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1630,6 +1810,84 @@ export type Database = {
       };
       appeal_grievance: {
         Args: { p_id: string };
+        Returns: undefined;
+      };
+      create_bounty: {
+        Args: {
+          p_type: string;
+          p_submission_id?: string | null;
+          p_quest_id?: string | null;
+          p_area?: string | null;
+          p_city?: string | null;
+          p_lister_id?: string | null;
+          p_bounty_points?: number;
+        };
+        Returns: string;
+      };
+      submit_confirmation: {
+        Args: {
+          p_bounty_id: string;
+          p_verdict: string;
+          p_quality?: number | null;
+          p_media?: Json | null;
+          p_captured_lat?: number | null;
+          p_captured_lng?: number | null;
+          p_captured_at?: string | null;
+        };
+        Returns: string;
+      };
+      aggregate_verdict: {
+        Args: { p_bounty_id: string };
+        Returns: undefined;
+      };
+      award_points_escrow: {
+        Args: {
+          p_user_id: string;
+          p_delta: number;
+          p_reason: string;
+          p_ref_type?: string | null;
+          p_ref_id?: string | null;
+        };
+        Returns: string;
+      };
+      confirm_points: {
+        Args: { p_ref_type: string; p_ref_id: string };
+        Returns: undefined;
+      };
+      clawback_points: {
+        Args: { p_ref_type: string; p_ref_id: string; p_reason?: string };
+        Returns: undefined;
+      };
+      grant_threshold: {
+        Args: { p_user_id: string; p_threshold_id: string };
+        Returns: undefined;
+      };
+      spawn_verify_bounty: {
+        Args: { p_place_id: string; p_bounty_points?: number };
+        Returns: string;
+      };
+      geo_distance_m: {
+        Args: { lat1: number; lng1: number; lat2: number; lng2: number };
+        Returns: number;
+      };
+      can_validate: {
+        Args: { p_user: string };
+        Returns: boolean;
+      };
+      points_balance: {
+        Args: { p_user: string };
+        Returns: number;
+      };
+      points_escrowed: {
+        Args: { p_user: string };
+        Returns: number;
+      };
+      scout_metric: {
+        Args: { p_user: string; p_metric: string };
+        Returns: number;
+      };
+      check_reward_thresholds: {
+        Args: { p_user: string };
         Returns: undefined;
       };
       is_csam_staff: {
