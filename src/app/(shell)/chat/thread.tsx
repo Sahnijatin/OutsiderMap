@@ -12,6 +12,8 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   picks?: ChatPickCard[] | null;
+  /** Set when the turn built a trackable market shopping run - links to it. */
+  marketRunId?: string | null;
   /** UI-only decorations for failure/backoff bubbles. */
   tone?: "error" | "limit";
 };
@@ -164,7 +166,11 @@ export function ChatThread({
             }
             if (body.city) setCity(body.city);
             openBubble();
-            patchBubble({ content: body.text ?? acc, picks: body.picks });
+            patchBubble({
+              content: body.text ?? acc,
+              picks: body.picks,
+              marketRunId: body.marketRunId,
+            });
             finished = true;
           } else if (event === "error") {
             setFailedText(message);
@@ -294,6 +300,14 @@ export function ChatThread({
                     </Link>
                   </div>
                 )}
+                {m.marketRunId && (
+                  <Link
+                    href={`/market-run/${m.marketRunId}`}
+                    className="self-start rounded-full border border-accent/50 px-4 py-1.5 text-xs text-accent transition-colors hover:bg-accent/10"
+                  >
+                    View shopping run →
+                  </Link>
+                )}
               </div>
             ))}
             {busy && (
@@ -345,6 +359,7 @@ type ChatResponse = {
   city?: string;
   text?: string;
   picks?: ChatPickCard[];
+  marketRunId?: string;
   message?: string;
   error?: string;
   code?: string;

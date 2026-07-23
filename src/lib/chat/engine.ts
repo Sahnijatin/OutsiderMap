@@ -33,7 +33,14 @@ export type ChatPickCard = {
 };
 
 export type ChatTurnResult =
-  | { type: "ask"; threadId: string; city: string; text: string }
+  | {
+      type: "ask";
+      threadId: string;
+      city: string;
+      text: string;
+      /** Set when the agent built a trackable market shopping run this turn. */
+      marketRunId?: string;
+    }
   | {
       type: "picks";
       threadId: string;
@@ -42,6 +49,8 @@ export type ChatTurnResult =
       picks: ChatPickCard[];
       /** Set when the agent built a trackable plan this turn. */
       planId?: string;
+      /** Set when the agent built a trackable market shopping run this turn. */
+      marketRunId?: string;
     };
 
 const IntentStateSchema = z
@@ -244,7 +253,14 @@ export async function runChatTurn(
         .update({ intent_state: nextState, updated_at: new Date().toISOString() })
         .eq("id", threadId),
     ]);
-    return { type: "ask", threadId, city: city.slug, text: reply };
+    const askResult: ChatTurnResult = {
+      type: "ask",
+      threadId,
+      city: city.slug,
+      text: reply,
+    };
+    if (collector.marketRunId) askResult.marketRunId = collector.marketRunId;
+    return askResult;
   }
 
   // Picks path: resolve coordinates + a short reason for each shown place.
@@ -307,6 +323,7 @@ export async function runChatTurn(
     picks,
   };
   if (collector.planId) result.planId = collector.planId;
+  if (collector.marketRunId) result.marketRunId = collector.marketRunId;
   return result;
 }
 
