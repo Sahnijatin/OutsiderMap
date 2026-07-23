@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { SESSION_COOKIE_MAX_AGE_SECONDS } from "@/lib/auth/session";
 
 /**
  * Route prefixes that require a signed-in user. The map, place pages, /about and
@@ -38,6 +39,8 @@ export async function proxy(request: NextRequest) {
   if (!url || !anonKey) return response;
 
   const supabase = createServerClient(url, anonKey, {
+    // Rolling 60-day session: the refresh below re-sets the cookies each visit.
+    cookieOptions: { maxAge: SESSION_COOKIE_MAX_AGE_SECONDS },
     cookies: {
       getAll() {
         return request.cookies.getAll();
