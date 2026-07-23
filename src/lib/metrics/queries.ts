@@ -9,6 +9,7 @@ import type { Database } from "@/types/database";
  */
 
 export type AcceptRate = { asks: number; accepts: number };
+export type AnswerAcceptRate = { served: number; accepted: number };
 export type DailyPoint = {
   day: string;
   asks: number;
@@ -34,6 +35,23 @@ export async function getAcceptRate(
   if (error) throw new Error(error.message);
   const row = data?.[0];
   return { asks: row?.asks ?? 0, accepts: row?.accepts ?? 0 };
+}
+
+/**
+ * Precise Confident-Answer-Accept-Rate (#120 part 2a): served answers joined to
+ * their acceptances by answer_id — no time-window proxy. Reads zero until the
+ * answer_served/answer_accepted events accumulate, so the UI shows it as "—".
+ */
+export async function getAnswerAcceptRate(
+  supabase: SupabaseClient<Database>,
+  days = 7,
+): Promise<AnswerAcceptRate> {
+  const { data, error } = await supabase.rpc("metrics_answer_accept_rate", {
+    p_days: days,
+  });
+  if (error) throw new Error(error.message);
+  const row = data?.[0];
+  return { served: row?.served ?? 0, accepted: row?.accepted ?? 0 };
 }
 
 export async function getDaily(

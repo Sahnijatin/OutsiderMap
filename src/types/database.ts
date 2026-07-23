@@ -53,7 +53,9 @@ export type InteractionEventType =
   | "spot_published"
   | "spot_rejected"
   | "scout_warning"
-  | "points_clawback";
+  | "points_clawback"
+  | "answer_served"
+  | "answer_accepted";
 
 /** Quest lifecycle (see quests.status). */
 export type QuestStatus = "draft" | "active" | "completed" | "abandoned";
@@ -1992,6 +1994,10 @@ export type Database = {
       metrics_accept_rate: {
         Args: { p_days?: number; p_window_minutes?: number };
         Returns: { asks: number; accepts: number }[];
+      };
+      metrics_answer_accept_rate: {
+        Args: { p_days?: number };
+        Returns: { served: number; accepted: number }[];
       };
       metrics_daily: {
         Args: { p_days?: number };

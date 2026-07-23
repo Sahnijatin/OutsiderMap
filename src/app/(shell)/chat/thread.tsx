@@ -413,11 +413,16 @@ function PickCard({ pick }: { pick: ChatPickCard }) {
   const img = publicMediaUrl("place-images", pick.image_path);
 
   function logClick() {
-    // Fire-and-forget learning signal; navigation proceeds regardless.
+    // Fire-and-forget learning signal; navigation proceeds regardless. The
+    // answerId ties this click to the exact answer served (#120 accept-rate).
     void fetch("/api/interactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "chat_pick_click", placeId: pick.id }),
+      body: JSON.stringify({
+        action: "chat_pick_click",
+        placeId: pick.id,
+        answerId: pick.answerId,
+      }),
     }).catch(() => {});
   }
 
