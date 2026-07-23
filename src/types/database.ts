@@ -46,7 +46,8 @@ export type InteractionEventType =
   | "stop_complete"
   | "quest_complete"
   | "chat_pick_click"
-  | "reel_share";
+  | "reel_share"
+  | "market_report";
 
 /** Quest lifecycle (see quests.status). */
 export type QuestStatus = "draft" | "active" | "completed" | "abandoned";

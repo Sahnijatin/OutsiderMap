@@ -20,6 +20,7 @@ import {
   marketIntelligenceByCategory,
   resolveMarket,
 } from "@/lib/market/store";
+import { recordMarketReport } from "@/lib/market/report";
 import { intelligenceLine, planToModelPayload } from "@/lib/market/present";
 import type { City } from "@/lib/cities";
 import type { Database, Json } from "@/types/database";
@@ -453,6 +454,71 @@ export function buildChatTools(
     },
   });
 
+  const LogMarketReportInput = z.object({
+    market: z
+      .string()
+      .min(1)
+      .describe("Which market they shopped, name or slug (e.g. 'Sarojini')."),
+    purchases: z
+      .array(
+        z.object({
+          category: z
+            .string()
+            .min(1)
+            .describe("What they bought, e.g. 'fashion', 'jeans', 'juttis'."),
+          item: z.string().nullish().describe("Specific item if named."),
+          price: z.number().positive().describe("Rupees they actually paid."),
+        }),
+      )
+      .min(1)
+      .max(12)
+      .describe("What they bought and paid, from what they just told you."),
+    run_id: z
+      .string()
+      .nullish()
+      .describe("The market_run id this trip came from, if this turn built one."),
+  });
+
+  const log_market_report = defineTool({
+    name: "log_market_report",
+    description:
+      "Record what the user actually bought and paid at a market when they tell you post-trip ('got the jacket for 600 at Sarojini'). Feeds honest prices back so the next person's plan is better. Only log real prices the user stated - never invent them.",
+    inputSchema: LogMarketReportInput,
+    handler: async (input) => {
+      try {
+        const admin = createAdminClient();
+        const result = await recordMarketReport(admin, ctx.supabase, {
+          userId: ctx.userId,
+          citySlug: ctx.city.slug,
+          market: input.market,
+          lines: input.purchases.map((p) => ({
+            category: p.category,
+            item: p.item ?? null,
+            price: p.price,
+          })),
+          runId: input.run_id ?? null,
+        });
+        collector.trace.push({
+          tool: "log_market_report",
+          summary: `${input.market} -> ${result.outcome} (${result.staged})`,
+        });
+        if (result.outcome === "no_market") {
+          return `We don't have "${input.market}" mapped yet, so I can't file that. Thank them anyway; don't invent a record.`;
+        }
+        if (result.outcome === "no_prices") {
+          return "No usable prices in that report - ask them what they paid, don't make one up.";
+        }
+        return `Logged ${result.staged} price(s) from ${result.marketName}. Thank them warmly - their report helps the next person's plan (it's reviewed before it counts).`;
+      } catch (error) {
+        collector.trace.push({
+          tool: "log_market_report",
+          summary: `failed: ${error instanceof Error ? error.message : "error"}`,
+        });
+        return "Couldn't save that report just now - thank them and move on; don't fabricate a confirmation.";
+      }
+    },
+  });
+
   const ShowOnMapInput = z.object({
     slugs: z
       .array(z.string().min(1))
@@ -541,6 +607,7 @@ export function buildChatTools(
     build_plan,
     get_market_intelligence,
     build_market_run,
+    log_market_report,
     show_on_map,
     save_to_bucket,
   ];

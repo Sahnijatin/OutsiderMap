@@ -8,6 +8,9 @@ vi.mock("@/lib/market/store", () => ({
   marketIntelligenceByCategory: async () => new Map(),
   generateMarketRunPlan: async () => null,
 }));
+vi.mock("@/lib/market/report", () => ({
+  recordMarketReport: async () => ({ outcome: "no_market", staged: 0 }),
+}));
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -68,6 +71,7 @@ describe("buildChatTools", () => {
         "get_market_intelligence",
         "get_place_details",
         "get_user_behavior",
+        "log_market_report",
         "save_to_bucket",
         "search_places",
         "show_on_map",
