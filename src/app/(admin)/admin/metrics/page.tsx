@@ -7,10 +7,14 @@ import {
   getAcceptRate,
   getAnswerAcceptRate,
   getDaily,
+  getExperiment,
+  getExperimentConfig,
   getFunnel,
   getRetention,
 } from "@/lib/metrics/queries";
 import { ratePct, funnelShares, FUNNEL_LABELS } from "@/lib/metrics/format";
+import { ONE_ANSWER_VS_LIST } from "@/lib/experiments/server";
+import { toggleExperiment } from "./actions";
 
 export const metadata: Metadata = { title: "Admin · Metrics" };
 
@@ -20,22 +24,37 @@ export const metadata: Metadata = { title: "Admin · Metrics" };
  * Called with the admin's session client so the is_admin() guard resolves.
  * The precise accept-rate (part 2a) joins answer_served→answer_accepted by
  * answer_id; the proxy (part 1: query + a positive action in a window) stays
- * alongside until the precise events accumulate. The A/B harness is part 2b.
+ * alongside until the precise events accumulate. Part 2b adds the A/B harness:
+ * an admin-toggleable experiment with per-variant accept-rate.
  */
 export default async function MetricsPage() {
   await requireAdmin();
   const supabase = await createClient();
 
-  const [answer, accept, daily, funnel, retention] = await Promise.all([
-    getAnswerAcceptRate(supabase, 7),
-    getAcceptRate(supabase, 7),
-    getDaily(supabase, 30),
-    getFunnel(supabase, 30),
-    getRetention(supabase, 8),
-  ]);
+  const [answer, accept, daily, funnel, retention, expConfig, expRows] =
+    await Promise.all([
+      getAnswerAcceptRate(supabase, 7),
+      getAcceptRate(supabase, 7),
+      getDaily(supabase, 30),
+      getFunnel(supabase, 30),
+      getRetention(supabase, 8),
+      getExperimentConfig(supabase, ONE_ANSWER_VS_LIST),
+      getExperiment(supabase, ONE_ANSWER_VS_LIST, 14),
+    ]);
 
   const acceptPct = ratePct(accept.accepts, accept.asks);
   const answerPct = answer.served > 0 ? ratePct(answer.accepted, answer.served) : null;
+
+  // Rank variants by accept-rate to mark the leader (only once both have data).
+  const expVariants = expRows.map((r) => ({
+    ...r,
+    pct: r.served > 0 ? ratePct(r.accepted, r.served) : 0,
+  }));
+  const withData = expVariants.filter((v) => v.served > 0);
+  const leader =
+    withData.length >= 2
+      ? withData.reduce((a, b) => (b.pct > a.pct ? b : a)).variant
+      : null;
   const today = daily.at(-1);
   const maxAsks = Math.max(1, ...daily.map((d) => d.asks));
   const shares = funnelShares(funnel);
@@ -75,6 +94,84 @@ export default async function MetricsPage() {
           muted
         />
       </section>
+
+      {/* Experiment: one answer vs a list (#120 part 2b) */}
+      {expConfig && (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="voice">experiment · {expConfig.key}</h2>
+            <form action={toggleExperiment}>
+              <input type="hidden" name="key" value={expConfig.key} />
+              <input
+                type="hidden"
+                name="enabled"
+                value={(!expConfig.enabled).toString()}
+              />
+              <button
+                type="submit"
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  expConfig.enabled
+                    ? "bg-accent/15 text-accent hover:bg-accent/25"
+                    : "bg-raise text-ink-dim hover:text-ink",
+                )}
+              >
+                {expConfig.enabled ? "● running · turn off" : "○ off · turn on"}
+              </button>
+            </form>
+          </div>
+          <Card className="flex flex-col gap-3 p-4">
+            {expConfig.description && (
+              <p className="text-sm text-ink-dim">{expConfig.description}</p>
+            )}
+            <div className="flex flex-col gap-2">
+              {expConfig.variants.map((name) => {
+                const row = expVariants.find((v) => v.variant === name);
+                const served = row?.served ?? 0;
+                const accepted = row?.accepted ?? 0;
+                const pct = row?.pct ?? 0;
+                return (
+                  <div
+                    key={name}
+                    className="flex items-center gap-3 text-sm"
+                  >
+                    <span className="flex w-24 shrink-0 items-center gap-1.5 font-mono text-xs text-ink">
+                      {name}
+                      {leader === name && (
+                        <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[0.6rem] text-accent">
+                          leading
+                        </span>
+                      )}
+                    </span>
+                    <div className="h-5 flex-1 overflow-hidden rounded-sm bg-raise">
+                      <div
+                        className="flex h-full items-center rounded-sm bg-accent/80 px-2"
+                        style={{ width: `${Math.max(pct, served > 0 ? 4 : 0)}%` }}
+                      >
+                        {served > 0 && (
+                          <span className="text-xs font-medium text-night">
+                            {pct}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="w-24 shrink-0 text-right font-mono text-xs text-ink-dim">
+                      {accepted}/{served}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {withData.length < 2 && (
+              <p className="text-xs text-ink-dim">
+                {expConfig.enabled
+                  ? "Running — accept-rate per variant appears here as answers are served (14d)."
+                  : "Turn on to split members across variants and compare accept-rate."}
+              </p>
+            )}
+          </Card>
+        </section>
+      )}
 
       {/* Daily series */}
       <section className="flex flex-col gap-3">

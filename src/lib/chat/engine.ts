@@ -17,6 +17,7 @@ import {
 } from "@/lib/chat/tools";
 import type { Database, Json } from "@/types/database";
 import { ANSWER_SERVED, newAnswerId, servedPayload } from "@/lib/events/answers";
+import { ONE_ANSWER_VS_LIST, resolveVariant } from "@/lib/experiments/server";
 
 const HISTORY_LIMIT = 20;
 /** Cap the agent loop: model -> tools -> model, a few rounds is plenty here. */
@@ -266,17 +267,23 @@ export async function runChatTurn(
     return askResult;
   }
 
+  // A/B: when the one-answer-vs-list experiment is on, "one" shows a single
+  // pick, "list" shows the three. Off (or unassigned) → the default three.
+  const assignment = await resolveVariant(supabase, ONE_ANSWER_VS_LIST, userId);
+  const shownForVariant =
+    assignment?.variant === "one" ? shown.slice(0, 1) : shown;
+
   // Picks path: resolve coordinates + a short reason for each shown place.
   const { data: placeRows } = await supabase
     .from("places")
     .select("slug, lat, lng, editor_note")
     .in(
       "slug",
-      shown.map((p) => p.slug),
+      shownForVariant.map((p) => p.slug),
     );
   const detailBySlug = new Map(placeRows?.map((r) => [r.slug, r]) ?? []);
   const answerId = newAnswerId();
-  const picks: ChatPickCard[] = shown.map((p) => {
+  const picks: ChatPickCard[] = shownForVariant.map((p) => {
     const detail = detailBySlug.get(p.slug);
     return {
       id: p.id,
@@ -318,7 +325,8 @@ export async function runChatTurn(
       event_type: "query",
       payload: { query: input.message, source: "chat" },
     }),
-    // Precise serve signal (#120): links a later pick-click back to this answer.
+    // Precise serve signal (#120): links a later pick-click back to this answer,
+    // and carries the A/B variant so accept-rate reads per variant.
     supabase.from("interaction_events").insert({
       user_id: userId,
       event_type: ANSWER_SERVED,
@@ -326,7 +334,9 @@ export async function runChatTurn(
         answerId,
         source: "chat",
         query: input.message,
-        picks: shown.map((p) => p.slug),
+        picks: shownForVariant.map((p) => p.slug),
+        experiment: assignment?.experiment,
+        variant: assignment?.variant,
       }),
     }),
   ]);
