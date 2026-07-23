@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { maybeRecomputeLearnedSignals } from "@/lib/taste/learn";
+import { ANSWER_ACCEPTED, acceptedPayload } from "@/lib/events/answers";
 import type { Json } from "@/types/database";
 
 /**
@@ -28,6 +29,9 @@ const BodySchema = z.object({
   placeId: z.string().uuid().optional(),
   rating: z.union([z.literal(1), z.literal(-1)]).optional(),
   query: z.string().trim().max(500).optional(),
+  // Set when this action is a click on a served answer's pick (#120): ties the
+  // acceptance to the exact answer for a precise accept-rate.
+  answerId: z.string().uuid().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -45,7 +49,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
-  const { action, placeId, rating, query } = parsed.data;
+  const { action, placeId, rating, query, answerId } = parsed.data;
   const { user, supabase } = ctx;
 
   // Everything except the log-only signals acts on a specific place.
@@ -95,6 +99,17 @@ export async function POST(request: NextRequest) {
   });
   if (logError) {
     return NextResponse.json({ error: logError.message }, { status: 500 });
+  }
+
+  // A click on a served answer's pick is also a precise acceptance (#120),
+  // joined to the serve by answer_id. Best-effort — never fail the click on it.
+  if (answerId) {
+    await supabase.from("interaction_events").insert({
+      user_id: user.id,
+      event_type: ANSWER_ACCEPTED,
+      place_id: placeId ?? null,
+      payload: acceptedPayload(answerId),
+    });
   }
 
   after(async () => {

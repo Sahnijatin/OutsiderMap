@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import {
   getAcceptRate,
+  getAnswerAcceptRate,
   getDaily,
   getFunnel,
   getRetention,
@@ -15,16 +16,18 @@ export const metadata: Metadata = { title: "Admin · Metrics" };
 
 /**
  * North-star metrics (#120): Confident-Answer-Accept-Rate, the activation
- * funnel, and D1/D7/D30 retention — computed on demand by the migration-34
- * RPCs. Called with the admin's session client so the is_admin() guard resolves.
- * Accept-rate is a proxy this round (query followed by a positive action);
- * precise answer_served/accepted events + the A/B harness land in #120 part 2.
+ * funnel, and D1/D7/D30 retention — computed on demand by the metrics RPCs.
+ * Called with the admin's session client so the is_admin() guard resolves.
+ * The precise accept-rate (part 2a) joins answer_served→answer_accepted by
+ * answer_id; the proxy (part 1: query + a positive action in a window) stays
+ * alongside until the precise events accumulate. The A/B harness is part 2b.
  */
 export default async function MetricsPage() {
   await requireAdmin();
   const supabase = await createClient();
 
-  const [accept, daily, funnel, retention] = await Promise.all([
+  const [answer, accept, daily, funnel, retention] = await Promise.all([
+    getAnswerAcceptRate(supabase, 7),
     getAcceptRate(supabase, 7),
     getDaily(supabase, 30),
     getFunnel(supabase, 30),
@@ -32,6 +35,7 @@ export default async function MetricsPage() {
   ]);
 
   const acceptPct = ratePct(accept.accepts, accept.asks);
+  const answerPct = answer.served > 0 ? ratePct(answer.accepted, answer.served) : null;
   const today = daily.at(-1);
   const maxAsks = Math.max(1, ...daily.map((d) => d.asks));
   const shares = funnelShares(funnel);
@@ -47,10 +51,19 @@ export default async function MetricsPage() {
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile
           label="Answer-accept-rate · 7d"
-          value={`${acceptPct}%`}
-          sub={`${accept.accepts}/${accept.asks} asks (proxy)`}
+          value={answerPct !== null ? `${answerPct}%` : "—"}
+          sub={
+            answerPct !== null
+              ? `${answer.accepted}/${answer.served} answers`
+              : "awaiting answer events"
+          }
+          muted={answerPct === null}
         />
-        <Tile label="Asks · 7d" value={accept.asks} />
+        <Tile
+          label="Accept-rate · proxy · 7d"
+          value={`${acceptPct}%`}
+          sub={`${accept.accepts}/${accept.asks} asks`}
+        />
         <Tile
           label="Active users · today"
           value={today?.activeUsers ?? 0}

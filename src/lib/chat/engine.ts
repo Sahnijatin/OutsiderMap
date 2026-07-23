@@ -16,6 +16,7 @@ import {
   type ChatToolContext,
 } from "@/lib/chat/tools";
 import type { Database, Json } from "@/types/database";
+import { ANSWER_SERVED, newAnswerId, servedPayload } from "@/lib/events/answers";
 
 const HISTORY_LIMIT = 20;
 /** Cap the agent loop: model -> tools -> model, a few rounds is plenty here. */
@@ -30,6 +31,8 @@ export type ChatPickCard = {
   lat: number | null;
   lng: number | null;
   reason: string;
+  /** Ties a click on this pick back to the exact answer it was served in (#120). */
+  answerId: string;
 };
 
 export type ChatTurnResult =
@@ -272,6 +275,7 @@ export async function runChatTurn(
       shown.map((p) => p.slug),
     );
   const detailBySlug = new Map(placeRows?.map((r) => [r.slug, r]) ?? []);
+  const answerId = newAnswerId();
   const picks: ChatPickCard[] = shown.map((p) => {
     const detail = detailBySlug.get(p.slug);
     return {
@@ -283,6 +287,7 @@ export async function runChatTurn(
       lat: detail?.lat ?? null,
       lng: detail?.lng ?? null,
       reason: detail?.editor_note ?? "",
+      answerId,
     };
   });
 
@@ -312,6 +317,17 @@ export async function runChatTurn(
       user_id: userId,
       event_type: "query",
       payload: { query: input.message, source: "chat" },
+    }),
+    // Precise serve signal (#120): links a later pick-click back to this answer.
+    supabase.from("interaction_events").insert({
+      user_id: userId,
+      event_type: ANSWER_SERVED,
+      payload: servedPayload({
+        answerId,
+        source: "chat",
+        query: input.message,
+        picks: shown.map((p) => p.slug),
+      }),
     }),
   ]);
 
