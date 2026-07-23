@@ -12,7 +12,7 @@ export default function SignInPage() {
       <div className="halo absolute inset-0" />
       <div className="relative flex w-full max-w-sm flex-col gap-8">
         <div className="flex flex-col gap-3 text-center">
-          <Link href="/" className="font-display text-xl italic">
+          <Link href="/map" className="font-display text-xl italic">
             OutsiderMap
           </Link>
           <p className="voice">Members &amp; first-timers</p>

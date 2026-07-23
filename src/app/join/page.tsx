@@ -45,7 +45,7 @@ export default async function JoinPage({
       />
       <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 py-8 sm:px-6 sm:py-12">
         <header className="mb-8 flex items-center justify-between">
-          <Link href="/" className="font-display text-lg italic">
+          <Link href="/map" className="font-display text-lg italic">
             OutsiderMap
           </Link>
           <span className="voice hidden sm:block">Invite only · Delhi first</span>

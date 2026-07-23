@@ -58,3 +58,24 @@ export async function getApiContext(
   if (!user) return null;
   return { user, supabase };
 }
+
+/**
+ * Anon-tolerant request context (#116). Never 401s: returns the signed-in
+ * user's client, or — when there's no session (or an invalid bearer token) —
+ * an anon-role Supabase client. RLS still applies, so an anon client only ever
+ * sees what the `using (true)` / published policies allow. Callers must treat
+ * `user` as possibly null and key rate limits by IP in that case.
+ */
+export type OptionalApiContext = {
+  user: User | null;
+  supabase: SupabaseClient<Database>;
+};
+
+export async function getOptionalApiContext(
+  request: Request,
+): Promise<OptionalApiContext> {
+  const ctx = await getApiContext(request);
+  if (ctx) return ctx;
+  const supabase = await createCookieClient();
+  return { user: null, supabase };
+}

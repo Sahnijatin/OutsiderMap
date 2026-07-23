@@ -8,9 +8,16 @@ import { cn } from "@/lib/utils";
 /**
  * The app's primary navigation: a phone-first bottom tab bar. Floats over
  * full-bleed surfaces (the map), so it always carries its own backdrop.
+ * Anonymous explorers (#116) get "Sign in" where signed-in members get "You".
  */
-export function BottomTabs() {
+export function BottomTabs({ signedIn = true }: { signedIn?: boolean }) {
   const pathname = usePathname();
+
+  const items = NAV_ITEMS.map((item) =>
+    !signedIn && item.href === "/profile"
+      ? { ...item, href: "/sign-in", label: "Sign in" }
+      : item,
+  );
 
   return (
     <nav
@@ -19,7 +26,7 @@ export function BottomTabs() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="mx-auto flex h-16 max-w-lg items-stretch justify-around">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href || pathname.startsWith(`${href}/`);
           return (

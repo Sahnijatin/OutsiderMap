@@ -16,10 +16,13 @@ export function SideRail({
   username,
   outsiderNumber,
   cityName,
+  signedIn = true,
 }: {
   username: string | null;
   outsiderNumber: number | null;
   cityName: string;
+  /** Anonymous explorers (#116) get a sign-in card instead of the profile. */
+  signedIn?: boolean;
 }) {
   const pathname = usePathname();
   const reduced = useReducedMotion() ?? false;
@@ -64,17 +67,29 @@ export function SideRail({
         })}
       </div>
 
-      <Link
-        href="/profile"
-        className="group mx-3 mb-5 flex flex-col gap-0.5 rounded-xl border border-line/60 bg-surface/70 px-4 py-3 transition-colors hover:border-accent/40"
-      >
-        <span className="voice text-accent">
-          outsider {formatOutsiderNumber(outsiderNumber)}
-        </span>
-        <span className="truncate text-sm text-ink-dim transition-colors group-hover:text-ink">
-          {username ? `@${username}` : "your profile"}
-        </span>
-      </Link>
+      {signedIn ? (
+        <Link
+          href="/profile"
+          className="group mx-3 mb-5 flex flex-col gap-0.5 rounded-xl border border-line/60 bg-surface/70 px-4 py-3 transition-colors hover:border-accent/40"
+        >
+          <span className="voice text-accent">
+            outsider {formatOutsiderNumber(outsiderNumber)}
+          </span>
+          <span className="truncate text-sm text-ink-dim transition-colors group-hover:text-ink">
+            {username ? `@${username}` : "your profile"}
+          </span>
+        </Link>
+      ) : (
+        <Link
+          href="/sign-in"
+          className="group mx-3 mb-5 flex flex-col gap-0.5 rounded-xl border border-accent/40 bg-surface/70 px-4 py-3 transition-colors hover:border-accent/70"
+        >
+          <span className="voice text-accent">explore free</span>
+          <span className="truncate text-sm text-ink-dim transition-colors group-hover:text-ink">
+            Sign in to save &amp; get your taste
+          </span>
+        </Link>
+      )}
     </nav>
   );
 }

@@ -1,9 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Route prefixes that require a signed-in user. */
+/**
+ * Route prefixes that require a signed-in user. The map, place pages, /about and
+ * root are deliberately absent (#116): anyone can explore. Personalized surfaces
+ * and every write stay walled here.
+ */
 const PROTECTED_PREFIXES = [
-  "/map",
   "/chat",
   "/quests",
   "/reels",

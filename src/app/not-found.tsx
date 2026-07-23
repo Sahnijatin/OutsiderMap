@@ -12,7 +12,7 @@ export default function NotFound() {
         Or it does, and it&rsquo;s so underground even we can&rsquo;t find it.
       </p>
       <Link
-        href="/"
+        href="/map"
         className="relative text-sm text-accent transition-colors hover:underline"
       >
         Back to the map →

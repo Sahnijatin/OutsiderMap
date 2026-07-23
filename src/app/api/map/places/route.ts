@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { getApiContext } from "@/lib/api-auth";
+import { getOptionalApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { rateLimitSubject } from "@/lib/security/ip";
 import {
   listMapCategories,
   buildCategoryIndex,
@@ -23,12 +24,16 @@ const QuerySchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  const ctx = await getApiContext(request);
-  if (!ctx) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  // Anonymous-tolerant (#116): the map is home for everyone. RLS already
+  // scopes this to published, non-chain places, so an anon reader sees exactly
+  // what the map is meant to show. Anon requests are rate-limited by IP.
+  const ctx = await getOptionalApiContext(request);
 
-  const allowed = await checkRateLimit(`map-places:${ctx.user.id}`, 60, 60);
+  const allowed = await checkRateLimit(
+    `map-places:${rateLimitSubject(ctx.user, request)}`,
+    60,
+    60,
+  );
   if (!allowed) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
