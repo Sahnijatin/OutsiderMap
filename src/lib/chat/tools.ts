@@ -14,6 +14,14 @@ import {
 } from "@/lib/catalog/search";
 import { openStatusLabel } from "@/lib/places/hours";
 import { generateQuest } from "@/lib/quests/generate";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  generateMarketRunPlan,
+  marketIntelligenceByCategory,
+  resolveMarket,
+} from "@/lib/market/store";
+import { recordMarketReport } from "@/lib/market/report";
+import { intelligenceLine, planToModelPayload } from "@/lib/market/present";
 import type { City } from "@/lib/cities";
 import type { Database, Json } from "@/types/database";
 
@@ -68,6 +76,8 @@ export class ChatToolCollector {
   /** Quest id if the agent built a plan this turn. */
   planId: string | null = null;
   planTitle: string | null = null;
+  /** market_run id if the agent built a shopping run this turn. */
+  marketRunId: string | null = null;
   readonly trace: AgentTraceEntry[] = [];
 
   /** Places to render as cards: what the agent showed, else empty. */
@@ -318,19 +328,196 @@ export function buildChatTools(
   const get_market_intelligence = defineTool({
     name: "get_market_intelligence",
     description:
-      "Get shopping / market price intelligence for a market and category.",
+      "Get honest shopping price intelligence for a market + category (e.g. 'Sarojini', 'fashion') before answering a 'what will X cost at Y' ask. Returns an aggregated price band or an honest 'not enough data' - never a single exact price. Do not fabricate prices or shops.",
     inputSchema: z.object({
-      market: z.string().nullish(),
-      category: z.string().nullish(),
+      market: z.string().min(1).describe("Market name or slug, e.g. 'Sarojini'."),
+      category: z
+        .string()
+        .min(1)
+        .describe("Item category, e.g. 'fashion', 'ethnic wear', 'shoes'."),
     }),
-    handler: () => {
-      collector.trace.push({
-        tool: "get_market_intelligence",
-        summary: "unavailable",
-      });
-      // #68 (market intelligence) isn't built yet. Say so rather than let the
-      // agent fabricate prices or shops.
-      return "Market and price intelligence isn't available yet - do not fabricate prices or shops. For a shopping run, use build_plan to route real catalog stops.";
+    handler: async (input) => {
+      try {
+        const admin = createAdminClient();
+        const market = await resolveMarket(admin, ctx.city.slug, input.market);
+        if (!market) {
+          collector.trace.push({
+            tool: "get_market_intelligence",
+            summary: `${input.market} (unmapped)`,
+          });
+          return `We don't have "${input.market}" mapped in ${ctx.city.name} yet. Say so honestly; don't invent prices or shops.`;
+        }
+        const intel = await marketIntelligenceByCategory(admin, market.id, [
+          input.category,
+        ]);
+        const result = intel.get(input.category)!;
+        collector.trace.push({
+          tool: "get_market_intelligence",
+          summary: `${market.slug}/${input.category} -> ${result.basis}`,
+        });
+        return intelligenceLine(market.name, input.category, result);
+      } catch (error) {
+        collector.trace.push({
+          tool: "get_market_intelligence",
+          summary: `failed: ${error instanceof Error ? error.message : "error"}`,
+        });
+        return "Couldn't reach market intelligence just now - don't fabricate prices; tell the user to ask around.";
+      }
+    },
+  });
+
+  const BuildMarketRunInput = z.object({
+    market: z
+      .string()
+      .min(1)
+      .describe("Which market they're going to, name or slug (e.g. 'Sarojini')."),
+    items: z
+      .array(
+        z.object({
+          category: z
+            .string()
+            .min(1)
+            .describe("Category to buy, e.g. 'fashion', 'jeans', 'ethnic wear'."),
+          item: z.string().nullish().describe("Specific item if named."),
+        }),
+      )
+      .min(1)
+      .max(12)
+      .describe("What they want to buy this trip."),
+    budget_rupees: z
+      .number()
+      .positive()
+      .nullish()
+      .describe("Total per-head rupee budget for the trip, if given."),
+  });
+
+  const build_market_run = defineTool({
+    name: "build_market_run",
+    description:
+      "Build a trackable shopping game-plan for a real market ('going Sarojini tomorrow for a jacket + cargos, ₹3k'): the lanes to hit, honest per-item price bands, bargaining notes, and whether the budget fits. Use this for market/shopping runs instead of build_plan. Returns bands, never exact prices.",
+    inputSchema: BuildMarketRunInput,
+    handler: async (input) => {
+      try {
+        const admin = createAdminClient();
+        const market = await resolveMarket(admin, ctx.city.slug, input.market);
+        if (!market) {
+          collector.trace.push({
+            tool: "build_market_run",
+            summary: `${input.market} (unmapped)`,
+          });
+          return `We don't have "${input.market}" mapped in ${ctx.city.name} yet - don't invent a shopping plan. Offer to route real catalog stops with build_plan instead.`;
+        }
+        const items = input.items.map((i) => ({
+          category: i.category,
+          item: i.item ?? null,
+        }));
+        const plan = await generateMarketRunPlan(admin, {
+          marketSlug: market.slug,
+          items,
+          budgetMax: input.budget_rupees ?? null,
+        });
+        if (!plan) {
+          return `Couldn't build a plan for ${market.name} right now. Be honest rather than inventing one.`;
+        }
+
+        // Persist as the owner (RLS-scoped) so the run is trackable + feeds the
+        // completion loop later. The plan snapshot holds aggregates only.
+        const { data: run } = await ctx.supabase
+          .from("market_runs")
+          .insert({
+            user_id: ctx.userId,
+            market_id: market.id,
+            city: ctx.city.slug,
+            budget_max: input.budget_rupees ?? null,
+            items: items as unknown as Json,
+            // Store the clean domain plan (the view reads this); the model gets
+            // the payload form below.
+            plan: plan as unknown as Json,
+            status: "active",
+          })
+          .select("id")
+          .single();
+
+        collector.marketRunId = run?.id ?? null;
+        collector.trace.push({
+          tool: "build_market_run",
+          summary: `${market.slug} (${plan.stops.length} lanes, ${plan.budgetVerdict})`,
+        });
+        return JSON.stringify(planToModelPayload(plan));
+      } catch (error) {
+        collector.trace.push({
+          tool: "build_market_run",
+          summary: `failed: ${error instanceof Error ? error.message : "error"}`,
+        });
+        return `Could not build a market run: ${
+          error instanceof Error ? error.message : "unknown error"
+        }. Be honest rather than inventing prices or shops.`;
+      }
+    },
+  });
+
+  const LogMarketReportInput = z.object({
+    market: z
+      .string()
+      .min(1)
+      .describe("Which market they shopped, name or slug (e.g. 'Sarojini')."),
+    purchases: z
+      .array(
+        z.object({
+          category: z
+            .string()
+            .min(1)
+            .describe("What they bought, e.g. 'fashion', 'jeans', 'juttis'."),
+          item: z.string().nullish().describe("Specific item if named."),
+          price: z.number().positive().describe("Rupees they actually paid."),
+        }),
+      )
+      .min(1)
+      .max(12)
+      .describe("What they bought and paid, from what they just told you."),
+    run_id: z
+      .string()
+      .nullish()
+      .describe("The market_run id this trip came from, if this turn built one."),
+  });
+
+  const log_market_report = defineTool({
+    name: "log_market_report",
+    description:
+      "Record what the user actually bought and paid at a market when they tell you post-trip ('got the jacket for 600 at Sarojini'). Feeds honest prices back so the next person's plan is better. Only log real prices the user stated - never invent them.",
+    inputSchema: LogMarketReportInput,
+    handler: async (input) => {
+      try {
+        const admin = createAdminClient();
+        const result = await recordMarketReport(admin, ctx.supabase, {
+          userId: ctx.userId,
+          citySlug: ctx.city.slug,
+          market: input.market,
+          lines: input.purchases.map((p) => ({
+            category: p.category,
+            item: p.item ?? null,
+            price: p.price,
+          })),
+          runId: input.run_id ?? null,
+        });
+        collector.trace.push({
+          tool: "log_market_report",
+          summary: `${input.market} -> ${result.outcome} (${result.staged})`,
+        });
+        if (result.outcome === "no_market") {
+          return `We don't have "${input.market}" mapped yet, so I can't file that. Thank them anyway; don't invent a record.`;
+        }
+        if (result.outcome === "no_prices") {
+          return "No usable prices in that report - ask them what they paid, don't make one up.";
+        }
+        return `Logged ${result.staged} price(s) from ${result.marketName}. Thank them warmly - their report helps the next person's plan (it's reviewed before it counts).`;
+      } catch (error) {
+        collector.trace.push({
+          tool: "log_market_report",
+          summary: `failed: ${error instanceof Error ? error.message : "error"}`,
+        });
+        return "Couldn't save that report just now - thank them and move on; don't fabricate a confirmation.";
+      }
     },
   });
 
@@ -421,6 +608,8 @@ export function buildChatTools(
     get_user_behavior,
     build_plan,
     get_market_intelligence,
+    build_market_run,
+    log_market_report,
     show_on_map,
     save_to_bucket,
   ];

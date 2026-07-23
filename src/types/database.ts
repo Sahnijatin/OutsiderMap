@@ -46,7 +46,8 @@ export type InteractionEventType =
   | "stop_complete"
   | "quest_complete"
   | "chat_pick_click"
-  | "reel_share";
+  | "reel_share"
+  | "market_report";
 
 /** Quest lifecycle (see quests.status). */
 export type QuestStatus = "draft" | "active" | "completed" | "abandoned";
@@ -595,6 +596,240 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      markets: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          city: string;
+          area: string | null;
+          categories: string[];
+          character: string | null;
+          timings: Json | null;
+          tips: Json | null;
+          is_published: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          city: string;
+          area?: string | null;
+          categories?: string[];
+          character?: string | null;
+          timings?: Json | null;
+          tips?: Json | null;
+          is_published?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          city?: string;
+          area?: string | null;
+          categories?: string[];
+          character?: string | null;
+          timings?: Json | null;
+          tips?: Json | null;
+          is_published?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      market_sections: {
+        Row: {
+          id: string;
+          market_id: string;
+          name: string;
+          specialization: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          market_id: string;
+          name: string;
+          specialization?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          market_id?: string;
+          name?: string;
+          specialization?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      market_category_guides: {
+        Row: {
+          id: string;
+          market_id: string;
+          category: string;
+          price_band_low: number | null;
+          price_band_high: number | null;
+          bargaining_note: string | null;
+          quality_note: string | null;
+          confidence: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          market_id: string;
+          category: string;
+          price_band_low?: number | null;
+          price_band_high?: number | null;
+          bargaining_note?: string | null;
+          quality_note?: string | null;
+          confidence?: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          market_id?: string;
+          category?: string;
+          price_band_low?: number | null;
+          price_band_high?: number | null;
+          bargaining_note?: string | null;
+          quality_note?: string | null;
+          confidence?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shops: {
+        Row: {
+          id: string;
+          market_id: string;
+          section_id: string | null;
+          name: string | null;
+          shop_number: string | null;
+          categories: string[];
+          verified: boolean;
+          confidence: number;
+          last_seen: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          market_id: string;
+          section_id?: string | null;
+          name?: string | null;
+          shop_number?: string | null;
+          categories?: string[];
+          verified?: boolean;
+          confidence?: number;
+          last_seen?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          market_id?: string;
+          section_id?: string | null;
+          name?: string | null;
+          shop_number?: string | null;
+          categories?: string[];
+          verified?: boolean;
+          confidence?: number;
+          last_seen?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      price_points: {
+        Row: {
+          id: string;
+          market_id: string;
+          section_id: string | null;
+          shop_id: string | null;
+          category: string | null;
+          item: string | null;
+          price: number | null;
+          currency: string;
+          source: "authored" | "content_mined" | "user_report";
+          source_ref: string | null;
+          confidence: number;
+          status: "pending" | "published" | "rejected";
+          observed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          market_id: string;
+          section_id?: string | null;
+          shop_id?: string | null;
+          category?: string | null;
+          item?: string | null;
+          price?: number | null;
+          currency?: string;
+          source: "authored" | "content_mined" | "user_report";
+          source_ref?: string | null;
+          confidence?: number;
+          status?: "pending" | "published" | "rejected";
+          observed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          market_id?: string;
+          section_id?: string | null;
+          shop_id?: string | null;
+          category?: string | null;
+          item?: string | null;
+          price?: number | null;
+          currency?: string;
+          source?: "authored" | "content_mined" | "user_report";
+          source_ref?: string | null;
+          confidence?: number;
+          status?: "pending" | "published" | "rejected";
+          observed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      market_runs: {
+        Row: {
+          id: string;
+          quest_id: string | null;
+          user_id: string;
+          market_id: string;
+          city: string;
+          budget_max: number | null;
+          items: Json;
+          plan: Json;
+          status: QuestStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          quest_id?: string | null;
+          user_id: string;
+          market_id: string;
+          city: string;
+          budget_max?: number | null;
+          items?: Json;
+          plan?: Json;
+          status?: QuestStatus;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          quest_id?: string | null;
+          user_id?: string;
+          market_id?: string;
+          city?: string;
+          budget_max?: number | null;
+          items?: Json;
+          plan?: Json;
+          status?: QuestStatus;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       quests: {
         Row: {

@@ -1,0 +1,154 @@
+[
+  {
+    "slug": "sarojini-nagar",
+    "name": "Sarojini Nagar",
+    "area": "South West Delhi",
+    "categories": ["fashion", "denim", "ethnic wear", "winterwear", "footwear"],
+    "character": "Delhi's export-surplus temple. The same tops that sit in mall windows at four figures land here for a couple hundred - if you can dig, walk the back lanes, and hold your nerve while bargaining.",
+    "timings": { "open": "10:00", "close": "21:00", "closed": "Monday", "best": "weekday late mornings; skip Sunday crush" },
+    "tips": [
+      "The fixed-price front shops facing the main road carry the tourist markup - the real prices are in the export back-lanes.",
+      "Carry cash in small notes and a jhola; most stalls aren't on UPI and a big note invites a 'no change' round-up.",
+      "Quote 40% of the first ask and settle around 55-60%; walk once and the price usually follows you."
+    ],
+    "sections": [
+      { "name": "Export back-lanes", "specialization": "fashion", "notes": "Surplus tops, dresses, denim off the export floor - the lowest prices in the market if you dig." },
+      { "name": "Fixed-price front shops", "specialization": "footwear", "notes": "Road-facing shops; convenient but marked up - bargain hard or move inside." },
+      { "name": "Winter corner", "specialization": "winterwear", "notes": "Jackets, sweaters and thermals stacked seasonally near the back." }
+    ],
+    "guides": [
+      { "category": "fashion", "price_band_low": 150, "price_band_high": 500, "bargaining_note": "Quote 40%, settle ~60%, walk once.", "quality_note": "Check for export tags cut off and small stitching defects - that's why it's cheap.", "confidence": 0.7 },
+      { "category": "denim", "price_band_low": 300, "price_band_high": 700, "bargaining_note": "Start at 300 for a pair; sizing runs inconsistent, try or measure.", "quality_note": "Zippers and stitching vary lot to lot - inspect before you pay.", "confidence": 0.6 },
+      { "category": "winterwear", "price_band_low": 400, "price_band_high": 1200, "bargaining_note": "Puffer jackets settle ~800-900 late in season.", "quality_note": "Fill quality varies; press the jacket to feel the loft.", "confidence": 0.5 },
+      { "category": "ethnic wear", "price_band_low": 250, "price_band_high": 800, "bargaining_note": "Kurtis from 250; sets cost more, bargain per piece.", "quality_note": null, "confidence": 0.5 }
+    ],
+    "price_points": [
+      { "category": "fashion", "item": "crop top", "price": 200, "recency": "recent", "confidence": "high" },
+      { "category": "fashion", "item": "summer dress", "price": 350, "recency": "recent", "confidence": "medium" },
+      { "category": "fashion", "item": "top", "price": 250, "recency": "weeks", "confidence": "medium" },
+      { "category": "fashion", "item": "shirt", "price": 300, "recency": "recent", "confidence": "medium" },
+      { "category": "denim", "item": "jeans", "price": 400, "recency": "recent", "confidence": "high" },
+      { "category": "denim", "item": "jeans", "price": 500, "recency": "weeks", "confidence": "medium" },
+      { "category": "denim", "item": "cargos", "price": 450, "recency": "recent", "confidence": "medium" },
+      { "category": "winterwear", "item": "puffer jacket", "price": 800, "recency": "recent", "confidence": "high" },
+      { "category": "winterwear", "item": "puffer jacket", "price": 900, "recency": "weeks", "confidence": "medium" },
+      { "category": "winterwear", "item": "sweater", "price": 500, "recency": "recent", "confidence": "medium" }
+    ]
+  },
+  {
+    "slug": "lajpat-nagar",
+    "name": "Lajpat Nagar Central Market",
+    "area": "South Delhi",
+    "categories": ["ethnic wear", "footwear", "bags", "bridal", "home furnishing"],
+    "character": "The go-to for suits, salwar-kameez and everyday ethnic at prices that undercut every boutique. Louder and more mainstream than Sarojini, strong on tailoring, juttis and mehendi.",
+    "timings": { "open": "11:00", "close": "20:30", "closed": "Monday", "best": "weekday afternoons" },
+    "tips": [
+      "Get unstitched suit fabric here and stitch at one of the market tailors - far cheaper than a readymade set.",
+      "The mehendi artists on the central lane are a fixed-rate institution around festival season - agree the price before they start.",
+      "Footwear prices firm up fast; bargain across two or three shops before committing."
+    ],
+    "sections": [
+      { "name": "Central Market lane", "specialization": "ethnic wear", "notes": "Suits, dupattas, readymade kurtis - the spine of the market." },
+      { "name": "Pushpa Market", "specialization": "footwear", "notes": "Juttis, sandals, bags at haggling prices." }
+    ],
+    "guides": [
+      { "category": "ethnic wear", "price_band_low": 400, "price_band_high": 1500, "bargaining_note": "Unstitched suits from ~400; readymade sets cost more.", "quality_note": "Check fabric weight for summer vs winter suits.", "confidence": 0.7 },
+      { "category": "footwear", "price_band_low": 250, "price_band_high": 900, "bargaining_note": "Juttis settle ~400-500; quote low and cross-check shops.", "quality_note": "Check sole gluing on cheaper juttis.", "confidence": 0.6 },
+      { "category": "bags", "price_band_low": 300, "price_band_high": 1000, "bargaining_note": "Faux-leather totes bargain to ~600.", "quality_note": null, "confidence": 0.5 }
+    ],
+    "price_points": [
+      { "category": "ethnic wear", "item": "unstitched suit", "price": 600, "recency": "recent", "confidence": "high" },
+      { "category": "ethnic wear", "item": "kurti", "price": 450, "recency": "recent", "confidence": "medium" },
+      { "category": "ethnic wear", "item": "suit set", "price": 900, "recency": "weeks", "confidence": "medium" },
+      { "category": "footwear", "item": "juttis", "price": 450, "recency": "recent", "confidence": "high" },
+      { "category": "footwear", "item": "juttis", "price": 400, "recency": "recent", "confidence": "medium" },
+      { "category": "footwear", "item": "sandals", "price": 550, "recency": "weeks", "confidence": "medium" }
+    ]
+  },
+  {
+    "slug": "karol-bagh",
+    "name": "Karol Bagh",
+    "area": "Central Delhi",
+    "categories": ["bridal", "ethnic wear", "footwear", "fashion"],
+    "character": "Delhi's wedding-shopping engine. Ajmal Khan Road for everyday fashion and shoes, the bylanes for lehengas and sherwanis - big-ticket bridal at a fraction of designer boutiques if you know where to push.",
+    "timings": { "open": "11:00", "close": "20:30", "closed": "Monday", "best": "weekday mornings before the wedding-season crowds" },
+    "tips": [
+      "Bridal lehenga prices have huge headroom - never take the first quote, and shop three stores before deciding.",
+      "Ajmal Khan Road is the pedestrian fashion stretch; the heavy bridal work is in the inner lanes.",
+      "Ask for the 'without bill' price and then decide - many stores quote two numbers."
+    ],
+    "sections": [
+      { "name": "Ajmal Khan Road", "specialization": "fashion", "notes": "Everyday fashion, footwear, accessories - pedestrianised and busy." },
+      { "name": "Bridal bylanes", "specialization": "bridal", "notes": "Lehengas, sherwanis, heavy ethnic - big-ticket, big bargaining." }
+    ],
+    "guides": [
+      { "category": "bridal", "price_band_low": 8000, "price_band_high": 40000, "bargaining_note": "Enormous headroom - settle 40-55% of the first quote after visiting several shops.", "quality_note": "Inspect zari and lining; heavy work hides shortcuts.", "confidence": 0.5 },
+      { "category": "footwear", "price_band_low": 400, "price_band_high": 1500, "bargaining_note": "Ajmal Khan shoe shops bargain to ~700-800.", "quality_note": null, "confidence": 0.5 },
+      { "category": "fashion", "price_band_low": 300, "price_band_high": 1200, "bargaining_note": "Quote low on Ajmal Khan Road; the fixed-price chains won't move.", "quality_note": null, "confidence": 0.5 }
+    ],
+    "price_points": [
+      { "category": "fashion", "item": "top", "price": 400, "recency": "weeks", "confidence": "medium" },
+      { "category": "fashion", "item": "shirt", "price": 500, "recency": "recent", "confidence": "medium" },
+      { "category": "footwear", "item": "sneakers", "price": 750, "recency": "recent", "confidence": "high" },
+      { "category": "footwear", "item": "sneakers", "price": 800, "recency": "weeks", "confidence": "medium" },
+      { "category": "footwear", "item": "formal shoes", "price": 900, "recency": "weeks", "confidence": "medium" }
+    ]
+  },
+  {
+    "slug": "nehru-place",
+    "name": "Nehru Place",
+    "area": "South Delhi",
+    "categories": ["electronics", "laptops", "accessories", "repairs"],
+    "character": "Asia's largest computer market - refurb laptops, every cable and adapter you can name, on-the-spot repairs and software. Prices are keen but so are the grey-market traps; know the model number before you go.",
+    "timings": { "open": "10:00", "close": "19:30", "closed": "Sunday", "best": "weekday late mornings" },
+    "tips": [
+      "Know the exact model and current online price before you walk in - it's your only anchor against a confident quote.",
+      "Refurb laptops are real value but insist on a written warranty and test the battery health before paying.",
+      "Cables and adapters are cheapest one lane in from the plaza, not at the front stalls."
+    ],
+    "sections": [
+      { "name": "Laptop lanes", "specialization": "laptops", "notes": "New, refurb and spares - the core of the market." },
+      { "name": "Accessories & repairs", "specialization": "accessories", "notes": "Cables, adapters, screen and battery repairs while you wait." }
+    ],
+    "guides": [
+      { "category": "accessories", "price_band_low": 100, "price_band_high": 800, "bargaining_note": "Cables/adapters bargain to half the front-stall quote one lane in.", "quality_note": "Avoid unbranded chargers for laptops - buy a known brand.", "confidence": 0.6 },
+      { "category": "laptops", "price_band_low": 12000, "price_band_high": 45000, "bargaining_note": "Refurb prices move ~10-15%; anchor on the online price of the exact model.", "quality_note": "Demand written warranty; check battery health and hinge.", "confidence": 0.5 },
+      { "category": "repairs", "price_band_low": 300, "price_band_high": 4000, "bargaining_note": "Get two quotes; screen/battery swaps vary widely by model.", "quality_note": "Confirm the part is genuine or clearly labelled compatible.", "confidence": 0.4 }
+    ],
+    "price_points": [
+      { "category": "accessories", "item": "usb-c cable", "price": 150, "recency": "recent", "confidence": "high" },
+      { "category": "accessories", "item": "laptop charger", "price": 600, "recency": "recent", "confidence": "medium" },
+      { "category": "accessories", "item": "usb hub", "price": 400, "recency": "weeks", "confidence": "medium" }
+    ]
+  },
+  {
+    "slug": "chandni-chowk",
+    "name": "Chandni Chowk",
+    "area": "Old Delhi",
+    "categories": ["bridal", "fabrics", "wedding", "ethnic wear", "trims"],
+    "character": "The old city's wholesale heart. Kinari Bazaar for zari, laces and wedding trims; Katra Neel for fabrics by the metre; lehengas and sherwanis at wholesale prices if you can navigate the crush.",
+    "timings": { "open": "11:00", "close": "20:00", "closed": "Sunday", "best": "weekday mornings; avoid the afternoon crush" },
+    "tips": [
+      "Go early - the lanes are impassable by afternoon and shops that let you browse in peace at 11am won't at 4pm.",
+      "Kinari Bazaar is trims and zari by the piece; buy fabric a lane over in Katra Neel and get it stitched.",
+      "Many shops are wholesale-minded - buying a few pieces gets a better rate than a single one."
+    ],
+    "sections": [
+      { "name": "Kinari Bazaar", "specialization": "trims", "notes": "Zari, laces, tassels and wedding trims by the piece." },
+      { "name": "Katra Neel", "specialization": "fabrics", "notes": "Fabrics by the metre - the fabric wholesale spine." }
+    ],
+    "guides": [
+      { "category": "fabrics", "price_band_low": 80, "price_band_high": 600, "bargaining_note": "Per-metre rates drop when you buy a few metres; ask the wholesale rate.", "quality_note": "Check colourfastness and weave before committing a full suit's worth.", "confidence": 0.6 },
+      { "category": "trims", "price_band_low": 20, "price_band_high": 400, "bargaining_note": "Priced per metre/piece; buying a bundle gets a better rate.", "quality_note": null, "confidence": 0.5 },
+      { "category": "bridal", "price_band_low": 6000, "price_band_high": 35000, "bargaining_note": "Wholesale-leaning; settle well below the first quote, and buy where they let you inspect the work.", "quality_note": "Check zari and lining on heavy lehengas.", "confidence": 0.4 }
+    ],
+    "price_points": [
+      { "category": "fabrics", "item": "cotton per metre", "price": 120, "recency": "weeks", "confidence": "medium" },
+      { "category": "fabrics", "item": "silk-blend per metre", "price": 300, "recency": "recent", "confidence": "medium" },
+      { "category": "fabrics", "item": "fabric per metre", "price": 180, "recency": "recent", "confidence": "medium" },
+      { "category": "trims", "item": "zari lace per metre", "price": 60, "recency": "recent", "confidence": "medium" },
+      { "category": "trims", "item": "gota trim per metre", "price": 40, "recency": "weeks", "confidence": "medium" },
+      { "category": "trims", "item": "sequin trim per metre", "price": 80, "recency": "weeks", "confidence": "low" }
+    ]
+  }
+]

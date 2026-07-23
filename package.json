@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "seed": "node scripts/seed-places.mjs"
+    "seed": "node scripts/seed-places.mjs",
+    "seed:markets": "node scripts/seed-markets.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
