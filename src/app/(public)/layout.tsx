@@ -2,6 +2,7 @@ import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { BottomTabs } from "@/components/app/bottom-tabs";
 import { SideRail } from "@/components/app/side-rail";
+import { AuthGateProvider } from "@/components/auth/auth-gate";
 
 /**
  * The public app shell (#116): the map and place pages render for everyone,
@@ -29,7 +30,7 @@ export default async function PublicLayout({
   }
 
   return (
-    <>
+    <AuthGateProvider signedIn={signedIn}>
       <div className="min-h-dvh lg:pl-[var(--rail-w)]">{children}</div>
       <SideRail
         signedIn={signedIn}
@@ -38,6 +39,6 @@ export default async function PublicLayout({
         cityName={cityName}
       />
       <BottomTabs signedIn={signedIn} />
-    </>
+    </AuthGateProvider>
   );
 }

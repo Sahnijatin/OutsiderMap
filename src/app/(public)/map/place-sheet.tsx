@@ -8,6 +8,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { publicMediaUrl } from "@/lib/media/url";
 import { googleMapsDirUrl } from "@/lib/map/directions";
+import { useAuthGate } from "@/components/auth/auth-gate";
 import type { PlaceFeatureProps } from "./map-canvas";
 
 export type SelectedPlace = PlaceFeatureProps & { lng: number; lat: number };
@@ -46,6 +47,7 @@ export function PlaceSheet({
   onClose: () => void;
 }) {
   const reduced = useReducedMotion() ?? false;
+  const { requireAuth } = useAuthGate();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -236,7 +238,13 @@ export function PlaceSheet({
             <Button
               className="flex-1"
               disabled={busy !== null || started}
-              onClick={() => interact("start")}
+              onClick={() =>
+                requireAuth(() => interact("start"), {
+                  title: "Sign in to start this",
+                  subtitle:
+                    "Starting a place drops it in your bucket and teaches the map your taste.",
+                })
+              }
             >
               {busy === "start" ? (
                 <Spinner className="border-night/30 border-t-night" />
@@ -248,7 +256,13 @@ export function PlaceSheet({
               className="w-11 shrink-0 px-0"
               aria-label={saved ? "Saved" : "Save for later"}
               disabled={busy !== null || saved}
-              onClick={() => interact("save")}
+              onClick={() =>
+                requireAuth(() => interact("save"), {
+                  title: "Sign in to save this",
+                  subtitle:
+                    "Save spots to your list and get them woven into answers tuned to you.",
+                })
+              }
             >
               {saved ? (
                 <BookmarkCheck className="size-4 text-accent" />
