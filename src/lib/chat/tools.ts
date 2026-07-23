@@ -430,7 +430,9 @@ export function buildChatTools(
             city: ctx.city.slug,
             budget_max: input.budget_rupees ?? null,
             items: items as unknown as Json,
-            plan: planToModelPayload(plan) as unknown as Json,
+            // Store the clean domain plan (the view reads this); the model gets
+            // the payload form below.
+            plan: plan as unknown as Json,
             status: "active",
           })
           .select("id")
