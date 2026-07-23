@@ -10,7 +10,7 @@ export function MarketingFooter() {
         </div>
         <div className="flex items-center gap-6 text-sm text-ink-dim">
           {/* Sign in & Pricing hidden pre-launch; routes remain reachable by URL. */}
-          <Link href="/#how" className="transition-colors hover:text-ink">
+          <Link href="/about#how" className="transition-colors hover:text-ink">
             How it works
           </Link>
           <Link href="/sign-in" className="transition-colors hover:text-ink">

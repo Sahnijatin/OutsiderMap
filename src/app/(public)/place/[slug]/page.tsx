@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "lucide-react";
-import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
@@ -83,9 +82,18 @@ export async function generateMetadata({
   const { slug } = await params;
   const place = await loadPlace(slug);
   if (!place) return { title: "Place" };
+  const description = place.description ?? undefined;
+  const cover = publicMediaUrl("place-images", place.image_path);
   return {
     title: place.name,
-    description: place.description ?? undefined,
+    description,
+    alternates: { canonical: `/place/${place.slug}` },
+    openGraph: {
+      title: place.name,
+      description,
+      url: `/place/${place.slug}`,
+      images: cover ? [cover] : undefined,
+    },
   };
 }
 
@@ -94,7 +102,6 @@ export default async function PlacePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await requireOnboarded();
   const { slug } = await params;
   const place = await loadPlace(slug);
   if (!place) notFound();

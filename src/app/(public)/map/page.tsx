@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireOnboarded } from "@/lib/auth";
+import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { FALLBACK_DELHI } from "@/lib/cities";
 import { listMapCategories } from "@/lib/map/categories";
@@ -10,16 +10,17 @@ export const metadata: Metadata = {
 };
 
 /**
- * The app's home: a full-bleed night map of the member's city showing only
- * curated places. City comes from the profile (default delhi); every live
- * city is offered in search.
+ * The app's home, for everyone (#116): a full-bleed night map of curated
+ * places. Anonymous visitors explore Delhi (or the first live city); a signed-in
+ * member gets their home city. Walled actions and personalized results push to
+ * sign-in — browsing the map is always open.
  */
 export default async function MapPage({
   searchParams,
 }: {
   searchParams: Promise<{ welcome?: string; place?: string }>;
 }) {
-  const profile = await requireOnboarded();
+  const profile = await getProfile(); // null when signed out
   const supabase = await createClient();
   const { welcome, place } = await searchParams;
 
@@ -34,7 +35,7 @@ export default async function MapPage({
 
   const live = cities ?? [];
   const city =
-    live.find((c) => c.slug === profile.home_city) ?? live[0] ?? null;
+    live.find((c) => c.slug === profile?.home_city) ?? live[0] ?? null;
 
   return (
     <main className="fixed left-[var(--rail-w)] right-0 top-0 bottom-[var(--tab-clearance)]">
@@ -43,8 +44,8 @@ export default async function MapPage({
         cities={live}
         categories={categories}
         welcome={welcome === "1"}
-        outsiderNumber={profile.outsider_number}
-        username={profile.username}
+        outsiderNumber={profile?.outsider_number ?? null}
+        username={profile?.username ?? null}
         initialPlaceSlug={place ?? null}
       />
     </main>
