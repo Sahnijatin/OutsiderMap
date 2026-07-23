@@ -12,7 +12,8 @@ structure and to note the placeholders the business must supply.
 
 Placeholders to be supplied by the business (do **not** fabricate):
 `[LEGAL ENTITY NAME]`, `[REGISTERED ADDRESS]`, `[GRIEVANCE OFFICER NAME]`,
-`[GRIEVANCE OFFICER EMAIL]`, `[SUPPORT EMAIL]`, `[EFFECTIVE DATE]`.
+`[GRIEVANCE OFFICER EMAIL]`, `[GAC CONTACT]`, `[SUPPORT EMAIL]`,
+`[EFFECTIVE DATE]`.
 
 ## 1. Community Guidelines
 
@@ -32,8 +33,11 @@ Placeholders to be supplied by the business (do **not** fabricate):
 - Moderation + takedown rights; suspension/termination; appeals.
 - **Grievance redressal** clause: `[GRIEVANCE OFFICER NAME]` +
   `[GRIEVANCE OFFICER EMAIL]`, and the statutory timelines (ack 24h; resolve
-  15d; intimate imagery 24h; court/govt orders 36h) — mirrors `sla.ts`.
-- Grievance Appellate Committee (GAC) reference.
+  15d; intimate imagery 24h; court/govt orders 36h; appeal window 30d) —
+  mirrors `sla.ts`.
+- Grievance Appellate Committee (GAC) reference + `[GAC CONTACT]` (the appeal
+  path is wired in code — `appeal_grievance()`; the committee + contact are a
+  business/legal decision, #91 item 11).
 - Liability, disclaimers, governing law/jurisdiction, changes to terms.
 
 ## 3. Privacy / DPDP notice
