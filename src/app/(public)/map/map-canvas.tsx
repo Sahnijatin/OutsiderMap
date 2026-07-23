@@ -6,6 +6,7 @@ import { LocateFixed } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MAP_ACCENT as ACCENT } from "@/lib/map/style";
 import type { MapCategory } from "@/lib/map/categories";
+import { readCachedLocation, writeCachedLocation } from "@/lib/map/location";
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { MapSearch } from "./map-search";
 import { MapLegend } from "./map-legend";
@@ -204,6 +205,8 @@ export function MapCanvas({
 
       map.on("locationfound", (e) => {
         setLocating(false);
+        // Remember where they are so the next open is instant + prompt-free.
+        writeCachedLocation(e.latlng.lat, e.latlng.lng, Date.now());
         if (!locationLayerRef.current) {
           locationLayerRef.current = L.layerGroup().addTo(map!);
         }
@@ -238,15 +241,33 @@ export function MapCanvas({
 
       setReady(true);
 
-      // Drop the member onto their own location on first paint (best effort;
-      // the "Near me" button is the reliable path if the prompt is held).
-      setLocating(true);
-      map.locate({
-        setView: true,
-        maxZoom: 15,
-        enableHighAccuracy: true,
-        timeout: 10_000,
-      });
+      // Location, without nagging (#116): seed from the last known spot instantly
+      // (no prompt), then auto-locate *only* if permission was already granted.
+      // We never call locate() unprompted on load — the "Near me" button is the
+      // explicit path that may raise the browser prompt.
+      const cached = readCachedLocation(Date.now());
+      if (cached) {
+        map.setView([cached.lat, cached.lng], Math.max(map.getZoom(), 13));
+      }
+      const perms = navigator.permissions;
+      if (perms?.query) {
+        perms
+          .query({ name: "geolocation" as PermissionName })
+          .then((status) => {
+            if (status.state === "granted") {
+              setLocating(true);
+              map!.locate({
+                setView: true,
+                maxZoom: 15,
+                enableHighAccuracy: true,
+                timeout: 10_000,
+              });
+            }
+          })
+          .catch(() => {
+            /* Permissions API unavailable — rely on the cache + "Near me". */
+          });
+      }
     })();
 
     return () => {
