@@ -79,17 +79,20 @@ jobs:
         working-directory: ios/App
         run: xcodebuild -project App.xcodeproj -resolvePackageDependencies
 
-      # Compile/link the App target for a simulator with signing disabled — the
-      # "does it build" gate. No workspace/scheme (none is generated), no device,
-      # no cert, no provisioning, no artifact.
+      # Compile/link the App target with signing disabled — the "does it build"
+      # gate. No workspace/scheme (none is generated), no cert, no provisioning,
+      # no artifact.
       #
-      # Built twice on purpose: the Google Sign-In SPM chain (GoogleUtilities /
-      # app-check) *generates* its module maps in a build phase, and xcodebuild's
-      # parallel package build can compile a dependent target before that map
-      # exists ("GoogleUtilities-Logger.modulemap not found"). The first pass
-      # generates the maps; the second consumes them. Documented SPM race, not an
-      # incompatibility.
-      - name: Build (unsigned, simulator)
+      # Built for the DEVICE SDK (generic/platform=iOS), not the simulator, on
+      # purpose. The Google Sign-In SPM chain (GoogleUtilities / AppCheck)
+      # generates its clang module maps under a *device* path
+      # (…/GeneratedModuleMaps-iphoneos/GoogleUtilities-Logger.modulemap); a
+      # simulator compile looks under -iphonesimulator and never finds them
+      # ("module map file … not found" in AppCheckCore's ScanDependencies phase,
+      # Xcode 16 Explicitly Built Modules). Building for the device SDK aligns the
+      # compile with where the maps are generated. Signing is off, so an unsigned
+      # device-SDK compile needs no cert/provisioning. Retry once as a safety net.
+      - name: Build (unsigned)
         working-directory: ios/App
         run: |
           build() {
@@ -97,12 +100,14 @@ jobs:
               -project App.xcodeproj \
               -target App \
               -configuration Debug \
-              -destination 'generic/platform=iOS Simulator' \
+              -destination 'generic/platform=iOS' \
               CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
               build
           }
           build || {
-            echo "::warning::First build failed (likely GoogleUtilities SPM module-map race) — retrying once."
+            echo "::warning::First build failed — retrying once."
             build
           }
 
