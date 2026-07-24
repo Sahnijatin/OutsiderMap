@@ -24,7 +24,7 @@ export default async function ShellLayout({
     city?.name ??
     (profile.home_city
       ? profile.home_city.charAt(0).toUpperCase() + profile.home_city.slice(1)
-      : "Delhi");
+      : "Delhi NCR");
 
   return (
     <>

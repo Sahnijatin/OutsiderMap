@@ -18,7 +18,7 @@ export default async function PublicLayout({
   const profile = await getProfile(); // null when signed out - never redirects
   const signedIn = !!profile;
 
-  let cityName = "Delhi";
+  let cityName = "Delhi NCR";
   if (profile?.home_city) {
     const supabase = await createClient();
     const { data: city } = await supabase
