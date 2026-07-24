@@ -191,9 +191,27 @@ npx cap open ios     # → Xcode      ·  npx cap open android → Android Studi
 **Then, in order (error-free):**
 1. Launch in iOS simulator + Android emulator — hosted app loads, no white flash,
    safe-areas correct, cookies/session persist in the WebView.
-2. **OAuth in the WebView (the #1 breaker):** Google blocks embedded-WebView OAuth
-   → wire native Google Sign-In + Sign in with Apple with a deep-link return, and
-   prove every sign-in path on-device before anything else.
+2. **In-app sign-in (the #1 breaker) — code done, needs config to activate.**
+   Google forbids embedded-WebView OAuth, so native sign-in never uses the
+   WebView or a browser:
+   - **Email code** — fully in-app, works today. The native app opens straight to
+     the sign-in screen (`MobileAuthGate`, #149 / #150).
+   - **Apple + Google sheets** — OS-native account pickers via
+     `@capgo/capacitor-social-login` → Supabase `signInWithIdToken` (#151,
+     `src/lib/auth/native-social.ts`). **Gated on config**: the buttons appear
+     only when the client IDs below are set, so nothing broken ships.
+   - **To activate (one-time):**
+     - Google Cloud: iOS + Web OAuth client IDs → set `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID`
+       and `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` on the hosting deploy.
+     - Supabase → Auth → Providers: enable Google + Apple, add the client IDs to
+       the allowed audiences.
+     - iOS Google (signed device build): add the reversed-client-id as a
+       `CFBundleURLScheme` in the generated `Info.plist` (runtime-only, so the
+       unsigned CI build stays green without it).
+     - Apple: needs the Apple Developer account + the "Sign in with Apple"
+       capability on the iOS target (signed builds); set `NEXT_PUBLIC_APPLE_SIGN_IN=1`.
+   - Verify by sideloading the APK (device-only; the harness can't cover native
+     SDK sheets — §5).
 3. Plugins one at a time (geolocation → camera → push → haptics/share), each
    device-verified.
 4. Store readiness — signing, icons/splash, privacy labels (#129/#70),

@@ -3,24 +3,28 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useIsNativeApp } from "@/lib/capacitor/platform";
+import { useCapacitorPlatform } from "@/lib/capacitor/platform";
+import {
+  isNativeAppleConfigured,
+  isNativeGoogleConfigured,
+  nativeAppleSignIn,
+  nativeGoogleSignIn,
+} from "@/lib/auth/native-social";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The shared sign-in flow, used by both the /sign-in page and the inline auth
- * modal (#116). On OTP success it either runs `onSignedIn` (the modal resumes
- * the pending action in place) or navigates to `next`.
+ * modal (#116). On success it either runs `onSignedIn` (the modal resumes the
+ * pending action in place) or navigates to `next`.
  *
- * On the web: email code + Google. Google is a full-page redirect, so a JS
- * closure can't survive it — we stash `next` in a short-lived cookie before
- * redirecting and the callback reads it (also fixes the "OAuth drops ?next" gap).
- *
- * In the native app (#149): the email-code flow stays entirely in-app, so that's
- * all we show. Web-redirect Google would kick the user out to a browser, which
- * we don't want on mobile — native Google/Apple sign-in sheets come next, gated
- * on their native client IDs.
+ * - **Web:** email code + Google (a full-page redirect, so we stash `next` in a
+ *   short-lived cookie before redirecting and the callback reads it).
+ * - **Native app:** everything stays in-app (#149). Email code always; plus
+ *   native Apple (iOS) and Google **sign-in sheets** (#151) — the OS-native
+ *   account pickers via `signInWithIdToken`, shown only once their client IDs
+ *   are configured. The web-redirect Google button is never shown on native.
  */
 
 /** Cookie the OAuth callback reads to restore the intended destination. */
@@ -52,6 +56,17 @@ function GoogleIcon() {
   );
 }
 
+function AppleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M16.365 1.43c0 1.14-.417 2.203-1.11 3.02-.834.98-2.2 1.737-3.32 1.65-.14-1.13.42-2.32 1.06-3.06.72-.84 2.03-1.5 3.14-1.55.02.11.03.22.03.34zm3.87 15.66c-.6 1.38-.89 2-1.66 3.22-1.08 1.7-2.6 3.82-4.48 3.83-1.67.02-2.1-1.09-4.37-1.08-2.27.01-2.74 1.1-4.41 1.09-1.88-.02-3.32-1.93-4.4-3.63C-.03 18.5-.4 13.6 1.02 11.04c1-1.82 2.6-2.97 4.1-2.97 1.53 0 2.5 1.09 3.77 1.09 1.23 0 1.98-1.09 3.75-1.09 1.34 0 2.76.73 3.77 1.99-3.31 1.81-2.77 6.54.83 8.03z"
+      />
+    </svg>
+  );
+}
+
 type Step = "email" | "code";
 
 export function SignInPanel({
@@ -66,7 +81,11 @@ export function SignInPanel({
   initialError?: string | null;
 }) {
   const router = useRouter();
-  const isNative = useIsNativeApp();
+  const platform = useCapacitorPlatform();
+  const isNative = platform !== "web";
+  const isIOS = platform === "ios";
+  const showNativeGoogle = isNative && isNativeGoogleConfigured();
+  const showNativeApple = isIOS && isNativeAppleConfigured();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -103,12 +122,32 @@ export function SignInPanel({
       setError("That code didn’t match. Check the email and try again.");
       return;
     }
+    finishSignIn();
+  }
+
+  // Shared post-sign-in navigation (OTP + native social).
+  function finishSignIn() {
     if (onSignedIn) {
       onSignedIn();
       router.refresh();
     } else {
       router.push(next);
       router.refresh();
+    }
+  }
+
+  // Native in-app sheets (#151). No browser; the OS account picker returns a
+  // token we exchange with Supabase.
+  async function signInNatively(run: () => Promise<void>) {
+    setPending(true);
+    setError(null);
+    try {
+      await run();
+      finishSignIn();
+    } catch (e) {
+      // A user-cancelled sheet also lands here — a quiet retry is fine.
+      setError(e instanceof Error ? e.message : "Sign-in failed. Try again.");
+      setPending(false);
     }
   }
 
@@ -129,10 +168,34 @@ export function SignInPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Web: Google redirect. Hidden in the native app — it would leave to a
-          browser; native social sign-in sheets land next (#149). */}
-      {!isNative && (
-        <>
+      {/* Sign in with Apple — iOS native sheet, shown first per Apple's HIG. */}
+      {showNativeApple && (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => signInNatively(nativeAppleSignIn)}
+          disabled={pending}
+        >
+          <AppleIcon />
+          Continue with Apple
+        </Button>
+      )}
+
+      {/* Google — native account sheet in the app; full-page redirect on web.
+          The web-redirect variant is never shown on native (it would leave to a
+          browser); the native sheet appears only once its client IDs exist. */}
+      {showNativeGoogle ? (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => signInNatively(nativeGoogleSignIn)}
+          disabled={pending}
+        >
+          <GoogleIcon />
+          Continue with Google
+        </Button>
+      ) : (
+        !isNative && (
           <Button
             type="button"
             variant="secondary"
@@ -142,13 +205,15 @@ export function SignInPanel({
             <GoogleIcon />
             Continue with Google
           </Button>
+        )
+      )}
 
-          <div className="flex items-center gap-3">
-            <span className="h-px flex-1 bg-line" />
-            <span className="font-mono text-xs text-ink-dim">or</span>
-            <span className="h-px flex-1 bg-line" />
-          </div>
-        </>
+      {(!isNative || showNativeGoogle || showNativeApple) && (
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-line" />
+          <span className="font-mono text-xs text-ink-dim">or</span>
+          <span className="h-px flex-1 bg-line" />
+        </div>
       )}
 
       {step === "email" ? (

@@ -70,26 +70,31 @@ jobs:
           npx cap add ios
           npx cap sync ios
 
-      # Capacitor 8 manages iOS deps with Swift Package Manager, not CocoaPods —
-      # the generated project has no Podfile and no .xcworkspace, just
-      # ios/App/App.xcodeproj plus a local SPM package (CapApp-SPM). So there is
-      # no `pod install`; resolve the Swift packages up front instead, so a
-      # dependency-resolution failure is a distinct, readable error.
-      - name: Resolve Swift packages
-        working-directory: ios/App
-        run: xcodebuild -project App.xcodeproj -resolvePackageDependencies
-
-      # Compile/link the App target for a simulator with signing disabled — the
-      # "does it build" gate. No workspace/scheme (none is generated), no device,
-      # no cert, no provisioning, no artifact.
-      - name: Build (unsigned, simulator)
-        working-directory: ios/App
+      # Compile/link the app with signing off — the "does it build" gate. This
+      # mirrors @capgo/capacitor-social-login's own iOS CI recipe exactly, which
+      # is the authoritative config for this plugin's Google Sign-In SPM chain:
+      #
+      #   * -scheme App (NOT -target). The scheme's build action resolves the full
+      #     package-product graph, so xcodebuild generates the GoogleUtilities /
+      #     AppCheck Obj-C module maps before dependents compile. A -target build
+      #     resolves a truncated graph and never schedules that generation, which
+      #     is what caused "GoogleUtilities-Logger.modulemap not found". xcodebuild
+      #     auto-creates the "App" scheme from the target name (Capacitor's fresh
+      #     project ships no shared scheme, and that's fine).
+      #   * device SDK (generic/platform=iOS) — the module maps generate under
+      #     GeneratedModuleMaps-iphoneos, so the compile SDK must match.
+      #   * isolated SPM checkout + derived data, and a purge of stale
+      #     capacitor-swift-pm artifacts, exactly as the plugin's CI does.
+      #   * signing off; no explicit-modules overrides needed once built via scheme.
+      - name: Build (unsigned)
         run: |
+          rm -rf "$HOME/Library/Caches/org.swift.swiftpm/artifacts"/https___github_com_ionic_team_capacitor_swift_pm_releases_download_* || true
           xcodebuild \
-            -project App.xcodeproj \
-            -target App \
-            -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -destination 'generic/platform=iOS' \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
             CODE_SIGNING_ALLOWED=NO \
             build
 
