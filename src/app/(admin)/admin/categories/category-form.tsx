@@ -23,7 +23,7 @@ export function CategoryForm({
             defaultValue={category?.label}
           />
         </Field>
-        <Field label="Slug" htmlFor="slug" hint="lowercase · a–z 0–9 -">
+        <Field label="Slug" htmlFor="slug" hint="lowercase · a-z 0-9 -">
           <Input
             id="slug"
             name="slug"

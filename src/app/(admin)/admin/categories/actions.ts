@@ -19,7 +19,7 @@ const FormSchema = z.object({
     .string()
     .trim()
     .toLowerCase()
-    .regex(/^[a-z0-9-]{1,40}$/, "slug must be lowercase a–z, 0–9 or -"),
+    .regex(/^[a-z0-9-]{1,40}$/, "slug must be lowercase a-z, 0-9 or -"),
   label: z.string().trim().min(1),
   color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "color must be #rrggbb"),
   sort_order: z.coerce.number().int().min(0).max(999),

@@ -65,7 +65,7 @@ function dayHours(hours: Json | null, key: string): string {
     .map((w) => {
       const win = w as { open?: string; close?: string };
       if (!win.open || !win.close) return null;
-      return `${formatWindow(win.open)} – ${formatWindow(win.close)}`;
+      return `${formatWindow(win.open)} - ${formatWindow(win.close)}`;
     })
     .filter(Boolean)
     .join(", ");
