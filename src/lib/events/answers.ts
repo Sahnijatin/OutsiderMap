@@ -27,6 +27,9 @@ export function servedPayload(input: {
   source: AnswerSource;
   query?: string;
   picks?: string[];
+  /** Set when this answer was served under an A/B experiment (#120 part 2b). */
+  experiment?: string;
+  variant?: string;
 }): Record<string, Json> {
   const payload: Record<string, Json> = {
     answer_id: input.answerId,
@@ -34,6 +37,11 @@ export function servedPayload(input: {
   };
   if (input.query) payload.query = input.query;
   if (input.picks) payload.picks = input.picks;
+  // Both or neither — a variant is meaningless without its experiment.
+  if (input.experiment && input.variant) {
+    payload.experiment = input.experiment;
+    payload.variant = input.variant;
+  }
   return payload;
 }
 

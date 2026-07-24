@@ -4,6 +4,7 @@ import { getApiContext } from "@/lib/api-auth";
 import { recommend } from "@/lib/now/recommend";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { ANSWER_SERVED, newAnswerId, servedPayload } from "@/lib/events/answers";
+import { ONE_ANSWER_VS_LIST, resolveVariant } from "@/lib/experiments/server";
 
 /**
  * Right Now: natural-language ask -> one reasoned answer (+ tonight's events).
@@ -30,8 +31,17 @@ export async function POST(request: NextRequest) {
   const { query } = parsed.data;
 
   const result = await recommend(ctx.user.id, query, ctx.supabase);
+
+  // A/B: "one" serves a single pick, "list" all three; off → the default set.
+  const assignment = await resolveVariant(
+    ctx.supabase,
+    ONE_ANSWER_VS_LIST,
+    ctx.user.id,
+  );
+  const shownPicks =
+    assignment?.variant === "one" ? result.picks.slice(0, 1) : result.picks;
   const answerId = newAnswerId();
-  const picks = result.picks.map((p) => p.place.slug);
+  const pickSlugs = shownPicks.map((p) => p.place.slug);
 
   after(async () => {
     await Promise.all([
@@ -41,17 +51,30 @@ export async function POST(request: NextRequest) {
         payload: {
           query,
           intent: JSON.parse(JSON.stringify(result.intent)),
-          picks,
+          picks: pickSlugs,
         },
       }),
-      // Precise serve signal (#120); a client echoes answerId on the pick it acts on.
+      // Precise serve signal (#120); a client echoes answerId on the pick it acts
+      // on, and the payload carries the A/B variant for the per-variant read.
       ctx.supabase.from("interaction_events").insert({
         user_id: ctx.user.id,
         event_type: ANSWER_SERVED,
-        payload: servedPayload({ answerId, source: "now", query, picks }),
+        payload: servedPayload({
+          answerId,
+          source: "now",
+          query,
+          picks: pickSlugs,
+          experiment: assignment?.experiment,
+          variant: assignment?.variant,
+        }),
       }),
     ]);
   });
 
-  return NextResponse.json({ ...result, answerId });
+  return NextResponse.json({
+    ...result,
+    picks: shownPicks,
+    answerId,
+    variant: assignment?.variant ?? null,
+  });
 }

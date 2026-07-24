@@ -54,6 +54,50 @@ export async function getAnswerAcceptRate(
   return { served: row?.served ?? 0, accepted: row?.accepted ?? 0 };
 }
 
+export type ExperimentConfig = {
+  key: string;
+  description: string | null;
+  variants: string[];
+  enabled: boolean;
+};
+export type ExperimentVariant = {
+  variant: string;
+  served: number;
+  accepted: number;
+};
+
+/** One experiment's config (admin-select RLS). Null if it doesn't exist. */
+export async function getExperimentConfig(
+  supabase: SupabaseClient<Database>,
+  key: string,
+): Promise<ExperimentConfig | null> {
+  const { data, error } = await supabase
+    .from("experiments")
+    .select("key, description, variants, enabled")
+    .eq("key", key)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
+}
+
+/** Per-variant served/accepted for one experiment, off the precise 2a events. */
+export async function getExperiment(
+  supabase: SupabaseClient<Database>,
+  key: string,
+  days = 14,
+): Promise<ExperimentVariant[]> {
+  const { data, error } = await supabase.rpc("metrics_experiment", {
+    p_key: key,
+    p_days: days,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    variant: r.variant,
+    served: r.served,
+    accepted: r.accepted,
+  }));
+}
+
 export async function getDaily(
   supabase: SupabaseClient<Database>,
   days = 30,

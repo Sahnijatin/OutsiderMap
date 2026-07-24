@@ -75,6 +75,8 @@ function fakeSupabase() {
       if (name === "chat_threads") return table({ id: "t-1" });
       return table(null);
     },
+    // No active experiments in tests → serve path uses default behavior.
+    rpc: () => Promise.resolve({ data: [], error: null }),
   } as unknown as SupabaseClient<Database>;
 }
 

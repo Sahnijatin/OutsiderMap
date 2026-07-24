@@ -177,6 +177,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      experiments: {
+        Row: {
+          key: string;
+          description: string | null;
+          variants: string[];
+          enabled: boolean;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          description?: string | null;
+          variants: string[];
+          enabled?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          description?: string | null;
+          variants?: string[];
+          enabled?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       subscriptions: {
         Row: {
           user_id: string;
@@ -1998,6 +2022,14 @@ export type Database = {
       metrics_answer_accept_rate: {
         Args: { p_days?: number };
         Returns: { served: number; accepted: number }[];
+      };
+      active_experiments: {
+        Args: Record<PropertyKey, never>;
+        Returns: { key: string; variants: string[] }[];
+      };
+      metrics_experiment: {
+        Args: { p_key: string; p_days?: number };
+        Returns: { variant: string; served: number; accepted: number }[];
       };
       metrics_daily: {
         Args: { p_days?: number };
