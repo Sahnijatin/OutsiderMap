@@ -6,12 +6,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { unregisterPushNotifications } from "@/lib/native/push";
 
 /**
- * The two settings that only needed a UI: the personalization consent
- * switch (PATCH /api/profile) and the DPDP account delete
- * (DELETE /api/account, type-to-confirm).
+ * The settings that only needed a UI: the personalization consent switch
+ * (PATCH /api/profile), the DPDP account delete (DELETE /api/account,
+ * type-to-confirm), and the sign-out form (which also drops this device's push
+ * token so a shared phone stops receiving the previous member's notifications).
  */
+
+export function SignOutForm({ action }: { action: () => Promise<void> }) {
+  return (
+    <form
+      action={action}
+      // Fire-and-forget: releasing the push token must never block or break
+      // signing out. No-op on web.
+      onSubmit={() => {
+        void unregisterPushNotifications();
+      }}
+    >
+      <button
+        type="submit"
+        className="text-sm text-ink-dim transition-colors hover:text-ink"
+      >
+        Sign out
+      </button>
+    </form>
+  );
+}
 
 export function PersonalizationToggle({ initial }: { initial: boolean }) {
   const [enabled, setEnabled] = useState(initial);
@@ -85,6 +107,7 @@ export function DangerZone({ username }: { username: string | null }) {
           "Deletion didn't finish cleanly - contact us and we'll do it by hand.",
         );
       }
+      void unregisterPushNotifications();
       const { createClient } = await import("@/lib/supabase/client");
       await createClient()
         .auth.signOut()

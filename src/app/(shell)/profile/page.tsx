@@ -13,7 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { priceGlyph } from "@/lib/utils";
 import { resolveCity } from "@/lib/cities";
-import { DangerZone, PersonalizationToggle } from "./settings-cards";
+import {
+  DangerZone,
+  PersonalizationToggle,
+  SignOutForm,
+} from "./settings-cards";
 import { TasteCardShare } from "./taste-card-share";
 import { IdentityCard } from "./identity-card";
 import { StatsRow } from "./stats-row";
@@ -349,14 +353,7 @@ export default async function ProfilePage({
           Retake the quiz
         </Link>
         <span className="text-line">·</span>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="text-sm text-ink-dim transition-colors hover:text-ink"
-          >
-            Sign out
-          </button>
-        </form>
+        <SignOutForm action={signOut} />
       </footer>
     </main>
   );

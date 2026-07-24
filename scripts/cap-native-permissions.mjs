@@ -33,6 +33,8 @@ const ANDROID_PERMISSIONS = [
   // Camera + reading picked media (READ_MEDIA_IMAGES is the API 33+ form).
   "android.permission.CAMERA",
   "android.permission.READ_MEDIA_IMAGES",
+  // Push notifications — runtime-prompted from Android 13 (API 33) on.
+  "android.permission.POST_NOTIFICATIONS",
 ];
 
 function patchIos() {
