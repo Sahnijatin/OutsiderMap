@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUp, History, Plus } from "lucide-react";
+import { ArrowUp, History, Mic, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useSpeechInput } from "@/lib/voice/use-speech-input";
 import { publicMediaUrl } from "@/lib/media/url";
 import { cn } from "@/lib/utils";
 import type { ChatPickCard } from "@/lib/chat/engine";
@@ -59,6 +60,7 @@ export function ChatThread({
   const [failedText, setFailedText] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const streamSeq = useRef(0);
+  const voice = useSpeechInput();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -333,10 +335,32 @@ export function ChatThread({
         }}
       >
         <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-4">
+          {voice.supported && (
+            <button
+              type="button"
+              aria-label={voice.listening ? "Stop dictation" : "Speak your ask"}
+              aria-pressed={voice.listening}
+              onClick={() =>
+                voice.listening ? voice.stop() : voice.start(setInput)
+              }
+              className={cn(
+                "flex size-8 shrink-0 items-center justify-center rounded-full transition-colors",
+                voice.listening
+                  ? "bg-accent/15 text-accent"
+                  : "text-ink-dim hover:text-ink",
+              )}
+            >
+              <Mic
+                className={cn("size-4", voice.listening && "animate-pulse")}
+              />
+            </button>
+          )}
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Tell me what you're craving…"
+            placeholder={
+              voice.listening ? "Listening…" : "Tell me what you're craving…"
+            }
             enterKeyHint="send"
             className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-ink-dim"
           />

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0c0a08" />
+    <title>OutsiderMap</title>
+    <style>
+      /* Brand tokens (mirror globals.css @theme). Self-contained: this shell
+         renders before the remote app loads and when the device is offline. */
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0; height: 100%;
+        background: #0c0a08; color: #ede7db;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        min-height: 100dvh;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 1rem; text-align: center;
+        padding: calc(env(safe-area-inset-top) + 2rem) 1.5rem
+                 calc(env(safe-area-inset-bottom) + 2rem);
+      }
+      .halo {
+        position: fixed; inset: 0; pointer-events: none;
+        background: radial-gradient(60% 40% at 50% 45%,
+          rgba(240,164,49,0.14), transparent 70%);
+      }
+      .mark {
+        font-family: Georgia, "Times New Roman", serif;
+        font-style: italic; font-size: 1.9rem; letter-spacing: 0.01em;
+      }
+      .dot { color: #f0a431; }
+      .kicker {
+        font-size: 0.6875rem; letter-spacing: 0.3em; text-transform: uppercase;
+        color: #9b9183;
+      }
+      .spinner {
+        width: 26px; height: 26px; border-radius: 50%;
+        border: 2px solid #2b241c; border-top-color: #f0a431;
+        animation: spin 0.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      }
+      #offline { display: none; color: #9b9183; font-size: 0.9rem; max-width: 22rem; }
+      body.is-offline .spinner { display: none; }
+      body.is-offline #offline { display: block; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="halo"></div>
+    <div class="wrap">
+      <p class="kicker">Made for Delhi</p>
+      <p class="mark">Outsider<span class="dot">Map</span></p>
+      <div class="spinner" aria-label="Loading"></div>
+      <p id="offline">
+        You&rsquo;re offline. OutsiderMap needs a connection for the live map and
+        your taste profile &mdash; reconnect and it&rsquo;ll pick up right where
+        you left off.
+      </p>
+    </div>
+    <script>
+      // Reflect connectivity so the shell shows an honest offline state instead
+      // of an endless spinner (Apple 4.2: never a blank/browser-error screen).
+      function sync() {
+        document.body.classList.toggle("is-offline", !navigator.onLine);
+      }
+      window.addEventListener("online", sync);
+      window.addEventListener("offline", sync);
+      sync();
+    </script>
+  </body>
+</html>

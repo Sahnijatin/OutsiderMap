@@ -1,0 +1,105 @@
+name: ios-build-check
+
+# Compiles the iOS app on a cloud **macOS** runner with signing OFF — proves the
+# native iOS shell builds without needing a Mac or an Apple Developer account.
+# Like android-build, the native `ios/` project is generated fresh from
+# capacitor.config.ts each run (hybrid app — see MOBILE_PLAN.md §6), so nothing
+# Mac-generated has to be committed from a machine we don't have.
+#
+# This is a *compile check*, not a distributable build: `CODE_SIGNING_ALLOWED=NO`
+# means no .ipa and no TestFlight. Producing a signed, installable iOS build is
+# Phase 3 — it needs an Apple Developer account ($99/yr) and signing secrets;
+# the signed job is stubbed at the bottom, disabled until those exist.
+#
+# Trigger: manual (workflow_dispatch) once this file is on the default branch.
+# Until then, a path-scoped pull_request trigger runs it on PRs that touch the
+# native shell/config/deps — this is what gets its first run. macOS runners cost
+# ~10x Linux, so once this lands on main you can drop the pull_request trigger
+# and keep it manual-only (dispatch works from main).
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: >-
+          Hosted app URL the native shell loads (hybrid). Defaults to the
+          CAP_SERVER_URL repo variable, then production.
+        required: false
+  pull_request:
+    paths:
+      - "capacitor.config.ts"
+      - "mobile-shell/**"
+      - "src/components/capacitor-init.tsx"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ios-build-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  compile-check:
+    # macos-15 defaults to Xcode 16. Capacitor 8's iOS runtime requires Xcode 16+
+    # — building it under the macos-14 default (Xcode 15.4) fails to emit the
+    # Capacitor core module, which surfaces as bogus "CAPPluginCall has no member
+    # 'reject'" errors in the plugins. macos-15 fixes that at the toolchain level.
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      CAP_SERVER_URL: >-
+        ${{ github.event.inputs.server_url
+            || vars.CAP_SERVER_URL
+            || 'https://www.outsidermap.com' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Diagnostic: record the toolchain so a future Xcode-too-old regression is
+      # obvious in the log. Capacitor 8 needs Xcode 16+.
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Generate iOS project
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      # Capacitor 8 manages iOS deps with Swift Package Manager, not CocoaPods —
+      # the generated project has no Podfile and no .xcworkspace, just
+      # ios/App/App.xcodeproj plus a local SPM package (CapApp-SPM). So there is
+      # no `pod install`; resolve the Swift packages up front instead, so a
+      # dependency-resolution failure is a distinct, readable error.
+      - name: Resolve Swift packages
+        working-directory: ios/App
+        run: xcodebuild -project App.xcodeproj -resolvePackageDependencies
+
+      # Compile/link the App target for a simulator with signing disabled — the
+      # "does it build" gate. No workspace/scheme (none is generated), no device,
+      # no cert, no provisioning, no artifact.
+      - name: Build (unsigned, simulator)
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -project App.xcodeproj \
+            -target App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  # --- Phase 3: signed TestFlight build (disabled until an Apple account exists)
+  #
+  # When you have an Apple Developer account, add these repo secrets and flip
+  # `if:` to a condition (or a separate workflow):
+  #   APPLE_CERTIFICATE_P12 / _PASSWORD  — distribution signing cert
+  #   APPLE_PROVISIONING_PROFILE         — app-store provisioning profile
+  #   APP_STORE_CONNECT_API_KEY (+ id/issuer) — for `xcrun altool`/`notarytool` upload
+  # Then: import cert into a temp keychain, install the profile, `xcodebuild
+  # -exportArchive` with a signed exportOptions.plist, and upload to TestFlight.
+  # Left as a stub so the path is documented in-repo (MOBILE_PLAN.md §3 Phase 3).

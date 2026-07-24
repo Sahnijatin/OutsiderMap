@@ -3,6 +3,7 @@ import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import { PwaRegister } from "@/components/pwa-register";
+import { CapacitorInit } from "@/components/capacitor-init";
 import "./globals.css";
 
 const GA_MEASUREMENT_ID = "G-SY3XQJ0R3S";
@@ -74,6 +75,7 @@ export default function RootLayout({
       <body>
         {children}
         <PwaRegister />
+        <CapacitorInit />
         <Analytics />
       </body>
       {/* Google tag (gtag.js) */}

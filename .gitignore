@@ -38,6 +38,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# capacitor native projects — generated fresh each build from capacitor.config.ts
+# (hybrid app: nothing hand-edited in them), so they are not committed. See
+# .github/workflows/android-build.yml / ios-build-check.yml and MOBILE_PLAN.md §6.
+/ios
+/android
+
 # local scratch / generated previews
 /scratch/
 
