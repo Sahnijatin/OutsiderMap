@@ -11,8 +11,11 @@ name: ios-build-check
 # Phase 3 — it needs an Apple Developer account ($99/yr) and signing secrets;
 # the signed job is stubbed at the bottom, disabled until those exist.
 #
-# Trigger: manual only. macOS runners are ~10x the cost of Linux, so this does
-# not run on every push — kick it when the shell/config changes.
+# Trigger: manual (workflow_dispatch) once this file is on the default branch.
+# Until then, a path-scoped pull_request trigger runs it on PRs that touch the
+# native shell/config/deps — this is what gets its first run. macOS runners cost
+# ~10x Linux, so once this lands on main you can drop the pull_request trigger
+# and keep it manual-only (dispatch works from main).
 
 on:
   workflow_dispatch:
@@ -22,6 +25,14 @@ on:
           Hosted app URL the native shell loads (hybrid). Defaults to the
           CAP_SERVER_URL repo variable, then production.
         required: false
+  pull_request:
+    paths:
+      - "capacitor.config.ts"
+      - "mobile-shell/**"
+      - "src/components/capacitor-init.tsx"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ios-build-check.yml"
 
 permissions:
   contents: read
