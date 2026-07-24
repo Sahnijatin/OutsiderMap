@@ -39,7 +39,11 @@ permissions:
 
 jobs:
   compile-check:
-    runs-on: macos-14
+    # macos-15 defaults to Xcode 16. Capacitor 8's iOS runtime requires Xcode 16+
+    # — building it under the macos-14 default (Xcode 15.4) fails to emit the
+    # Capacitor core module, which surfaces as bogus "CAPPluginCall has no member
+    # 'reject'" errors in the plugins. macos-15 fixes that at the toolchain level.
+    runs-on: macos-15
     timeout-minutes: 30
     env:
       CAP_SERVER_URL: >-
@@ -55,6 +59,11 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # Diagnostic: record the toolchain so a future Xcode-too-old regression is
+      # obvious in the log. Capacitor 8 needs Xcode 16+.
+      - name: Show Xcode version
+        run: xcodebuild -version
 
       - name: Generate iOS project
         run: |
