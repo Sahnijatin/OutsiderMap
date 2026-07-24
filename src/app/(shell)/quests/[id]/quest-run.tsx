@@ -13,6 +13,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { baseMapStyle } from "@/lib/map/style";
 import { publicMediaUrl } from "@/lib/media/url";
+import { shareOrCopy } from "@/lib/native/share";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -317,13 +318,15 @@ function ReelPanel({ quest }: { quest: QuestDetail }) {
         logShare();
         return;
       }
-      if (navigator.share) {
-        await navigator.share({ title: quest.title, url: videoUrl });
-        logShare();
-        return;
+      // Otherwise share the link: in the native app this opens the real OS
+      // share sheet (the WebView has no navigator.share, so without this it
+      // would silently degrade to the clipboard). Sharing the actual file on
+      // native would need the reel written to disk first (@capacitor/filesystem)
+      // — the link path is the honest fallback until then.
+      const outcome = await shareOrCopy({ title: quest.title, url: videoUrl });
+      if (outcome !== "dismissed" && outcome !== "failed") {
+        logShare(); // the clipboard path counts as a share too
       }
-      await navigator.clipboard.writeText(videoUrl);
-      logShare(); // the clipboard path counts as a share too
     } catch {
       // Share sheet dismissed or unavailable - nothing to clean up.
     } finally {
