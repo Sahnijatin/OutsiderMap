@@ -14,9 +14,13 @@ import { defineConfig, devices } from "@playwright/test";
  * harness never tries to download a browser. Override with PW_CHROME if needed.
  */
 
-const CHROME =
-  process.env.PW_CHROME ??
-  "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+// Point at a specific Chromium (e.g. a pre-provisioned one) via PW_CHROME.
+// Unset → Playwright's managed browser (`npx playwright install chromium`),
+// which is what CI uses.
+const CHROME = process.env.PW_CHROME;
+
+// Vercel deployment-protection bypass, so CI can reach a protected preview.
+const BYPASS = process.env.PW_BYPASS_TOKEN;
 
 const BASE_URL = process.env.MOBILE_VERIFY_URL ?? "http://localhost:3000";
 
@@ -49,10 +53,18 @@ export default defineConfig({
     screenshot: "on",
     trace: "retain-on-failure",
     ...(PROXY ? { proxy: { server: PROXY }, ignoreHTTPSErrors: true } : {}),
+    ...(BYPASS
+      ? {
+          extraHTTPHeaders: {
+            "x-vercel-protection-bypass": BYPASS,
+            "x-vercel-set-bypass-cookie": "true",
+          },
+        }
+      : {}),
     // --no-sandbox: containers/CI often run as root, where Chromium refuses to
     // start without it. Harmless locally.
     launchOptions: {
-      executablePath: CHROME,
+      ...(CHROME ? { executablePath: CHROME } : {}),
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     },
   },

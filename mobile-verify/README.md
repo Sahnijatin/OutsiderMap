@@ -27,8 +27,17 @@ MOBILE_VERIFY_URL=https://<staging>.vercel.app npm run mobile:verify   # test a 
 
 - Screenshots land in `mobile-verify/screenshots/{iphone,pixel}/<surface>.png`.
 - An HTML report lands in `mobile-verify/report/` (`npx playwright show-report mobile-verify/report`).
-- Chromium is pre-provisioned in CI/dev at `/opt/pw-browsers/...`; override the
-  binary with `PW_CHROME=/path/to/chrome` if yours differs.
+- Uses Playwright's managed Chromium by default (`npx playwright install
+  chromium`). Point at a specific binary with `PW_CHROME=/path/to/chrome`
+  (e.g. a pre-provisioned one).
+
+**In CI:** `.github/workflows/mobile-verify.yml` runs this automatically against
+each Vercel **preview** deployment (`deployment_status` success) and uploads the
+screenshots + report as an artifact — the durable, proxy-free review loop. If
+preview deployments are access-protected, set a repo secret
+`VERCEL_AUTOMATION_BYPASS_SECRET` (a Vercel "Protection Bypass for Automation"
+token); the harness sends it as `x-vercel-protection-bypass`. Trigger a one-off
+run against any URL via **Actions → mobile-verify → Run workflow**.
 
 ## What it checks (per surface × device)
 

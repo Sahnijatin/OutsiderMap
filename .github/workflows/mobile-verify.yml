@@ -1,0 +1,72 @@
+name: mobile-verify
+
+# Runs the mobile review harness (mobile-verify/) against each Vercel *preview*
+# deployment, at iPhone + Pixel viewports, and uploads the screenshots + report.
+# This is the durable, proxy-free version of the review loop for the Capacitor
+# app (#143 / #145). No Mac needed — the harness is Chromium at phone viewports.
+#
+# Trigger: Vercel creates a GitHub Deployment per push; when its preview goes
+# live (deployment_status = success), this runs against that URL. Also runnable
+# by hand against any URL via "Run workflow".
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: URL to verify (e.g. a preview or staging URL)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    # Manual runs always; automatic runs only for a successful, non-production
+    # (preview) deployment.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment_status.environment != 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # CI uses Playwright's managed Chromium (PW_CHROME left unset).
+      - run: npx playwright install --with-deps chromium
+
+      - name: Resolve target URL
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "url=${{ github.event.inputs.url }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=${{ github.event.deployment_status.target_url }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: mobile-verify
+        env:
+          MOBILE_VERIFY_URL: ${{ steps.target.outputs.url }}
+          # Optional: set this secret to a Vercel "Protection Bypass for
+          # Automation" token if preview deployments are access-protected.
+          PW_BYPASS_TOKEN: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: npm run mobile:verify
+
+      - name: Upload screenshots + report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-verify
+          path: |
+            mobile-verify/screenshots
+            mobile-verify/report
+          if-no-files-found: ignore
+          retention-days: 14
