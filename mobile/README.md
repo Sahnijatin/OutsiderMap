@@ -4,11 +4,17 @@ The invite-only mobile client. It talks to the existing Next.js backend
 (`../`) over HTTP with a Supabase bearer token; the recommendation "brain"
 lives server-side and is shared with the web.
 
-> CI (`.github/workflows/ci.yml`) typechecks, lints, and Metro-bundles this app
-> (iOS + Android, `expo export`) on every PR. It still has its own toolchain,
-> fenced off from the web app's tsc/lint/build (see root `tsconfig.json` /
-> `eslint.config.mjs`). Anything device-only (animations, haptics, OAuth)
-> needs the run steps below.
+> **⚠️ RETIRED — this app is not shipped and is not built by CI.**
+>
+> The native apps are now the Next.js web app wrapped in **Capacitor** (see
+> `MOBILE_PLAN.md`, epic #143). This Expo client predates the current web shell
+> and is kept only for reference and salvage (icons, splash, brand art, the Skia
+> ConvergenceField) under the retire-not-delete convention.
+>
+> Its CI job was removed — it was typechecking, linting and `expo export`-ing an
+> app we don't ship. The live native builds are `android-build.yml`,
+> `android-release.yml`, `ios-build-check.yml` and `ios-testflight.yml`.
+> The notes below describe the retired app as it was.
 
 ## Setup
 

@@ -119,8 +119,13 @@ no extra mobile work: #67 Feed, #68 Market intel, #69 Chat, #70 Moderation,
 ## 4. The retired Expo app (`mobile/`)
 
 Kept for reference, **not deleted** (retire-not-delete convention). Salvage
-assets (icons, splash, brand art, the Skia ConvergenceField) where useful. Its
-CI Metro-bundle step is replaced by the Capacitor build in Phase 3.
+assets (icons, splash, brand art, the Skia ConvergenceField) where useful.
+
+**Its CI job is gone** (done): the `mobile` job in `ci.yml` — typecheck, lint and
+`expo export` — ran on every PR for an app we no longer ship. The shipping native
+builds are `android-build.yml` (debug APK), `android-release.yml` (signed
+.aab/.apk), `ios-build-check.yml` (compile check) and `ios-testflight.yml`
+(signed → TestFlight). The directory stays put; nothing builds it.
 
 ---
 

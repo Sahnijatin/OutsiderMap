@@ -1,0 +1,140 @@
+name: android-release
+
+# Builds a SIGNED Android release bundle (.aab, what Play wants) and a signed
+# .apk, ready to upload to the Play Console. Runs entirely on Linux CI — no
+# local Android tooling needed.
+#
+# This is the release counterpart to android-build.yml, which produces the
+# unsigned debug APK used for sideloaded testing.
+#
+# Prerequisites (one-time) — repo secrets:
+#   ANDROID_KEYSTORE_BASE64   — your upload keystore (.jks), base64-encoded:
+#                                 base64 -w0 upload-keystore.jks
+#   ANDROID_KEYSTORE_PASSWORD — keystore password
+#   ANDROID_KEY_ALIAS         — key alias inside the keystore
+#   ANDROID_KEY_PASSWORD      — password for that alias
+#
+# Generate a keystore once (keep it safe and backed up — losing it means you can
+# never update the app on Play again):
+#   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 \
+#           -validity 10000 -alias upload
+#
+# Manual trigger: releases are deliberate.
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: >-
+          Hosted app URL the native shell loads. Defaults to the CAP_SERVER_URL
+          repo variable, then production.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CAP_SERVER_URL: >-
+        ${{ github.event.inputs.server_url
+            || vars.CAP_SERVER_URL
+            || 'https://www.outsidermap.com' }}
+    steps:
+      - name: Check required secrets
+        run: |
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD \
+                      ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing repo secret: $name"
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ] || {
+            echo "Add the Android signing secrets first (see the workflow header)."
+            exit 1
+          }
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - run: npm ci
+
+      - name: Generate Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+          node scripts/cap-native-permissions.mjs
+
+      - name: Restore keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      # Gradle reads these via the signingConfig injected below.
+      - name: Configure release signing
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          // --- injected by .github/workflows/android-release.yml ---
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          GRADLE
+
+      - name: Build signed bundle + APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon \
+            -PversionCode=${{ github.run_number }} \
+            bundleRelease assembleRelease
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks"
