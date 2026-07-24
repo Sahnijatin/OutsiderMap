@@ -139,7 +139,42 @@ GPS, haptics, signed builds — the Phase 4 checklist.
 
 ---
 
-## 6. TL;DR
+## 6. Capacitor — scaffold (done) & native generation (your Mac)
+
+**Scaffolded in-repo (Phase 2a):**
+- `capacitor.config.ts` — appId `com.outsidermap.app`; **hybrid** model: loads the
+  hosted app via `CAP_SERVER_URL`; dark brand background; splash config.
+- `mobile-shell/index.html` — the `webDir` splash/offline fallback. Brand-styled,
+  shows a real offline state (never a blank/browser-error screen → clears Apple 4.2).
+- `src/components/capacitor-init.tsx` — native-only status-bar styling + splash
+  dismiss, wired into the root layout. **No-op on web** (Capacitor is dynamically
+  imported inside the effect, so it never enters the web bundle).
+- Deps: `@capacitor/core` + `app`/`status-bar`/`splash-screen`, `@capacitor/cli`.
+
+**Generate the native apps (Phase 2b — needs Xcode / Android SDK, not the Linux CI sandbox):**
+```bash
+export CAP_SERVER_URL=https://<staging>.vercel.app   # hybrid: load this deploy
+npx cap add ios        # generates ios/      (needs Xcode)
+npx cap add android    # generates android/  (needs Android SDK)
+npx cap sync           # copy config + plugins into the native projects
+npx cap open ios       # → Xcode        ·  npx cap open android → Android Studio
+```
+Commit `ios/` and `android/` once generated.
+
+**Then, in order (error-free):**
+1. Launch in iOS simulator + Android emulator — hosted app loads, no white flash,
+   safe-areas correct, cookies/session persist in the WebView.
+2. **OAuth in the WebView (the #1 breaker):** Google blocks embedded-WebView OAuth
+   → wire native Google Sign-In + Sign in with Apple with a deep-link return, and
+   prove every sign-in path on-device before anything else.
+3. Plugins one at a time (geolocation → camera → push → haptics/share), each
+   device-verified.
+4. Store readiness — signing, icons/splash, privacy labels (#129/#70),
+   TestFlight / Play internal.
+
+---
+
+## 7. TL;DR
 
 One TypeScript codebase. Capacitor wraps the hosted web app + native plugins.
 Retire the Expo app. Harden the web foundation (#127), add the Capacitor shell
