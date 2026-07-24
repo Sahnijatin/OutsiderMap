@@ -38,7 +38,7 @@ export function PostCard({
   const first = post.media[0];
 
   return (
-    <article className="overflow-hidden rounded-card border border-line bg-surface">
+    <article className="om-rise-in overflow-hidden rounded-card border border-line bg-surface">
       <header className="flex items-center gap-3 px-4 pt-4">
         <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-raise text-sm text-ink-dim">
           {post.author?.avatar_url ? (

@@ -202,7 +202,7 @@ export function FriendsPanel() {
                         type="button"
                         aria-label="Accept"
                         onClick={() => void accept(e)}
-                        className="rounded-full bg-accent p-2 text-night transition-transform hover:-translate-y-0.5"
+                        className="rounded-full bg-accent p-2 text-night transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] motion-reduce:active:scale-100"
                       >
                         <Check className="size-3.5" />
                       </button>

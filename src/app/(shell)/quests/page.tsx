@@ -42,7 +42,7 @@ export default async function QuestsPage() {
 
       <Link
         href="/market-run"
-        className="mt-4 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] hover:-translate-y-0.5 hover:border-accent/50"
+        className="mt-4 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
       >
         <div className="min-w-0">
           <p className="font-display text-lg italic">Market shopping runs</p>
@@ -55,7 +55,7 @@ export default async function QuestsPage() {
 
       <Link
         href="/quests/bounties"
-        className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] hover:-translate-y-0.5 hover:border-accent/50"
+        className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
       >
         <div className="min-w-0">
           <p className="font-display text-lg italic">Scout bounties</p>
@@ -69,7 +69,7 @@ export default async function QuestsPage() {
 
       <Link
         href="/quests/leaderboard"
-        className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] hover:-translate-y-0.5 hover:border-accent/50"
+        className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
       >
         <div className="min-w-0">
           <p className="font-display text-lg italic">Scout standings</p>
@@ -101,7 +101,7 @@ export default async function QuestsPage() {
                   <RevealItem>
                     <Link
                       href={`/quests/${q.id}`}
-                      className="flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] hover:-translate-y-0.5 hover:border-accent/50"
+                      className="flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
                     >
                       <div className="min-w-0">
                         <p className="truncate font-display text-lg italic">

@@ -5,8 +5,12 @@ import { cn } from "@/lib/utils";
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "under";
 type Size = "sm" | "md" | "lg";
 
+// `active:scale` is what makes a tap feel answered. Without it every button on
+// a phone reads as a dead rectangle - there's no hover on touch, so the pressed
+// state was the only feedback available and we weren't using it. Transform +
+// colour both transition; motion-reduce opts out of the squish.
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-colors duration-200 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap";
+  "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-[color,background-color,border-color,transform] duration-200 ease-out active:scale-[0.97] motion-reduce:active:scale-100 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap";
 
 const variants: Record<Variant, string> = {
   primary: "bg-accent text-night hover:bg-ember",
