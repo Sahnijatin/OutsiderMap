@@ -79,37 +79,32 @@ jobs:
         working-directory: ios/App
         run: xcodebuild -project App.xcodeproj -resolvePackageDependencies
 
-      # Compile/link the App target with signing disabled — the "does it build"
-      # gate. No workspace/scheme (none is generated), no cert, no provisioning,
-      # no artifact.
+      # Compile/link the App target for a simulator with signing disabled — the
+      # "does it build" gate. No workspace/scheme (none is generated), no cert,
+      # no provisioning, no artifact.
       #
-      # Built for the DEVICE SDK (generic/platform=iOS), not the simulator, on
-      # purpose. The Google Sign-In SPM chain (GoogleUtilities / AppCheck)
-      # generates its clang module maps under a *device* path
-      # (…/GeneratedModuleMaps-iphoneos/GoogleUtilities-Logger.modulemap); a
-      # simulator compile looks under -iphonesimulator and never finds them
-      # ("module map file … not found" in AppCheckCore's ScanDependencies phase,
-      # Xcode 16 Explicitly Built Modules). Building for the device SDK aligns the
-      # compile with where the maps are generated. Signing is off, so an unsigned
-      # device-SDK compile needs no cert/provisioning. Retry once as a safety net.
-      - name: Build (unsigned)
+      # CLANG_ENABLE_EXPLICIT_MODULES=NO is load-bearing: the Google Sign-In SPM
+      # chain pulls in GoogleUtilities/AppCheck, and AppCheckCore is Objective-C.
+      # Xcode 16 turns on *explicitly built modules* by default for C/Obj-C, and
+      # its Clang `ScanDependencies` phase demands a generated module map
+      # (…/GeneratedModuleMaps-iphoneos/GoogleUtilities-Logger.modulemap) that
+      # isn't produced in time — "module map file … not found", 34 failures.
+      # Disabling explicit Clang modules removes that phase. Passed on the command
+      # line, the override reaches the SPM checkout targets too. (The Swift twin
+      # is belt-and-suspenders; Swift explicit modules are already off by default,
+      # so it isn't the trigger.)
+      - name: Build (unsigned, simulator)
         working-directory: ios/App
         run: |
-          build() {
-            xcodebuild \
-              -project App.xcodeproj \
-              -target App \
-              -configuration Debug \
-              -destination 'generic/platform=iOS' \
-              CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGN_IDENTITY="" \
-              build
-          }
-          build || {
-            echo "::warning::First build failed — retrying once."
+          xcodebuild \
+            -project App.xcodeproj \
+            -target App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CLANG_ENABLE_EXPLICIT_MODULES=NO \
+            SWIFT_ENABLE_EXPLICIT_MODULES=NO \
             build
-          }
 
   # --- Phase 3: signed TestFlight build (disabled until an Apple account exists)
   #
