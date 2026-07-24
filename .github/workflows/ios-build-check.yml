@@ -93,18 +93,31 @@ jobs:
       # line, the override reaches the SPM checkout targets too. (The Swift twin
       # is belt-and-suspenders; Swift explicit modules are already off by default,
       # so it isn't the trigger.)
+      #
+      # With explicit modules off, the remaining failure is a plain build-order
+      # race: AppCheckCore compiles before the GoogleUtilities module map is
+      # generated (down from 34 scan errors to a single CompileC "module map not
+      # found"). Unlike the scan phase, this *is* fixable by building twice — the
+      # first pass generates GeneratedModuleMaps-iphoneos/GoogleUtilities-*.map,
+      # the second consumes it.
       - name: Build (unsigned, simulator)
         working-directory: ios/App
         run: |
-          xcodebuild \
-            -project App.xcodeproj \
-            -target App \
-            -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            CLANG_ENABLE_EXPLICIT_MODULES=NO \
-            SWIFT_ENABLE_EXPLICIT_MODULES=NO \
+          build() {
+            xcodebuild \
+              -project App.xcodeproj \
+              -target App \
+              -configuration Debug \
+              -destination 'generic/platform=iOS Simulator' \
+              CODE_SIGNING_ALLOWED=NO \
+              CLANG_ENABLE_EXPLICIT_MODULES=NO \
+              SWIFT_ENABLE_EXPLICIT_MODULES=NO \
+              build
+          }
+          build || {
+            echo "::warning::First build failed (GoogleUtilities module-map generated late) — retrying once."
             build
+          }
 
   # --- Phase 3: signed TestFlight build (disabled until an Apple account exists)
   #
