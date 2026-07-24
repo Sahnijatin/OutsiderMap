@@ -94,7 +94,10 @@ web epics. Build in this order:
 - **Privacy nutrition labels + data-safety form** (#129, #70): location, media,
   taste data.
 - Pre-approved demo account; TestFlight / Play internal.
-- CI: build iOS/Android on PRs (replace the retired RN Metro-bundle step).
+- CI: cloud native builds already wired (§6) — Android debug APK on Linux +
+  iOS compile-check on cloud macOS, no Mac needed. Phase 3 adds the **signed**
+  jobs (Android release + iOS TestFlight) on top, once the store accounts and
+  signing secrets exist. Retire the old RN Metro-bundle CI step (§7 / Stage 7).
 
 ### Phase 4 — Native-only validation (needs a device/simulator)
 - Real APNs/FCM push delivery, native camera, device GPS, haptics, signed store
@@ -139,7 +142,7 @@ GPS, haptics, signed builds — the Phase 4 checklist.
 
 ---
 
-## 6. Capacitor — scaffold (done) & native generation (your Mac)
+## 6. Capacitor — scaffold (done) & cloud native builds (no Mac needed)
 
 **Scaffolded in-repo (Phase 2a):**
 - `capacitor.config.ts` — appId `com.outsidermap.app`; **hybrid** model: loads the
@@ -151,15 +154,39 @@ GPS, haptics, signed builds — the Phase 4 checklist.
   imported inside the effect, so it never enters the web bundle).
 - Deps: `@capacitor/core` + `app`/`status-bar`/`splash-screen`, `@capacitor/cli`.
 
-**Generate the native apps (Phase 2b — needs Xcode / Android SDK, not the Linux CI sandbox):**
+### Native projects are generated in the cloud, not committed (Phase 2b)
+
+We build **fully in the cloud** — no Mac, no local Android SDK. Because this is a
+Capacitor *hybrid* app (the native shell only loads the hosted web app), the
+`ios/` and `android/` projects are **completely determined by
+`capacitor.config.ts`**. So CI regenerates them fresh on every run instead of
+committing them — that's why `/ios` and `/android` are git-ignored.
+
+| Build | Runner | Workflow | Output | Needs |
+|---|---|---|---|---|
+| **Android debug APK** | Linux (`ubuntu-latest`) | `.github/workflows/android-build.yml` | sideloadable `app-debug.apk` artifact | nothing — free |
+| **iOS compile check** | cloud macOS (`macos-14`) | `.github/workflows/ios-build-check.yml` | pass/fail "it compiles" (unsigned, no artifact) | nothing — free |
+| **iOS signed / TestFlight** | cloud macOS | *stubbed in `ios-build-check.yml`* | `.ipa` → TestFlight | **Apple Developer acct ($99/yr) + signing secrets** |
+
+Both workflows read the hybrid target URL from, in priority order: the **Run
+workflow** input → the `CAP_SERVER_URL` repo variable → the production URL
+fallback. Set the `CAP_SERVER_URL` repo variable (Settings → Secrets and
+variables → Actions → Variables) to your staging/production URL so manual runs
+need no input.
+
+- **Android APK** runs on manual dispatch and on `main` pushes that touch the
+  shell/config — download the artifact, sideload it, and you're testing the real
+  native shell on a device. This is the immediate "installable app" path.
+- **iOS compile check** is manual-only (macOS runner minutes cost ~10×). It
+  proves the iOS shell links and builds; it does **not** produce anything
+  installable — that requires signing (Phase 3).
+
+To reproduce locally *if you ever get a Mac* (optional — CI does all of this):
 ```bash
-export CAP_SERVER_URL=https://<staging>.vercel.app   # hybrid: load this deploy
-npx cap add ios        # generates ios/      (needs Xcode)
-npx cap add android    # generates android/  (needs Android SDK)
-npx cap sync           # copy config + plugins into the native projects
-npx cap open ios       # → Xcode        ·  npx cap open android → Android Studio
+export CAP_SERVER_URL=https://<staging>.vercel.app
+npx cap add ios && npx cap add android && npx cap sync
+npx cap open ios     # → Xcode      ·  npx cap open android → Android Studio
 ```
-Commit `ios/` and `android/` once generated.
 
 **Then, in order (error-free):**
 1. Launch in iOS simulator + Android emulator — hosted app loads, no white flash,

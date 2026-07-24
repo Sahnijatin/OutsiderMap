@@ -1,0 +1,81 @@
+name: ios-build-check
+
+# Compiles the iOS app on a cloud **macOS** runner with signing OFF — proves the
+# native iOS shell builds without needing a Mac or an Apple Developer account.
+# Like android-build, the native `ios/` project is generated fresh from
+# capacitor.config.ts each run (hybrid app — see MOBILE_PLAN.md §6), so nothing
+# Mac-generated has to be committed from a machine we don't have.
+#
+# This is a *compile check*, not a distributable build: `CODE_SIGNING_ALLOWED=NO`
+# means no .ipa and no TestFlight. Producing a signed, installable iOS build is
+# Phase 3 — it needs an Apple Developer account ($99/yr) and signing secrets;
+# the signed job is stubbed at the bottom, disabled until those exist.
+#
+# Trigger: manual only. macOS runners are ~10x the cost of Linux, so this does
+# not run on every push — kick it when the shell/config changes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: >-
+          Hosted app URL the native shell loads (hybrid). Defaults to the
+          CAP_SERVER_URL repo variable, then production.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  compile-check:
+    runs-on: macos-14
+    timeout-minutes: 30
+    env:
+      CAP_SERVER_URL: >-
+        ${{ github.event.inputs.server_url
+            || vars.CAP_SERVER_URL
+            || 'https://www.outsidermap.com' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate iOS project
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      # CocoaPods deps for the generated project.
+      - name: pod install
+        working-directory: ios/App
+        run: pod install
+
+      # Build the workspace for a simulator with signing disabled — this is the
+      # "does it compile / link" gate. No device, no cert, no provisioning.
+      - name: Build (unsigned, simulator)
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  # --- Phase 3: signed TestFlight build (disabled until an Apple account exists)
+  #
+  # When you have an Apple Developer account, add these repo secrets and flip
+  # `if:` to a condition (or a separate workflow):
+  #   APPLE_CERTIFICATE_P12 / _PASSWORD  — distribution signing cert
+  #   APPLE_PROVISIONING_PROFILE         — app-store provisioning profile
+  #   APP_STORE_CONNECT_API_KEY (+ id/issuer) — for `xcrun altool`/`notarytool` upload
+  # Then: import cert into a temp keychain, install the profile, `xcodebuild
+  # -exportArchive` with a signed exportOptions.plist, and upload to TestFlight.
+  # Left as a stub so the path is documented in-repo (MOBILE_PLAN.md §3 Phase 3).
