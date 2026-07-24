@@ -25,15 +25,19 @@ on:
       - "capacitor.config.ts"
       - "mobile-shell/**"
       - "src/components/capacitor-init.tsx"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/android-build.yml"
-  # Also validate the APK build on PRs that touch the native shell/config, so a
-  # broken shell is caught in review. Linux + debug build → cheap enough to gate
-  # on. (iOS stays manual-only: macOS runner minutes cost ~10x.)
+  # Also validate the APK build on PRs that touch the native shell/config/deps,
+  # so a broken shell is caught in review. Linux + debug build → cheap enough to
+  # gate on. (iOS stays manual-only: macOS runner minutes cost ~10x.)
   pull_request:
     paths:
       - "capacitor.config.ts"
       - "mobile-shell/**"
       - "src/components/capacitor-init.tsx"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/android-build.yml"
 
 permissions:
