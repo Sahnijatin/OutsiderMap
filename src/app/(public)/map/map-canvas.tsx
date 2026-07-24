@@ -99,6 +99,8 @@ export type PlaceFeatureProps = {
   categoryLabel: string;
   price_level: number | null;
   image_path: string | null;
+  /** Exact Google navigation destination. Null until the pin is resolved. */
+  googlePlaceId: string | null;
 };
 
 type PlaceCollection = GeoJSON.FeatureCollection<

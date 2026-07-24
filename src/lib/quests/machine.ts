@@ -56,6 +56,7 @@ export type QuestStopDetail = Tables<"quest_stops"> & {
     image_path: string | null;
     lat: number | null;
     lng: number | null;
+    google_place_id: string | null;
     editor_note: string | null;
   } | null;
   media_count: number;
@@ -94,7 +95,7 @@ export async function getQuestDetail(
   const { data: stops } = await supabase
     .from("quest_stops")
     .select(
-      "*, place:places(id, slug, name, area, kind, image_path, lat, lng, editor_note)",
+      "*, place:places(id, slug, name, area, kind, image_path, lat, lng, google_place_id, editor_note)",
     )
     .eq("quest_id", questId)
     .order("position");
