@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import {
   getAcceptRate,
+  getActivation,
   getAnswerAcceptRate,
   getDaily,
   getExperiment,
@@ -31,10 +32,11 @@ export default async function MetricsPage() {
   await requireAdmin();
   const supabase = await createClient();
 
-  const [answer, accept, daily, funnel, retention, expConfig, expRows] =
+  const [answer, accept, activation, daily, funnel, retention, expConfig, expRows] =
     await Promise.all([
       getAnswerAcceptRate(supabase, 7),
       getAcceptRate(supabase, 7),
+      getActivation(supabase, 30),
       getDaily(supabase, 30),
       getFunnel(supabase, 30),
       getRetention(supabase, 8),
@@ -44,6 +46,14 @@ export default async function MetricsPage() {
 
   const acceptPct = ratePct(accept.accepts, accept.asks);
   const answerPct = answer.served > 0 ? ratePct(answer.accepted, answer.served) : null;
+  const activationPct =
+    activation.served > 0 ? ratePct(activation.accepted, activation.served) : null;
+  const ttfa =
+    activation.avgTtfaSeconds != null
+      ? activation.avgTtfaSeconds < 90
+        ? `${activation.avgTtfaSeconds}s`
+        : `${Math.round(activation.avgTtfaSeconds / 60)}m`
+      : "—";
 
   // Rank variants by accept-rate to mark the leader (only once both have data).
   const expVariants = expRows.map((r) => ({
@@ -86,6 +96,22 @@ export default async function MetricsPage() {
         <Tile
           label="Active users · today"
           value={today?.activeUsers ?? 0}
+        />
+        <Tile
+          label="First-answer accept · 30d"
+          value={activationPct !== null ? `${activationPct}%` : "—"}
+          sub={
+            activationPct !== null
+              ? `${activation.accepted}/${activation.served} activations`
+              : "awaiting activations"
+          }
+          muted={activationPct === null}
+        />
+        <Tile
+          label="Time to first answer"
+          value={ttfa}
+          sub={ttfa === "—" ? "awaiting activations" : "avg onboarding→answer"}
+          muted={ttfa === "—"}
         />
         <Tile
           label="Stretch-success-rate"

@@ -24,6 +24,8 @@ const BodySchema = z.object({
     // Log-only signals (no bucket side effects).
     "chat_pick_click",
     "reel_share",
+    // A click on a recommended pick (e.g. the activation first-answer, #121).
+    "rec_click",
   ]),
   // Log-only signals may arrive without a place (e.g. sharing a quest reel).
   placeId: z.string().uuid().optional(),

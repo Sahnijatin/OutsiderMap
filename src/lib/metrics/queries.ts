@@ -54,6 +54,29 @@ export async function getAnswerAcceptRate(
   return { served: row?.served ?? 0, accepted: row?.accepted ?? 0 };
 }
 
+export type Activation = {
+  served: number;
+  accepted: number;
+  avgTtfaSeconds: number | null;
+};
+
+/** Activation-beat health (#121): first-answer accept-rate + time-to-first-answer. */
+export async function getActivation(
+  supabase: SupabaseClient<Database>,
+  days = 30,
+): Promise<Activation> {
+  const { data, error } = await supabase.rpc("metrics_activation", {
+    p_days: days,
+  });
+  if (error) throw new Error(error.message);
+  const row = data?.[0];
+  return {
+    served: row?.served ?? 0,
+    accepted: row?.accepted ?? 0,
+    avgTtfaSeconds: row?.avg_ttfa_seconds ?? null,
+  };
+}
+
 export type ExperimentConfig = {
   key: string;
   description: string | null;

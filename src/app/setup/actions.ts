@@ -60,8 +60,9 @@ export async function claimUsername(raw: string): Promise<ClaimResult> {
 }
 
 /**
- * Step 2 of /setup: the taste quiz. Same pipeline as classic onboarding,
- * but setup lands on the map - the app's new front door.
+ * Step 2 of /setup: the taste quiz. Runs the onboarding pipeline, then hands
+ * off to the activation beat (#121) — the crafted first-answer moment — which
+ * reveals one taste-derived pick and then leads into the map.
  */
 export async function completeSetup(rawAnswers: QuizAnswers) {
   const user = await requireUser();
@@ -70,7 +71,7 @@ export async function completeSetup(rawAnswers: QuizAnswers) {
 
   await runOnboarding(supabase, user.id, answers);
 
-  redirect("/map?welcome=1");
+  redirect("/welcome");
 }
 
 /** Retry the AI read from the profile page when onboarding degraded. */
