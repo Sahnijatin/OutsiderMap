@@ -89,7 +89,7 @@ export function IdentityCard({
         <button
           type="button"
           onClick={() => void share()}
-          className="mt-4 flex w-fit items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-medium text-night transition-transform hover:-translate-y-0.5"
+          className="mt-4 flex w-fit items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-medium text-night transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] motion-reduce:active:scale-100"
         >
           <Share2 className="size-4" />
           {copied ? "Copied your card" : "Invite friends"}

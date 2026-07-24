@@ -88,7 +88,7 @@ export function TasteCardShare({
           <button
             type="button"
             onClick={() => void share()}
-            className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-night transition-transform hover:-translate-y-0.5"
+            className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-night transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] motion-reduce:active:scale-100"
           >
             <Share2 className="size-4" />
             {copied ? "Copied the link" : "Share your card"}

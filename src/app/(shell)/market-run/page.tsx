@@ -57,7 +57,7 @@ export default async function MarketRunsPage() {
                     <RevealItem>
                       <Link
                         href={`/market-run/${run.id}`}
-                        className="flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] hover:-translate-y-0.5 hover:border-accent/50"
+                        className="flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
                       >
                         <div className="min-w-0">
                           <p className="truncate font-display text-lg italic">

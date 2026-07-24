@@ -65,7 +65,7 @@ export default async function EventsPage() {
               <RevealItem className="h-full">
               <Link
                 href={`/events/${event.id}`}
-                className="flex h-full flex-col gap-2 rounded-card border border-line bg-surface p-5 transition-[transform,border-color] hover:-translate-y-0.5 hover:border-accent/50"
+                className="flex h-full flex-col gap-2 rounded-card border border-line bg-surface p-5 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
               >
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="font-mono text-xs text-accent">
