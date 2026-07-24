@@ -53,3 +53,6 @@ next-env.d.ts
 
 # claude code personal/machine-specific config
 .claude/settings.local.json
+
+# Data pulls staged for import (regenerate with scripts/overture-extract.sql)
+scripts/out/
