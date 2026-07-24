@@ -4,8 +4,8 @@ import type { Database } from "@/types/database";
 import type { CsamScanner, MediaRef } from "./types";
 
 /**
- * CSAM hash-matching (isolated, mandatory). The concrete scanner — PhotoDNA /
- * Cloudflare CSAM Scanning Tool / Thorn Safer (see #91) — is chosen at build;
+ * CSAM hash-matching (isolated, mandatory). The concrete scanner - PhotoDNA /
+ * Cloudflare CSAM Scanning Tool / Thorn Safer (see #91) - is chosen at build;
  * it is NOT an LLM/vision call. Until one is onboarded the default reports no
  * match (it cannot match without a vendor); the reporting machinery below is
  * exercised the moment a real scanner returns a hit.
@@ -33,7 +33,7 @@ export function createCsamScanner(): CsamScanner {
 /**
  * Handle a confirmed CSAM hit with the service-role client: quarantine the
  * media and open a csam_report. Evidence preservation + authority reporting
- * (SJPU/police) are driven from the locked CSAM surface — never auto-deleted
+ * (SJPU/police) are driven from the locked CSAM surface - never auto-deleted
  * before preservation, never exposed to non-designated staff.
  */
 export async function quarantineAndReport(

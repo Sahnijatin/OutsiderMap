@@ -188,10 +188,10 @@ export function MapCanvas({
   const runLocate = useCallback(async () => {
     const map = mapRef.current;
     if (!map) return;
-    tap(); // deliberate action — confirm it physically in the app
+    tap(); // deliberate action - confirm it physically in the app
     setLocating(true);
     // Native app: Leaflet's locate() rides on the WebView's navigator.geolocation,
-    // which is unreliable on iOS WKWebView — use the Capacitor GPS plugin and
+    // which is unreliable on iOS WKWebView - use the Capacitor GPS plugin and
     // draw the fix ourselves. Web keeps Leaflet's locate() unchanged.
     const L = LRef.current;
     if (L && (await isNativeApp())) {
@@ -200,7 +200,7 @@ export function MapCanvas({
         drawLocation(L, map, locationLayerRef, pos.latitude, pos.longitude, pos.accuracy);
         map.setView([pos.latitude, pos.longitude], Math.max(map.getZoom(), 15));
       } catch {
-        // Denied / unavailable — the button just stops spinning.
+        // Denied / unavailable - the button just stops spinning.
       } finally {
         setLocating(false);
       }
@@ -277,7 +277,7 @@ export function MapCanvas({
       });
       map.on("locationerror", () => setLocating(false));
 
-      // TODO(#47): long-press (contextmenu / touch-hold) to submit a place —
+      // TODO(#47): long-press (contextmenu / touch-hold) to submit a place -
       // the intended replacement for the retired /submit flow. Not built yet;
       // no contextmenu handler is wired here.
 
@@ -291,7 +291,7 @@ export function MapCanvas({
 
       // Location, without nagging (#116): seed from the last known spot instantly
       // (no prompt), then auto-locate *only* if permission was already granted.
-      // We never call locate() unprompted on load — the "Near me" button is the
+      // We never call locate() unprompted on load - the "Near me" button is the
       // explicit path that may raise the browser prompt.
       const cached = readCachedLocation(Date.now());
       if (cached) {
@@ -312,7 +312,7 @@ export function MapCanvas({
               );
             }
           } catch {
-            /* denied / unavailable — cache + "Near me" remain */
+            /* denied / unavailable - cache + "Near me" remain */
           } finally {
             if (!cancelled) setLocating(false);
           }
@@ -334,7 +334,7 @@ export function MapCanvas({
               }
             })
             .catch(() => {
-              /* Permissions API unavailable — rely on the cache + "Near me". */
+              /* Permissions API unavailable - rely on the cache + "Near me". */
             });
         }
       }
@@ -458,7 +458,23 @@ export function MapCanvas({
   );
 
   return (
-    <div className="relative h-full w-full">
+    <div
+      className="relative h-full w-full"
+      style={
+        {
+          // One source of truth for the top overlay rows. Everything anchored to
+          // the top of the map derives from --map-top, which clears the status
+          // bar. Previously the search bar was safe-area aware but the controls
+          // under it used hardcoded offsets (top-20 / top-32), so on a device
+          // with a tall inset they slid under the search field - the "Near me"
+          // button ended up half-hidden and untappable.
+          "--map-top": "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+          "--map-row-2": "calc(var(--map-top) + 4.25rem)",
+          "--map-row-3": "calc(var(--map-top) + 7.5rem)",
+          "--map-row-4": "calc(var(--map-top) + 10.5rem)",
+        } as React.CSSProperties
+      }
+    >
       {/*
        * `isolate` gives the Leaflet container its own stacking context, so its
        * internal panes (tiles z-200, markers z-600, tooltips z-650, controls
@@ -491,7 +507,8 @@ export function MapCanvas({
         type="button"
         aria-label="Center on my location"
         onClick={runLocate}
-        className="absolute right-4 top-20 z-[500] flex items-center gap-1.5 rounded-full border border-accent/50 bg-surface/90 px-3.5 py-2 text-xs font-medium text-accent backdrop-blur transition-colors hover:bg-accent/10"
+        style={{ top: "var(--map-row-2)" }}
+        className="absolute right-4 z-[500] flex items-center gap-1.5 rounded-full border border-accent/50 bg-surface/90 px-3.5 py-2 text-xs font-medium text-accent backdrop-blur transition-colors hover:bg-accent/10"
       >
         <LocateFixed
           className={locating ? "size-3.5 animate-spin" : "size-3.5"}
@@ -500,7 +517,10 @@ export function MapCanvas({
       </button>
 
       {tileTrouble && (
-        <p className="absolute inset-x-0 top-32 z-[500] mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink-dim backdrop-blur">
+        <p
+          style={{ top: "var(--map-row-4)" }}
+          className="absolute inset-x-0 z-[500] mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink-dim backdrop-blur"
+        >
           Map tiles are struggling - check your connection.
         </p>
       )}
@@ -512,7 +532,8 @@ export function MapCanvas({
             setLoadError(false);
             setReloadKey((k) => k + 1);
           }}
-          className="absolute inset-x-0 top-20 z-[500] mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink backdrop-blur"
+          style={{ top: "var(--map-row-3)" }}
+          className="absolute inset-x-0 z-[500] mx-auto w-fit rounded-full border border-line bg-surface/90 px-4 py-2 text-xs text-ink backdrop-blur"
         >
           Couldn&rsquo;t load places · tap to retry
         </button>

@@ -4,7 +4,7 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UsernameSchema } from "@/lib/identity/username";
 
 /**
- * GET /api/profile/username?u=some_name — availability check for the setup
+ * GET /api/profile/username?u=some_name - availability check for the setup
  * flow. Advisory only: the claim action re-checks under the unique index.
  */
 export async function GET(request: Request) {

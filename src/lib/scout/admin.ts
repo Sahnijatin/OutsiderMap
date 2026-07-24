@@ -30,7 +30,7 @@ export async function getAreaDensity(
   }));
 }
 
-/** A bounty still awaiting resolution — the surface the admin fallback acts on. */
+/** A bounty still awaiting resolution - the surface the admin fallback acts on. */
 export type ResolvableBounty = {
   id: string;
   type: "verify" | "discover";
@@ -69,7 +69,7 @@ export async function resolveBounty(
   if (error) throw new Error(friendly(error.message));
 }
 
-/** Create a discover bounty (admin tip / area gap — no submitted place yet). */
+/** Create a discover bounty (admin tip / area gap - no submitted place yet). */
 export async function createDiscoverBounty(
   supabase: SupabaseClient<Database>,
   input: { area?: string | null; city: string; bountyPoints?: number },
@@ -92,7 +92,7 @@ export type VerificationAuditRow = {
   created_at: string;
 };
 
-/** Recent admin fallback resolutions — the "no silent caps" trail. */
+/** Recent admin fallback resolutions - the "no silent caps" trail. */
 export async function recentVerificationAudit(
   admin: SupabaseClient<Database>,
   limit = 20,

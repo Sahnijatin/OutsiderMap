@@ -3,7 +3,7 @@ import path from "node:path";
 
 /**
  * The key surfaces the mobile app must get right. Auth-gated routes redirect to
- * sign-in when unauthenticated — the harness records that as an annotation
+ * sign-in when unauthenticated - the harness records that as an annotation
  * (not a failure) and screenshots wherever it lands, so the report doubles as a
  * live map of what's reachable. To exercise authed surfaces, point the harness
  * at an environment with a seeded session (see README → Authed flows).
@@ -34,11 +34,11 @@ async function assertNoHorizontalScroll(page: Page) {
   ).toBeLessThanOrEqual(2);
 }
 
-/** The page rendered something real — not a blank screen or a crash overlay. */
+/** The page rendered something real - not a blank screen or a crash overlay. */
 async function assertRendered(page: Page) {
   // Detect a real crash by its overlay text. NOTE: <nextjs-portal> is present
   // on every dev page (it hosts the dev tools), so its mere presence is NOT a
-  // crash — only the error text is.
+  // crash - only the error text is.
   const crashed = await page.evaluate(() =>
     /Unhandled Runtime Error|Application error: a (client|server)-side exception/i.test(
       document.body.innerText || "",
@@ -56,7 +56,7 @@ async function assertRendered(page: Page) {
 }
 
 for (const surface of SURFACES) {
-  test(`${surface.name} — mobile health`, async ({ page }, testInfo) => {
+  test(`${surface.name} - mobile health`, async ({ page }, testInfo) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (e) => pageErrors.push(e.message));
 
@@ -75,7 +75,7 @@ for (const surface of SURFACES) {
       });
     }
 
-    // Always capture the screenshot — it's the deliverable of the review loop.
+    // Always capture the screenshot - it's the deliverable of the review loop.
     await page.screenshot({
       path: path.join(SCREENSHOTS, testInfo.project.name, `${surface.name}.png`),
       fullPage: true,

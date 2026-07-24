@@ -1,7 +1,7 @@
 /**
  * Client IP + rate-limit subject helpers (#116). Anonymous requests can't be
  * keyed by user id, so they're bounded by IP instead. Kept dependency-free
- * (no server-only) so it's unit-testable — it only reads request headers.
+ * (no server-only) so it's unit-testable - it only reads request headers.
  *
  * Behind Vercel the client IP is the first hop of `x-forwarded-for`; we fall
  * back to `x-real-ip`. This is spoofable by a direct client, so it's a

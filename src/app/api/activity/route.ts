@@ -3,9 +3,9 @@ import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
- * GET  /api/activity — the caller's activity (RLS: recipient = self), newest
+ * GET  /api/activity - the caller's activity (RLS: recipient = self), newest
  *   first, with actor identity + an unread count.
- * POST /api/activity — mark all of the caller's activity read.
+ * POST /api/activity - mark all of the caller's activity read.
  * This is the action stream, separate from the content feed. Push delivery is
  * still deferred; events persist here now.
  */

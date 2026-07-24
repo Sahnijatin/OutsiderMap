@@ -322,7 +322,7 @@ function ReelPanel({ quest }: { quest: QuestDetail }) {
       // share sheet (the WebView has no navigator.share, so without this it
       // would silently degrade to the clipboard). Sharing the actual file on
       // native would need the reel written to disk first (@capacitor/filesystem)
-      // — the link path is the honest fallback until then.
+      // - the link path is the honest fallback until then.
       const outcome = await shareOrCopy({ title: quest.title, url: videoUrl });
       if (outcome !== "dismissed" && outcome !== "failed") {
         logShare(); // the clipboard path counts as a share too

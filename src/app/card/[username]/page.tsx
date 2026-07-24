@@ -7,7 +7,7 @@ import { formatOutsiderNumber } from "@/lib/identity/username";
 import { getPublicTasteCard } from "@/lib/taste/card";
 
 /**
- * Public shareable taste card (#121). Anon-viewable — the "here's OutsiderMap's
+ * Public shareable taste card (#121). Anon-viewable - the "here's OutsiderMap's
  * read on me" landing a shared link points at. The dynamic opengraph-image in
  * this segment supplies the social preview. Only renders taste for members who
  * opted in (public_taste_card returns null otherwise).

@@ -6,7 +6,7 @@
  */
 
 export const LOCATION_CACHE_KEY = "om:last-location";
-/** A week — stale enough that we don't drop someone across town on a cold open. */
+/** A week - stale enough that we don't drop someone across town on a cold open. */
 export const LOCATION_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type CachedLocation = { lat: number; lng: number; at: number };
@@ -30,7 +30,7 @@ export function parseCachedLocation(
       return { lat: v.lat, lng: v.lng, at: v.at };
     }
   } catch {
-    // corrupt entry — treat as no cache
+    // corrupt entry - treat as no cache
   }
   return null;
 }
@@ -55,6 +55,6 @@ export function writeCachedLocation(lat: number, lng: number, at: number): void 
       JSON.stringify({ lat, lng, at }),
     );
   } catch {
-    // private mode / quota — a cache miss is harmless
+    // private mode / quota - a cache miss is harmless
   }
 }

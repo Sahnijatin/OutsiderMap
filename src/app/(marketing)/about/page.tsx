@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 /**
  * The brand story (#116): the map is the front door now, so the pitch lives
- * here — crawlable, linkable, and kept, not deleted. Anyone can read it.
+ * here - crawlable, linkable, and kept, not deleted. Anyone can read it.
  */
 export default function AboutPage() {
   return (

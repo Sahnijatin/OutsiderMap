@@ -9,9 +9,9 @@ import {
 
 /**
  * Follow graph for a single member.
- *   GET    — the caller's follow state toward :userId (counts + flags)
- *   POST   — follow :userId (idempotent; a repeat is a no-op success)
- *   DELETE — unfollow :userId
+ *   GET    - the caller's follow state toward :userId (counts + flags)
+ *   POST   - follow :userId (idempotent; a repeat is a no-op success)
+ *   DELETE - unfollow :userId
  * RLS pins every write to edges where follower = the caller.
  */
 

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Mobile-verify harness — reviews the web app at real phone viewports, exactly
+ * Mobile-verify harness - reviews the web app at real phone viewports, exactly
  * as the Capacitor native shell (issue #143) will render it. This is the mobile
  * analogue of the web review loop: boot the app, drive the key flows on iPhone
  * and Pixel viewports with mocked location, screenshot everything, and assert
@@ -29,7 +29,7 @@ const BASE_URL = process.env.MOBILE_VERIFY_URL ?? "http://localhost:3000";
 // there, so we relax cert checks only when proxying. Off by default.
 const PROXY = process.env.PW_PROXY;
 
-// Delhi — the launch city. Every flow runs as if the member is standing in the
+// Delhi - the launch city. Every flow runs as if the member is standing in the
 // city so location-dependent surfaces (map, "right now") behave realistically.
 const DELHI = { latitude: 28.6139, longitude: 77.209 };
 

@@ -3,7 +3,7 @@ import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
- * GET /api/chat/threads — recent threads, newest first. ?before=<ISO
+ * GET /api/chat/threads - recent threads, newest first. ?before=<ISO
  * updated_at> pages older history; ?latest=1 also returns the newest
  * thread's messages (the mobile app's one-request restore contract).
  */

@@ -9,7 +9,7 @@
  */
 
 /**
- * A city is "thin" below this many eligible validators — the default publish
+ * A city is "thin" below this many eligible validators - the default publish
  * quorum (bounty_quests.quorum_needed defaults to 2). Below it, independent
  * confirmations can't converge and a bounty would hang open forever, so the
  * admin fallback is the only way to resolve it.

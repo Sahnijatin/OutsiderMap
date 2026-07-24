@@ -8,7 +8,7 @@ import { submitConfirmation } from "@/lib/scout/bounties";
 import { isLiveCapture } from "@/lib/scout/capture";
 
 /**
- * POST /api/bounties/[id]/confirm — submit an on-site verification.
+ * POST /api/bounties/[id]/confirm - submit an on-site verification.
  *
  * Evidence must be a live camera capture (never a gallery pick). Media is
  * screened through the mandatory CSAM scan (#70) before the vote is recorded;

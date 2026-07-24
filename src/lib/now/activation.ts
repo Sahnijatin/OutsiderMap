@@ -11,7 +11,7 @@ import { recommend, type Recommendation } from "@/lib/now/recommend";
  * dimensions the quiz just extracted and run it through the same one-answer
  * pipeline (which already blends the taste embedding + reranks on the taste
  * summary). The result is one confident pick that should feel like the app
- * already gets them — no typing required.
+ * already gets them - no typing required.
  */
 
 const StoredQuizSchema = z.object({
@@ -21,7 +21,7 @@ const StoredQuizSchema = z.object({
 /**
  * A taste-derived ask, in the member's own register. Pure, so it's unit-tested.
  * Falls back to a neutral evocative line when the AI dimensions are missing
- * (onboarding degraded) — recommend() still leans on the taste embedding.
+ * (onboarding degraded) - recommend() still leans on the taste embedding.
  */
 export function buildActivationQuery(
   dimensions:

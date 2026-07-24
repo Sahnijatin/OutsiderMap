@@ -6,7 +6,7 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { getQuestDetail } from "@/lib/quests/machine";
 import { signQuestMediaUrls } from "@/lib/media/quest";
 
-/** GET /api/quests/:id — full quest detail with ordered stops. */
+/** GET /api/quests/:id - full quest detail with ordered stops. */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },

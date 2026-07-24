@@ -5,9 +5,9 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { MAX_POST_BODY } from "@/lib/feed/compose";
 
 /**
- * GET  /api/posts/[id]/comments — approved comments, oldest first, with
+ * GET  /api/posts/[id]/comments - approved comments, oldest first, with
  *   public author identity.
- * POST /api/posts/[id]/comments — add a comment (RLS: only on a visible post).
+ * POST /api/posts/[id]/comments - add a comment (RLS: only on a visible post).
  */
 const idOk = (id: string) => z.string().uuid().safeParse(id).success;
 const CreateSchema = z.object({

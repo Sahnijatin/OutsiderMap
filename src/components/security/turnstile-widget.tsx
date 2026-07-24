@@ -16,7 +16,7 @@ declare global {
 /**
  * Renders an invisible/managed Cloudflare Turnstile widget and reports the
  * verification token up via onToken (null when it expires or errors). Pass a
- * stable onToken (e.g. a useState setter) — the widget renders once.
+ * stable onToken (e.g. a useState setter) - the widget renders once.
  */
 export function TurnstileWidget({
   siteKey,

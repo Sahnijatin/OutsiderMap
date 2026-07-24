@@ -4,7 +4,7 @@ import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
- * POST /api/grievances — file a formal grievance (IT Rules 2021). The
+ * POST /api/grievances - file a formal grievance (IT Rules 2021). The
  * Grievance Officer works these from /admin/grievances against statutory SLAs.
  * RLS pins reporter_id = self; the SLA clock starts at received_at.
  */

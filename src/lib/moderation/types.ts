@@ -36,9 +36,9 @@ export type ModerationAssessment = {
 export type ModerationDecision = {
   action: ModerationBand;
   categories: ModerationCategory[];
-  /** 0..1 — how confident the band is (near-1 = clearly in-band). */
+  /** 0..1 - how confident the band is (near-1 = clearly in-band). */
   confidence: number;
-  /** 0..100 — queue priority for needs_review / auto_reject. */
+  /** 0..100 - queue priority for needs_review / auto_reject. */
   severity: number;
   reason?: string;
 };

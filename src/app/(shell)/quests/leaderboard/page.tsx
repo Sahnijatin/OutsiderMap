@@ -50,7 +50,7 @@ export default async function LeaderboardPage() {
           <p className="voice">badges</p>
           {me.badges.length === 0 ? (
             <p className="mt-2 text-sm text-ink-dim">
-              None yet — verify spots and confirm others&apos; finds to earn your
+              None yet - verify spots and confirm others&apos; finds to earn your
               first.
             </p>
           ) : (
@@ -69,7 +69,7 @@ export default async function LeaderboardPage() {
         <h2 className="voice">top curators</h2>
         {leaderboard.length === 0 ? (
           <p className="rounded-xl border border-line p-6 text-center text-sm text-ink-dim">
-            No ranked curators yet. Be the first — every verified spot earns
+            No ranked curators yet. Be the first - every verified spot earns
             reputation.
           </p>
         ) : (

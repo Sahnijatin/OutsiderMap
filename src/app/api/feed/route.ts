@@ -11,7 +11,7 @@ import {
 } from "@/lib/feed/read";
 
 /**
- * GET /api/feed?tab=home|discover&cursor=<iso> — the social feed.
+ * GET /api/feed?tab=home|discover&cursor=<iso> - the social feed.
  *  - home: reverse-chronological posts from people you follow + friends (+ you)
  *  - discover: public approved posts, re-ranked by a light Discover score
  * Visibility is enforced by RLS (can_view_post); the tab filters narrow which

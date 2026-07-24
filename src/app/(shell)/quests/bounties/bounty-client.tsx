@@ -11,7 +11,7 @@ import { success, tap, warn } from "@/lib/native/haptics";
 /**
  * Client surfaces for the Scout Economy. SubmitSpotForm lets a scout list a
  * hidden place (spawning a verify bounty); ConfirmFlow is the on-site
- * verification — live camera capture + device geolocation, screened + gated
+ * verification - live camera capture + device geolocation, screened + gated
  * server-side. Location comes from the shared geolocation seam, so it's native
  * GPS in the app and `navigator.geolocation` on the web.
  */
@@ -42,7 +42,7 @@ export function SubmitSpotForm() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Couldn't submit.");
-      setMsg("Submitted — other members will verify it on-site.");
+      setMsg("Submitted - other members will verify it on-site.");
       setName("");
       setArea("");
       router.refresh();
@@ -91,7 +91,7 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
   const [shot, setShot] = useState<File | null>(null);
 
   // On-site verification has to be a *live* photo, so native forces the camera
-  // (CameraSource.Camera) — no picking an old gallery shot.
+  // (CameraSource.Camera) - no picking an old gallery shot.
   async function takePhoto() {
     setMsg(null);
     try {
@@ -121,7 +121,7 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Please sign in again.");
 
-      // Keep the stored extension honest — native capture may hand back png/webp.
+      // Keep the stored extension honest - native capture may hand back png/webp.
       const ext = (file.type.split("/")[1] ?? "jpg").replace("jpeg", "jpg");
       const path = `scout/${user.id}/${bountyId}-${Date.now()}.${ext}`;
       const up = await supabase.storage

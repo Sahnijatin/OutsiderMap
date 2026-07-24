@@ -3,14 +3,14 @@
 import { isNativeApp } from "@/lib/capacitor/platform";
 
 /**
- * Haptic feedback (#143 plugins track) — the small physical confirmations that
+ * Haptic feedback (#143 plugins track) - the small physical confirmations that
  * make the app feel native rather than like a website in a frame.
  *
  * Every helper is **fire-and-forget and never throws**: haptics are a nicety,
  * so a missing plugin, a device without a taptic engine, or a denied capability
  * must never affect a user flow. All are no-ops on the web.
  *
- * Used sparingly and only on meaningful moments — a buzz on every tap is noise.
+ * Used sparingly and only on meaningful moments - a buzz on every tap is noise.
  */
 
 type Impact = "light" | "medium" | "heavy";
@@ -27,7 +27,7 @@ async function withHaptics<T>(
   }
 }
 
-/** A tap — for a deliberate action (button press, capture). */
+/** A tap - for a deliberate action (button press, capture). */
 export function tap(style: Impact = "light"): void {
   void withHaptics(async ({ Haptics, ImpactStyle }) => {
     const map = {
@@ -39,14 +39,14 @@ export function tap(style: Impact = "light"): void {
   });
 }
 
-/** A completion buzz — for something that succeeded (submitted, verified). */
+/** A completion buzz - for something that succeeded (submitted, verified). */
 export function success(): void {
   void withHaptics(async ({ Haptics, NotificationType }) => {
     await Haptics.notification({ type: NotificationType.Success });
   });
 }
 
-/** A rejection buzz — for something that failed or was refused. */
+/** A rejection buzz - for something that failed or was refused. */
 export function warn(): void {
   void withHaptics(async ({ Haptics, NotificationType }) => {
     await Haptics.notification({ type: NotificationType.Warning });

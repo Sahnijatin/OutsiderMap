@@ -12,7 +12,7 @@ import { publicMediaUrl } from "@/lib/media/url";
 import { moderatePost } from "@/lib/moderation/gate";
 
 /**
- * POST — after the client PUTs to the signed URL, verify the object landed
+ * POST - after the client PUTs to the signed URL, verify the object landed
  * (and fits the cap), then record the post_media row at the next ordinal.
  * Returns the post's media list with public display URLs. Mirrors the quest
  * media confirm route.

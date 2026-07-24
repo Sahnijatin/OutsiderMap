@@ -3,7 +3,7 @@ import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { FriendSearchSchema } from "@/lib/friends/model";
 
-/** GET /api/friends/search?q= — username prefix typeahead (slim fields). */
+/** GET /api/friends/search?q= - username prefix typeahead (slim fields). */
 export async function GET(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
-/** GET /api/chat/threads/:id — one thread with its messages, oldest first. */
+/** GET /api/chat/threads/:id - one thread with its messages, oldest first. */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -45,7 +45,7 @@ export async function GET(
   return NextResponse.json({ thread, messages: messages ?? [] });
 }
 
-/** DELETE /api/chat/threads/:id — remove a thread; the FK cascades messages. */
+/** DELETE /api/chat/threads/:id - remove a thread; the FK cascades messages. */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },

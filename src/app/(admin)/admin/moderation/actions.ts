@@ -62,7 +62,7 @@ export async function actOnCase(formData: FormData) {
       .update({ decision: "escalated", reviewer_id: me.id })
       .eq("id", c.id);
   } else if (c.author_id) {
-    // warn / mute / ban — enforcement on the author (a strike either way).
+    // warn / mute / ban - enforcement on the author (a strike either way).
     // The escalating ladder (trust.ts) drives duration by strike count; the
     // reviewer's pick can only escalate past it, never soften it.
     const [{ data: trust }, { data: profile }] = await Promise.all([

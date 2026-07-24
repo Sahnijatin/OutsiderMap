@@ -10,7 +10,7 @@ import type { TablesInsert } from "@/types/database";
 /**
  * Map-category admin (#pins). Categories drive the pin color + legend, so a
  * save revalidates the map alongside the admin list. Deleting a category leaves
- * its places (FK on delete set null) — those pins fall back to the amber default.
+ * its places (FK on delete set null) - those pins fall back to the amber default.
  */
 
 const FormSchema = z.object({

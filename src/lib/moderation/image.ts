@@ -3,7 +3,7 @@ import type { ImageModerator, ModerationDecision } from "./types";
 
 /**
  * Image/video moderation behind a swappable ImageModerator. The concrete
- * provider (Hive / AWS Rekognition / Google Vision — see #91) is chosen at
+ * provider (Hive / AWS Rekognition / Google Vision - see #91) is chosen at
  * build. Until one is configured the default is deliberately conservative:
  * every media item returns `needs_review`, so nothing auto-publishes and a
  * human clears it. That preserves the "no unscreened media goes public"
@@ -15,7 +15,7 @@ const HOLD: ModerationDecision = {
   categories: [],
   confidence: 0,
   severity: 10,
-  reason: "no image provider configured — held for review",
+  reason: "no image provider configured - held for review",
 };
 
 export function createHoldImageModerator(): ImageModerator {

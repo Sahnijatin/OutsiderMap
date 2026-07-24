@@ -9,7 +9,7 @@ import { createDiscoverBounty, resolveBounty } from "@/lib/scout/admin";
 /**
  * Scout admin desk mutations (#114). These call is_admin()-guarded RPCs, so
  * they use the admin's *session* client (createClient) rather than the
- * service-role client — the RPC needs auth.uid() to be the admin both to pass
+ * service-role client - the RPC needs auth.uid() to be the admin both to pass
  * the guard and to stamp the audit row's admin_id.
  */
 

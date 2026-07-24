@@ -6,7 +6,7 @@ import { CreatePostSchema } from "@/lib/feed/compose";
 import { moderatePost } from "@/lib/moderation/gate";
 
 /**
- * POST /api/posts — create a post. It lands `status='pending'` (the RLS
+ * POST /api/posts - create a post. It lands `status='pending'` (the RLS
  * with-check forbids any other initial status) and only reaches public
  * visibility once moderation approves it. Media is attached afterward via
  * /api/posts/[id]/media once the row (and its id) exists.

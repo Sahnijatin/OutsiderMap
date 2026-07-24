@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 /**
  * Native in-app Google + Apple sign-in for the Capacitor app (#151), via
  * `@capgo/capacitor-social-login`. These show the OS-native account sheets (no
- * browser, no WebView OAuth — which Google forbids), return an identity token,
+ * browser, no WebView OAuth - which Google forbids), return an identity token,
  * and we hand it to Supabase `signInWithIdToken`, so the session lands in the
  * same cookie state the app already uses.
  *
@@ -15,9 +15,9 @@ import { createClient } from "@/lib/supabase/client";
  * it never enters the web bundle.
  *
  * Config (public env, set on the hosting deployment):
- *   NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID  — Google iOS OAuth client ID
- *   NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID  — Google Web client ID (Android + token audience)
- *   NEXT_PUBLIC_APPLE_SIGN_IN=1       — enable Sign in with Apple (iOS)
+ *   NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID  - Google iOS OAuth client ID
+ *   NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID  - Google Web client ID (Android + token audience)
+ *   NEXT_PUBLIC_APPLE_SIGN_IN=1       - enable Sign in with Apple (iOS)
  */
 
 const GOOGLE_IOS_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID;

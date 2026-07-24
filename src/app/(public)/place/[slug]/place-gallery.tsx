@@ -13,7 +13,7 @@ export type GalleryCard = {
 /**
  * The full-page media carousel: images and videos in a snap scroller with
  * arrow controls and dot indicators. Bigger and calmer than the sheet's
- * strip — this is the place given room to breathe.
+ * strip - this is the place given room to breathe.
  */
 export function PlaceGallery({
   cards,

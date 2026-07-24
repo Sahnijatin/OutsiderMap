@@ -4,7 +4,7 @@ import { ActivityView } from "./activity-view";
 
 export const metadata: Metadata = { title: "Activity" };
 
-/** The action stream — who did what to your stuff. Separate from the feed. */
+/** The action stream - who did what to your stuff. Separate from the feed. */
 export default async function ActivityPage() {
   await requireOnboarded();
   return <ActivityView />;

@@ -17,7 +17,7 @@ import { isNativeApp } from "@/lib/capacitor/platform";
 export type ShareOutcome =
   /** The OS/browser share sheet handled it. */
   | "shared"
-  /** No share sheet — the link is on the clipboard instead. */
+  /** No share sheet - the link is on the clipboard instead. */
   | "copied"
   /** The user dismissed the sheet. */
   | "dismissed"
@@ -47,7 +47,7 @@ export async function shareOrCopy(input: ShareInput): Promise<ShareOutcome> {
       await Share.share({ title, text, url });
       return "shared";
     } catch (e) {
-      // Dismissing the sheet rejects — that's a normal outcome, not a failure.
+      // Dismissing the sheet rejects - that's a normal outcome, not a failure.
       const msg = e instanceof Error ? e.message : String(e);
       if (/cancel|abort|dismiss/i.test(msg)) return "dismissed";
       // Fall through to the web paths below.

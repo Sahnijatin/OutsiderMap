@@ -1,5 +1,5 @@
 /**
- * Quorum resolution — the pure mirror of the SQL `aggregate_verdict` decision.
+ * Quorum resolution - the pure mirror of the SQL `aggregate_verdict` decision.
  * Only clean votes (geo_ok + independent + non-anomalous) are passed in as the
  * valid counts; this decides the bounty's next state.
  */

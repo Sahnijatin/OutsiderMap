@@ -3,7 +3,7 @@
 /**
  * Device geolocation with a native path (#143 plugins track). On the web this is
  * `navigator.geolocation`; in the Capacitor native app it's `@capacitor/geolocation`
- * — real device GPS with a proper native permission prompt (the WebView's
+ * - real device GPS with a proper native permission prompt (the WebView's
  * `navigator.geolocation` is unreliable on iOS WKWebView, which is why the plugin
  * exists). Capacitor is dynamically imported so nothing native enters the web
  * bundle, mirroring `src/lib/auth/native-social.ts`.
@@ -78,7 +78,7 @@ export async function getDevicePosition(
 }
 
 /**
- * Whether location permission is *already* granted — so a surface can locate
+ * Whether location permission is *already* granted - so a surface can locate
  * without raising a prompt on load (#116's "no nagging" policy). Native → the
  * plugin's `checkPermissions`; web → the Permissions API. Never prompts.
  */

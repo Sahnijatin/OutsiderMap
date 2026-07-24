@@ -1,5 +1,5 @@
 /**
- * Points-ledger math — pure mirror of the SQL derived balance. Balance counts
+ * Points-ledger math - pure mirror of the SQL derived balance. Balance counts
  * only confirmed rows; escrow is shown separately as pending.
  */
 

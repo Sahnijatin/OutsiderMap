@@ -25,7 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .limit(5000);
     places = data ?? [];
   } catch {
-    // No/invalid service-role key — ship the static routes only.
+    // No/invalid service-role key - ship the static routes only.
   }
 
   return [

@@ -8,14 +8,14 @@ import { PushRegistrar } from "@/components/push-registrar";
 
 /**
  * The public app shell (#116): the map and place pages render for everyone,
- * signed in or not. Unlike (shell), this never calls requireOnboarded() — an
+ * signed in or not. Unlike (shell), this never calls requireOnboarded() - an
  * anonymous explorer gets the same chrome with a sign-in card, and walled
  * actions push them to sign-in. Personalized pages stay under (shell)'s gate.
  */
 export default async function PublicLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const profile = await getProfile(); // null when signed out — never redirects
+  const profile = await getProfile(); // null when signed out - never redirects
   const signedIn = !!profile;
 
   let cityName = "Delhi";

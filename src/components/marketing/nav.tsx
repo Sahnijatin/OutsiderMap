@@ -15,7 +15,7 @@ export function MarketingNav() {
           >
             How it works
           </Link>
-          {/* Sign in & Pricing are intentionally hidden pre-launch — the
+          {/* Sign in & Pricing are intentionally hidden pre-launch - the
               routes still work by direct URL while we build behind the scenes. */}
           <ButtonLink href="/sign-in" variant="primary" size="sm">
             Sign up

@@ -8,7 +8,7 @@ import { setTasteCardPublic } from "./actions";
 
 /**
  * Opt-in control for the shareable taste card (#121): a public/private switch,
- * and — once public — a native-share / clipboard button for the /card/[username]
+ * and - once public - a native-share / clipboard button for the /card/[username]
  * link. Mirrors the personalization-toggle + identity-card share patterns.
  */
 export function TasteCardShare({
@@ -57,7 +57,7 @@ export function TasteCardShare({
           <p className="text-sm font-medium text-ink">Your taste card</p>
           <p className="mt-0.5 text-xs leading-relaxed text-ink-dim">
             {isPublic
-              ? "Public — anyone with the link can see your read."
+              ? "Public - anyone with the link can see your read."
               : "Private. Make it public to share the “here’s my read” card."}
           </p>
         </div>

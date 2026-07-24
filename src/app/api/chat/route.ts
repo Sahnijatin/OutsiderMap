@@ -6,7 +6,7 @@ import { runChatTurn } from "@/lib/chat/engine";
 import { describeError, withTimeout, TimeoutError } from "@/lib/ai/retry";
 
 /**
- * POST /api/chat — one conversational turn. Two LLM calls on the recommend
+ * POST /api/chat - one conversational turn. Two LLM calls on the recommend
  * path, so the rate limit is tighter than browse endpoints, and the route
  * needs real time: without maxDuration the platform default timeout kills
  * the turn mid-flight and the client receives a non-JSON 504 (issue #38).

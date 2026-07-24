@@ -13,8 +13,8 @@ import {
 } from "@/lib/media/quest";
 
 /**
- * POST — issue a signed direct-to-Storage upload URL for the unlocked stop.
- * DELETE — remove one of the member's own captures while the stop is open.
+ * POST - issue a signed direct-to-Storage upload URL for the unlocked stop.
+ * DELETE - remove one of the member's own captures while the stop is open.
  */
 const IssueSchema = z.object({
   kind: z.enum(["image", "video"]),

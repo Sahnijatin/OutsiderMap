@@ -4,7 +4,7 @@ import { serverEnv } from "@/lib/env";
 /**
  * Fixed-window rate limit backed by Upstash Redis (REST API, no SDK). Returns
  * true if the request is allowed. No-ops (allows) when Upstash isn't
- * configured, and fails open on any infra error — a flaky cache must never
+ * configured, and fails open on any infra error - a flaky cache must never
  * lock out real users.
  *
  * Implementation: INCR the key, and set its TTL only on the first hit of the

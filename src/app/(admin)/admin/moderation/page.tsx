@@ -65,7 +65,7 @@ export default async function ModerationQueue() {
                   {(a?.categories?.length || c.reason) && (
                     <p className="text-sm text-ink-dim">
                       {a?.categories?.length ? a.categories.join(", ") : ""}
-                      {a?.categories?.length && c.reason ? " — " : ""}
+                      {a?.categories?.length && c.reason ? " - " : ""}
                       {c.reason ?? ""}
                     </p>
                   )}

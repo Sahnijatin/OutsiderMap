@@ -3,9 +3,9 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Tiny client-side store for "which Capacitor platform are we on" — `"web"`,
+ * Tiny client-side store for "which Capacitor platform are we on" - `"web"`,
  * `"ios"`, or `"android"`. Used to gate native-only behaviour (the mobile app
- * opens to a sign-in screen, and native sign-in stays fully in-app — #149).
+ * opens to a sign-in screen, and native sign-in stays fully in-app - #149).
  *
  * Capacitor is imported *dynamically* so it never enters the web bundle, and the
  * value is exposed through `useSyncExternalStore` (not set-state-in-effect), so
@@ -31,7 +31,7 @@ function startDetection() {
         for (const l of listeners) l();
       }
     } catch {
-      // Capacitor absent (plain web) — stay "web".
+      // Capacitor absent (plain web) - stay "web".
     }
   })();
 }
@@ -56,7 +56,7 @@ export function useCapacitorPlatform(): CapacitorPlatform {
 /**
  * Imperative "are we in the native shell?" for non-render code (event handlers,
  * async helpers). Async so callers get the answer at call time rather than a
- * mount-time snapshot. The canonical check — native helpers should use this
+ * mount-time snapshot. The canonical check - native helpers should use this
  * rather than importing Capacitor themselves.
  */
 export async function isNativeApp(): Promise<boolean> {

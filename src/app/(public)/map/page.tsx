@@ -13,7 +13,7 @@ export const metadata: Metadata = {
  * The app's home, for everyone (#116): a full-bleed night map of curated
  * places. Anonymous visitors explore Delhi (or the first live city); a signed-in
  * member gets their home city. Walled actions and personalized results push to
- * sign-in — browsing the map is always open.
+ * sign-in - browsing the map is always open.
  */
 export default async function MapPage({
   searchParams,

@@ -8,7 +8,7 @@ import { MODERATION_CATEGORIES, type CategoryScores, type TextModerator } from "
 /**
  * Default text moderator: cheap heuristics as a fast gate, then the existing
  * LLM classifier for nuance, context, and Hinglish/code-switching the keyword
- * layer misses. Degrades to heuristics-only if the LLM call fails — a flaky
+ * layer misses. Degrades to heuristics-only if the LLM call fails - a flaky
  * model must never wave content through or hard-fail the write.
  */
 

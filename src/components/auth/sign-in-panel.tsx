@@ -22,7 +22,7 @@ import { Spinner } from "@/components/ui/spinner";
  * - **Web:** email code + Google (a full-page redirect, so we stash `next` in a
  *   short-lived cookie before redirecting and the callback reads it).
  * - **Native app:** everything stays in-app (#149). Email code always; plus
- *   native Apple (iOS) and Google **sign-in sheets** (#151) — the OS-native
+ *   native Apple (iOS) and Google **sign-in sheets** (#151) - the OS-native
  *   account pickers via `signInWithIdToken`, shown only once their client IDs
  *   are configured. The web-redirect Google button is never shown on native.
  */
@@ -145,7 +145,7 @@ export function SignInPanel({
       await run();
       finishSignIn();
     } catch (e) {
-      // A user-cancelled sheet also lands here — a quiet retry is fine.
+      // A user-cancelled sheet also lands here - a quiet retry is fine.
       setError(e instanceof Error ? e.message : "Sign-in failed. Try again.");
       setPending(false);
     }
@@ -168,7 +168,7 @@ export function SignInPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Sign in with Apple — iOS native sheet, shown first per Apple's HIG. */}
+      {/* Sign in with Apple - iOS native sheet, shown first per Apple's HIG. */}
       {showNativeApple && (
         <Button
           type="button"
@@ -181,7 +181,7 @@ export function SignInPanel({
         </Button>
       )}
 
-      {/* Google — native account sheet in the app; full-page redirect on web.
+      {/* Google - native account sheet in the app; full-page redirect on web.
           The web-redirect variant is never shown on native (it would leave to a
           browser); the native sheet appears only once its client IDs exist. */}
       {showNativeGoogle ? (

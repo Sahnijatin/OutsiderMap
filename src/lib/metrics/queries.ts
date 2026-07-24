@@ -5,7 +5,7 @@ import type { Database } from "@/types/database";
 /**
  * Server-side wrappers over the metrics RPCs (migration 34). All are admin-only
  * (the RPCs guard on is_admin()), so call them with the admin's session client
- * — auth.uid() must be the admin for the guard to resolve.
+ * - auth.uid() must be the admin for the guard to resolve.
  */
 
 export type AcceptRate = { asks: number; accepts: number };
@@ -39,8 +39,8 @@ export async function getAcceptRate(
 
 /**
  * Precise Confident-Answer-Accept-Rate (#120 part 2a): served answers joined to
- * their acceptances by answer_id — no time-window proxy. Reads zero until the
- * answer_served/answer_accepted events accumulate, so the UI shows it as "—".
+ * their acceptances by answer_id - no time-window proxy. Reads zero until the
+ * answer_served/answer_accepted events accumulate, so the UI shows it as "-".
  */
 export async function getAnswerAcceptRate(
   supabase: SupabaseClient<Database>,

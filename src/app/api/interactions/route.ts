@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
   }
 
   // A click on a served answer's pick is also a precise acceptance (#120),
-  // joined to the serve by answer_id. Best-effort — never fail the click on it.
+  // joined to the serve by answer_id. Best-effort - never fail the click on it.
   if (answerId) {
     await supabase.from("interaction_events").insert({
       user_id: user.id,

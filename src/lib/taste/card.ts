@@ -4,7 +4,7 @@ import type { Database } from "@/types/database";
 
 /**
  * Public taste card (#121). Reads the opt-in, public-safe subset of a member's
- * taste via the security-definer public_taste_card RPC — safe to call for an
+ * taste via the security-definer public_taste_card RPC - safe to call for an
  * anonymous viewer following a shared link.
  */
 
