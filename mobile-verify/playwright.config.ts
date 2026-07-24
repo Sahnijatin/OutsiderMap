@@ -20,6 +20,11 @@ const CHROME =
 
 const BASE_URL = process.env.MOBILE_VERIFY_URL ?? "http://localhost:3000";
 
+// Opt-in proxy for running the harness from behind an egress proxy (e.g. a
+// sandboxed CI/agent). Set PW_PROXY to the proxy URL; TLS is interception-based
+// there, so we relax cert checks only when proxying. Off by default.
+const PROXY = process.env.PW_PROXY;
+
 // Delhi — the launch city. Every flow runs as if the member is standing in the
 // city so location-dependent surfaces (map, "right now") behave realistically.
 const DELHI = { latitude: 28.6139, longitude: 77.209 };
@@ -43,6 +48,7 @@ export default defineConfig({
     permissions: ["geolocation"],
     screenshot: "on",
     trace: "retain-on-failure",
+    ...(PROXY ? { proxy: { server: PROXY }, ignoreHTTPSErrors: true } : {}),
     // --no-sandbox: containers/CI often run as root, where Chromium refuses to
     // start without it. Harmless locally.
     launchOptions: {
