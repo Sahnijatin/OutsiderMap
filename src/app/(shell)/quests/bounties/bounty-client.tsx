@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getDevicePosition } from "@/lib/map/geolocation";
+import { captureNativePhoto } from "@/lib/media/camera";
+import { useIsNativeApp } from "@/lib/capacitor/platform";
 
 /**
  * Client surfaces for the Scout Economy. SubmitSpotForm lets a scout list a
@@ -81,11 +83,26 @@ export function SubmitSpotForm() {
 export function ConfirmFlow({ bountyId }: { bountyId: string }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const isNative = useIsNativeApp();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Native capture result (the app uses the real camera instead of an input).
+  const [shot, setShot] = useState<File | null>(null);
+
+  // On-site verification has to be a *live* photo, so native forces the camera
+  // (CameraSource.Camera) — no picking an old gallery shot.
+  async function takePhoto() {
+    setMsg(null);
+    try {
+      const file = await captureNativePhoto("camera");
+      if (file) setShot(file);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Couldn't open the camera.");
+    }
+  }
 
   async function confirm(verdict: "exists" | "not_exists") {
-    const file = fileRef.current?.files?.[0];
+    const file = shot ?? fileRef.current?.files?.[0];
     if (!file) {
       setMsg("Capture a live photo first.");
       return;
@@ -100,7 +117,9 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Please sign in again.");
 
-      const path = `scout/${user.id}/${bountyId}-${Date.now()}.jpg`;
+      // Keep the stored extension honest — native capture may hand back png/webp.
+      const ext = (file.type.split("/")[1] ?? "jpg").replace("jpeg", "jpg");
+      const path = `scout/${user.id}/${bountyId}-${Date.now()}.${ext}`;
       const up = await supabase.storage
         .from(CAPTURE_BUCKET)
         .upload(path, file, { upsert: true, contentType: file.type });
@@ -120,6 +139,7 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Couldn't confirm.");
       setMsg("Verification submitted. Thank you for scouting.");
+      setShot(null);
       router.refresh();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Something went wrong.");
@@ -130,13 +150,27 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
 
   return (
     <div className="flex flex-col gap-2 border-t border-line pt-3">
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="text-xs text-ink-dim"
-      />
+      {isNative ? (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={takePhoto}
+            disabled={busy}
+            className="rounded-full border border-line px-3 py-1.5 text-xs text-ink disabled:opacity-50"
+          >
+            {shot ? "Retake photo" : "Take photo"}
+          </button>
+          {shot && <span className="text-xs text-ink-dim">Photo ready</span>}
+        </div>
+      ) : (
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="text-xs text-ink-dim"
+        />
+      )}
       <div className="flex gap-2">
         <button
           type="button"

@@ -53,6 +53,21 @@ export function useCapacitorPlatform(): CapacitorPlatform {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+/**
+ * Imperative "are we in the native shell?" for non-render code (event handlers,
+ * async helpers). Async so callers get the answer at call time rather than a
+ * mount-time snapshot. The canonical check — native helpers should use this
+ * rather than importing Capacitor themselves.
+ */
+export async function isNativeApp(): Promise<boolean> {
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+}
+
 /** True on a native iOS/Android shell; false on the web. */
 export function useIsNativeApp(): boolean {
   return useCapacitorPlatform() !== "web";

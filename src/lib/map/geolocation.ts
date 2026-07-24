@@ -12,6 +12,8 @@
  * identical and native just works.
  */
 
+import { isNativeApp } from "@/lib/capacitor/platform";
+
 export type DevicePosition = {
   latitude: number;
   longitude: number;
@@ -21,16 +23,9 @@ export type DevicePosition = {
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
-/** True on the Capacitor native shell. Async so callers get the right value at
- *  call time (not a mount-time snapshot), which matters inside the map effect. */
-export async function isNativeApp(): Promise<boolean> {
-  try {
-    const { Capacitor } = await import("@capacitor/core");
-    return Capacitor.isNativePlatform();
-  } catch {
-    return false;
-  }
-}
+/** Re-exported so location consumers have one import; canonical impl lives in
+ *  `@/lib/capacitor/platform`. */
+export { isNativeApp };
 
 /**
  * One-shot current position. Native uses the Capacitor plugin (prompting for

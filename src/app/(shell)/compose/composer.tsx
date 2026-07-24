@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, MapPin, X } from "lucide-react";
+import { Camera, ImagePlus, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { captureNativePhoto } from "@/lib/media/camera";
+import { useIsNativeApp } from "@/lib/capacitor/platform";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -88,6 +90,7 @@ export function Composer({ homeCity }: { homeCity: string }) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const isNative = useIsNativeApp();
 
   // Debounced catalog place search. A picked place suppresses searching. All
   // state updates happen inside the timer callback (never synchronously in the
@@ -130,7 +133,7 @@ export function Composer({ homeCity }: { homeCity: string }) {
     setPlaceLabel(null);
   }
 
-  function addFiles(list: FileList | null) {
+  function addFiles(list: FileList | File[] | null) {
     if (!list) return;
     setError(null);
     const next: LocalMedia[] = [];
@@ -145,6 +148,16 @@ export function Composer({ homeCity }: { homeCity: string }) {
     }
     if (next.length) setMedia((cur) => [...cur, ...next]);
     if (fileInput.current) fileInput.current.value = "";
+  }
+
+  // Native camera capture (no-op on web, where the tile isn't rendered).
+  async function shoot() {
+    try {
+      const file = await captureNativePhoto("camera");
+      if (file) addFiles([file]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't open the camera.");
+    }
   }
 
   function removeMedia(idx: number) {
@@ -384,6 +397,18 @@ export function Composer({ homeCity }: { homeCity: string }) {
             >
               <ImagePlus className="size-5" />
               <span className="text-[0.65rem]">Add</span>
+            </button>
+          )}
+          {/* Native app: a real camera tile next to the picker (#143). Additive —
+              "Add" still opens the OS picker for existing photos and video. */}
+          {isNative && media.length < MAX_POST_MEDIA && (
+            <button
+              type="button"
+              onClick={shoot}
+              className="flex size-20 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-line text-ink-dim hover:border-ink-dim hover:text-ink"
+            >
+              <Camera className="size-5" />
+              <span className="text-[0.65rem]">Camera</span>
             </button>
           )}
         </div>
