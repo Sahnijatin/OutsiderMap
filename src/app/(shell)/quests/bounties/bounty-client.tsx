@@ -3,28 +3,17 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getDevicePosition } from "@/lib/map/geolocation";
 
 /**
  * Client surfaces for the Scout Economy. SubmitSpotForm lets a scout list a
  * hidden place (spawning a verify bounty); ConfirmFlow is the on-site
  * verification — live camera capture + device geolocation, screened + gated
- * server-side.
+ * server-side. Location comes from the shared geolocation seam, so it's native
+ * GPS in the app and `navigator.geolocation` on the web.
  */
 
 const CAPTURE_BUCKET = "quest-media";
-
-function getPosition(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => {
-    if (!("geolocation" in navigator)) {
-      reject(new Error("Location isn't available on this device."));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 15_000,
-    });
-  });
-}
 
 export function SubmitSpotForm() {
   const router = useRouter();
@@ -37,15 +26,15 @@ export function SubmitSpotForm() {
     setBusy(true);
     setMsg(null);
     try {
-      const pos = await getPosition();
+      const pos = await getDevicePosition();
       const res = await fetch("/api/scout/submissions", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name,
           area: area || undefined,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
+          lat: pos.latitude,
+          lng: pos.longitude,
         }),
       });
       const body = await res.json();
@@ -104,7 +93,7 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
     setBusy(true);
     setMsg(null);
     try {
-      const pos = await getPosition();
+      const pos = await getDevicePosition();
       const supabase = createClient();
       const {
         data: { user },
@@ -123,8 +112,8 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
         body: JSON.stringify({
           verdict,
           media: { source: "camera", bucket: CAPTURE_BUCKET, path, kind: "image" },
-          capturedLat: pos.coords.latitude,
-          capturedLng: pos.coords.longitude,
+          capturedLat: pos.latitude,
+          capturedLng: pos.longitude,
           capturedAt: new Date().toISOString(),
         }),
       });
