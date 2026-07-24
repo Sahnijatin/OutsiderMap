@@ -1,7 +1,10 @@
-# Typecheck / lint / test / build for the web app and typecheck / lint /
-# bundle for the Expo app, on every PR and push to main. The two apps have
-# separate toolchains (see root tsconfig.json / mobile/), so they run as
-# separate jobs.
+# Typecheck / lint / test / build for the web app, on every PR and push to main.
+#
+# The old Expo app in `mobile/` no longer has a job here: it was retired when the
+# native apps moved to Capacitor (#143), and its typecheck/lint/`expo export`
+# were spending CI minutes on code we no longer ship. The directory is kept for
+# reference (retire-not-delete) — the shipping native builds are
+# android-build.yml, ios-build-check.yml and ios-testflight.yml.
 
 name: CI
 
@@ -41,25 +44,3 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
-
-  mobile:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mobile
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
-      - run: npm ci
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Lint
-        run: npm run lint
-      - name: Bundle (expo export)
-        run: npx expo export --platform ios --platform android --output-dir /tmp/expo-export
-        env:
-          CI: "1"
