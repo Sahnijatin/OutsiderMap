@@ -15,7 +15,14 @@ import {
 import { googleMapsDirUrl } from "@/lib/map/directions";
 import { isOpenNow, openStatusLabel } from "@/lib/places/hours";
 import type { Json } from "@/types/database";
+import { displayHandle, listPlaceMedia } from "@/lib/media/place-media";
 import { PlaceGallery, type GalleryCard } from "./place-gallery";
+
+const PLATFORM_LABEL = {
+  instagram: "Instagram",
+  youtube: "YouTube",
+  other: "the original post",
+} as const;
 
 const DETAIL_FIELDS =
   "id, slug, name, area, kind, category, category_id, price_level, vibe_tags, description, editor_note, hours, best_for, image_path, story, lat, lng, google_place_id";
@@ -128,6 +135,30 @@ export default async function PlacePage({
       });
     }
   }
+  // Real photos and creator reels. Hosted media renders directly; an embed
+  // renders its platform thumbnail as a link back to the creator's post,
+  // because we hold no copy of it and are not entitled to one.
+  for (const item of await listPlaceMedia(supabase, place.id)) {
+    if (item.variant === "hosted") {
+      cards.push({
+        src: item.src,
+        type: item.kind,
+        caption: item.caption ?? undefined,
+      });
+    } else if (item.thumbnailUrl) {
+      cards.push({
+        src: item.thumbnailUrl,
+        type: "image",
+        caption: item.caption ?? undefined,
+        credit: {
+          authorName: displayHandle(item.authorName),
+          href: item.sourceUrl,
+          platformLabel: PLATFORM_LABEL[item.platform],
+        },
+      });
+    }
+  }
+
   const cover = publicMediaUrl("place-images", place.image_path);
   if (cards.length === 0 && cover) cards.push({ src: cover, type: "image" });
 

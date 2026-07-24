@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,12 @@ export type GalleryCard = {
   src: string;
   type: "image" | "video";
   caption?: string;
+  /**
+   * Set on media we do not host. The card becomes a link to the creator's
+   * post and shows their handle - that credit is the basis on which we are
+   * entitled to show it at all, so it is not optional decoration.
+   */
+  credit?: { authorName: string; href: string; platformLabel: string };
 };
 
 /**
@@ -88,9 +94,20 @@ export function PlaceGallery({
                 className="aspect-[4/3] w-full object-cover"
               />
             )}
-            {card.caption && (
+            {(card.caption || card.credit) && (
               <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-night/90 to-transparent px-4 pb-3 pt-8 text-xs text-ink">
                 {card.caption}
+                {card.credit && (
+                  <a
+                    href={card.credit.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-ink-dim transition-colors hover:text-ink"
+                  >
+                    {card.credit.authorName} on {card.credit.platformLabel}
+                    <ExternalLink className="size-3" />
+                  </a>
+                )}
               </figcaption>
             )}
           </figure>

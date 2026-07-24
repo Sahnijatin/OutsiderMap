@@ -366,6 +366,78 @@ export type Database = {
         };
         Relationships: [];
       };
+      place_media: {
+        Row: {
+          id: string;
+          place_id: string;
+          kind: "image" | "video" | "embed";
+          licence_basis: "user_upload" | "owner_supplied" | "editorial" | "embed";
+          storage_path: string | null;
+          source_url: string | null;
+          source_platform: "instagram" | "youtube" | "other" | null;
+          author_name: string | null;
+          author_url: string | null;
+          embed_html: string | null;
+          thumbnail_url: string | null;
+          contributor_id: string | null;
+          captured_lat: number | null;
+          captured_lng: number | null;
+          captured_at: string | null;
+          caption: string | null;
+          sort_order: number;
+          status: "pending" | "published" | "removed";
+          removed_reason: string | null;
+          removed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          place_id: string;
+          kind: "image" | "video" | "embed";
+          licence_basis: "user_upload" | "owner_supplied" | "editorial" | "embed";
+          storage_path?: string | null;
+          source_url?: string | null;
+          source_platform?: "instagram" | "youtube" | "other" | null;
+          author_name?: string | null;
+          author_url?: string | null;
+          embed_html?: string | null;
+          thumbnail_url?: string | null;
+          contributor_id?: string | null;
+          captured_lat?: number | null;
+          captured_lng?: number | null;
+          captured_at?: string | null;
+          caption?: string | null;
+          sort_order?: number;
+          status?: "pending" | "published" | "removed";
+          removed_reason?: string | null;
+          removed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          kind?: "image" | "video" | "embed";
+          licence_basis?: "user_upload" | "owner_supplied" | "editorial" | "embed";
+          storage_path?: string | null;
+          source_url?: string | null;
+          source_platform?: "instagram" | "youtube" | "other" | null;
+          author_name?: string | null;
+          author_url?: string | null;
+          embed_html?: string | null;
+          thumbnail_url?: string | null;
+          contributor_id?: string | null;
+          captured_lat?: number | null;
+          captured_lng?: number | null;
+          captured_at?: string | null;
+          caption?: string | null;
+          sort_order?: number;
+          status?: "pending" | "published" | "removed";
+          removed_reason?: string | null;
+          removed_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       events: {
         Row: {
           id: string;
