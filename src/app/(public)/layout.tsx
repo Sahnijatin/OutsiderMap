@@ -4,6 +4,7 @@ import { BottomTabs } from "@/components/app/bottom-tabs";
 import { SideRail } from "@/components/app/side-rail";
 import { AuthGateProvider } from "@/components/auth/auth-gate";
 import { MobileAuthGate } from "@/components/auth/mobile-auth-gate";
+import { PushRegistrar } from "@/components/push-registrar";
 
 /**
  * The public app shell (#116): the map and place pages render for everyone,
@@ -34,6 +35,8 @@ export default async function PublicLayout({
     <AuthGateProvider signedIn={signedIn}>
       {/* Native app opens to /sign-in when signed out; no-op on web (#149). */}
       <MobileAuthGate signedIn={signedIn} />
+      {/* Native push registration once signed in; no-op on web (#143/#125). */}
+      <PushRegistrar signedIn={signedIn} />
       <div className="min-h-dvh lg:pl-[var(--rail-w)]">{children}</div>
       <SideRail
         signedIn={signedIn}

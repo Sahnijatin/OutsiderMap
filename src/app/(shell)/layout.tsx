@@ -2,6 +2,7 @@ import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { BottomTabs } from "@/components/app/bottom-tabs";
 import { SideRail } from "@/components/app/side-rail";
+import { PushRegistrar } from "@/components/push-registrar";
 
 /**
  * The app shell: full-bleed surfaces (map-first) with a phone-style bottom
@@ -27,6 +28,9 @@ export default async function ShellLayout({
 
   return (
     <>
+      {/* Everything here is behind requireOnboarded(), so the member is signed
+          in — register for push in the native app (no-op on web). */}
+      <PushRegistrar signedIn />
       <div className="min-h-dvh lg:pl-[var(--rail-w)]">{children}</div>
       <SideRail
         username={profile.username}

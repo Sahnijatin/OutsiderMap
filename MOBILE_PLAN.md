@@ -226,7 +226,23 @@ npx cap open ios     # → Xcode      ·  npx cap open android → Android Studi
      `ACCESS_*_LOCATION` injected into the generated projects by
      `scripts/cap-native-permissions.mjs` (run after `cap sync` in both builds).
      Device-verify by sideloading the APK.
-   - camera → push → haptics/share (next).
+   - **camera — code done.** `@capacitor/camera` behind `src/lib/media/camera.ts`
+     (returns a plain `File`). Scout verification forces a **live** camera shot on
+     native (no gallery pick — integrity for #80); the composer gains an additive
+     Camera tile. Web file inputs unchanged.
+   - **share + haptics — code done.** `src/lib/native/share.ts` (native sheet →
+     Web Share → clipboard; fixes share silently degrading to clipboard in the
+     Android WebView) and `src/lib/native/haptics.ts` (tap/success/warn, never
+     throwing), wired sparingly.
+   - **push — client code done, dormant until credentials.**
+     `src/lib/native/push.ts` + `<PushRegistrar>` request permission, register,
+     and POST the token to the existing `/api/notifications/token`; taps deep-link
+     via `data.url`; sign-out releases the token. **To activate delivery:** an
+     **APNs key** + the Push Notifications capability (iOS) and
+     **`google-services.json`** (Android, FCM). Capacitor only applies the
+     google-services gradle plugin when that file exists, so builds stay green
+     without it. The sender itself is still deferred (#125) —
+     `lib/notifications/frequency.ts` holds the send rules.
 4. Store readiness — signing, icons/splash, privacy labels (#129/#70),
    TestFlight / Play internal.
 
