@@ -16,6 +16,7 @@ import { googleMapsDirUrl } from "@/lib/map/directions";
 import { isOpenNow, openStatusLabel } from "@/lib/places/hours";
 import type { Json } from "@/types/database";
 import { displayHandle, listPlaceMedia } from "@/lib/media/place-media";
+import { AddPlacePhoto } from "./add-photo";
 import { PlaceGallery, type GalleryCard } from "./place-gallery";
 
 const PLATFORM_LABEL = {
@@ -252,6 +253,7 @@ export default async function PlacePage({
             Directions on Google Maps
           </a>
         )}
+        <AddPlacePhoto slug={place.slug} />
         <span
           className={`text-xs ${open ? "text-accent" : "text-ink-dim"}`}
         >
