@@ -94,10 +94,16 @@ web epics. Build in this order:
 - **Privacy nutrition labels + data-safety form** (#129, #70): location, media,
   taste data.
 - Pre-approved demo account; TestFlight / Play internal.
-- CI: cloud native builds already wired (§6) — Android debug APK on Linux +
-  iOS compile-check on cloud macOS, no Mac needed. Phase 3 adds the **signed**
-  jobs (Android release + iOS TestFlight) on top, once the store accounts and
-  signing secrets exist. Retire the old RN Metro-bundle CI step (§7 / Stage 7).
+- CI: cloud native builds wired (§6) — Android debug APK on Linux + iOS
+  compile-check on cloud macOS, no Mac needed.
+  - **Signed iOS → TestFlight: `.github/workflows/ios-testflight.yml`** (wired,
+    dormant). Cloud macOS build with App Store Connect **API-key automatic
+    signing** — no Mac. Needs the one-time Apple setup + repo secrets
+    `APP_STORE_CONNECT_API_KEY` / `_KEY_ID` / `_ISSUER_ID` and `APPLE_TEAM_ID`;
+    fails fast with a clear message until they're set. Manual trigger. First live
+    run will need signing-edge tuning.
+  - Android release (signed keystore) — still to add.
+  - Retire the old RN Metro-bundle CI step (§7 / Stage 7).
 
 ### Phase 4 — Native-only validation (needs a device/simulator)
 - Real APNs/FCM push delivery, native camera, device GPS, haptics, signed store
