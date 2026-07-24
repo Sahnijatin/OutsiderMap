@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PostType, PostVisibility } from "./model";
+import type { LocationPrecision, PostType, PostVisibility } from "./model";
 
 /**
  * Feed read model: the query contract and the (pure) Discover ranking. Home is
@@ -50,6 +50,8 @@ export type PostCard = {
   place: PostPlace;
   area: string | null;
   city: string;
+  /** Resolved location precision (#122); place is already coarsened per this. */
+  location_precision: LocationPrecision;
   action: string | null;
   mood: string | null;
   body: string | null;

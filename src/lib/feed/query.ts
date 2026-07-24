@@ -8,6 +8,7 @@ import {
   type PostAuthor,
   type PostCard,
 } from "./read";
+import { resolvePostLocation } from "./location";
 
 /**
  * The one feed-page fetcher, shared by the server-rendered /feed page and the
@@ -29,7 +30,7 @@ export type FeedPage = { posts: PostCard[]; nextCursor: string | null };
 export class FeedQueryError extends Error {}
 
 const CARD_FIELDS =
-  "id, author_id, type, place_id, area, city, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area)";
+  "id, author_id, type, place_id, area, city, location_precision, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area)";
 
 /** followees + self - the "home" author set. */
 async function networkAuthorIds(
@@ -116,25 +117,35 @@ export async function fetchFeedPage(
     mediaByPost.set(m.post_id, list);
   }
 
-  const cards: PostCard[] = page.map((p) => ({
-    id: p.id,
-    author_id: p.author_id,
-    type: p.type,
-    place: p.place ?? null,
-    area: p.area,
-    city: p.city,
-    action: p.action,
-    mood: p.mood,
-    body: p.body,
-    visibility: p.visibility,
-    created_at: p.created_at,
-    like_count: p.like_count,
-    comment_count: p.comment_count,
-    want_count: p.want_count,
-    author: authorById.get(p.author_id) ?? null,
-    media: mediaByPost.get(p.id) ?? [],
-    fromNetwork: network.has(p.author_id),
-  }));
+  const cards: PostCard[] = page.map((p) => {
+    // Coarsen the location server-side before it ships (#122): the exact place
+    // never reaches the client for a post the author kept coarse.
+    const loc = resolvePostLocation(
+      p.location_precision,
+      p.place ?? null,
+      p.area,
+    );
+    return {
+      id: p.id,
+      author_id: p.author_id,
+      type: p.type,
+      place: loc.place,
+      area: loc.area,
+      city: p.city,
+      location_precision: p.location_precision,
+      action: p.action,
+      mood: p.mood,
+      body: p.body,
+      visibility: p.visibility,
+      created_at: p.created_at,
+      like_count: p.like_count,
+      comment_count: p.comment_count,
+      want_count: p.want_count,
+      author: authorById.get(p.author_id) ?? null,
+      media: mediaByPost.get(p.id) ?? [],
+      fromNetwork: network.has(p.author_id),
+    };
+  });
 
   const posts = tab === "discover" ? rankDiscover(cards, Date.now()) : cards;
 

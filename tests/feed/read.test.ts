@@ -5,6 +5,7 @@ import {
   rankDiscover,
   type PostCard,
 } from "@/lib/feed/read";
+import { DEFAULT_LOCATION_PRECISION } from "@/lib/feed/model";
 
 const NOW = Date.parse("2026-07-22T12:00:00.000Z");
 
@@ -16,6 +17,7 @@ function card(over: Partial<PostCard>): PostCard {
     place: null,
     area: null,
     city: "delhi",
+    location_precision: DEFAULT_LOCATION_PRECISION,
     action: null,
     mood: null,
     body: null,

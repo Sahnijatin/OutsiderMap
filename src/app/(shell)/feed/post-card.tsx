@@ -76,7 +76,7 @@ export function PostCard({
       </header>
 
       <div className="px-4 py-3">
-        {post.place && (
+        {post.place ? (
           <Link
             href={`/place/${post.place.slug}`}
             className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-xs text-ink hover:border-accent"
@@ -87,7 +87,13 @@ export function PostCard({
               {post.place.area ? ` · ${post.place.area}` : ""}
             </span>
           </Link>
-        )}
+        ) : post.area ? (
+          // Coarse location (#122): the neighbourhood, no exact venue or link.
+          <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-line/70 px-2.5 py-1 text-xs text-ink-dim">
+            <MapPin className="size-3.5 text-ink-dim" />
+            <span className="truncate">Around {post.area}</span>
+          </span>
+        ) : null}
         <Heading className="text-sm text-ink">
           <Link href={`/feed/${post.id}`} className="hover:underline">
             {post.action && <span className="text-ink-dim">{post.action} · </span>}

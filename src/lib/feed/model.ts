@@ -17,6 +17,12 @@ export const POST_STATUSES = ["pending", "approved", "rejected", "removed"] as c
 export const LOCATION_PRECISIONS = ["exact", "area", "hidden"] as const;
 export const REACTION_KINDS = ["like", "want_to_go"] as const;
 
+/**
+ * Social posts default to the *area*, not the exact spot (#122): sharing your
+ * life shouldn't broadcast a pinpoint unless you deliberately choose to.
+ */
+export const DEFAULT_LOCATION_PRECISION = "area" as const;
+
 export type PostType = (typeof POST_TYPES)[number];
 export type PostVisibility = (typeof POST_VISIBILITIES)[number];
 export type PostStatus = (typeof POST_STATUSES)[number];
