@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getDevicePosition } from "@/lib/map/geolocation";
 import { captureNativePhoto } from "@/lib/media/camera";
 import { useIsNativeApp } from "@/lib/capacitor/platform";
+import { success, tap, warn } from "@/lib/native/haptics";
 
 /**
  * Client surfaces for the Scout Economy. SubmitSpotForm lets a scout list a
@@ -95,7 +96,10 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
     setMsg(null);
     try {
       const file = await captureNativePhoto("camera");
-      if (file) setShot(file);
+      if (file) {
+        setShot(file);
+        tap();
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Couldn't open the camera.");
     }
@@ -140,8 +144,10 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
       if (!res.ok) throw new Error(body.error ?? "Couldn't confirm.");
       setMsg("Verification submitted. Thank you for scouting.");
       setShot(null);
+      success();
       router.refresh();
     } catch (e) {
+      warn();
       setMsg(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setBusy(false);

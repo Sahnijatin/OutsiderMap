@@ -10,6 +10,7 @@ import {
 } from "motion/react";
 import { useState } from "react";
 import { formatOutsiderNumber } from "@/lib/identity/username";
+import { shareOrCopy } from "@/lib/native/share";
 
 /**
  * The member's collectible: outsider number, @username, member-since. The
@@ -53,20 +54,11 @@ export function IdentityCard({
   async function share() {
     const url = `https://www.outsidermap.com/?ref=${encodeURIComponent(username ?? "")}`;
     const text = `I'm outsider ${number} on OutsiderMap. ${cityName}, off the beaten map.`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ text, url });
-        return;
-      }
-      throw new Error("no share sheet");
-    } catch {
-      try {
-        await navigator.clipboard.writeText(`${text} ${url}`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch {
-        // Nothing sane left to do; the button simply doesn't confirm.
-      }
+    // Native OS share sheet in the app, Web Share on the web, clipboard last.
+    const outcome = await shareOrCopy({ text, url });
+    if (outcome === "copied") {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   }
 

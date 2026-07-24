@@ -12,6 +12,7 @@ import {
   hasLocationPermission,
   isNativeApp,
 } from "@/lib/map/geolocation";
+import { tap } from "@/lib/native/haptics";
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { MapSearch } from "./map-search";
 import { MapLegend } from "./map-legend";
@@ -187,6 +188,7 @@ export function MapCanvas({
   const runLocate = useCallback(async () => {
     const map = mapRef.current;
     if (!map) return;
+    tap(); // deliberate action — confirm it physically in the app
     setLocating(true);
     // Native app: Leaflet's locate() rides on the WebView's navigator.geolocation,
     // which is unreliable on iOS WKWebView — use the Capacitor GPS plugin and

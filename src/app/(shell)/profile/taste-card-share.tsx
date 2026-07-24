@@ -3,6 +3,7 @@
 import { Share2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { shareOrCopy } from "@/lib/native/share";
 import { setTasteCardPublic } from "./actions";
 
 /**
@@ -41,20 +42,11 @@ export function TasteCardShare({
   async function share() {
     if (!cardUrl) return;
     const text = "Here's OutsiderMap's read on my taste.";
-    try {
-      if (navigator.share) {
-        await navigator.share({ text, url: cardUrl });
-        return;
-      }
-      throw new Error("no share sheet");
-    } catch {
-      try {
-        await navigator.clipboard.writeText(`${text} ${cardUrl}`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch {
-        // Nothing sane left to do.
-      }
+    // Native OS share sheet in the app, Web Share on the web, clipboard last.
+    const outcome = await shareOrCopy({ text, url: cardUrl });
+    if (outcome === "copied") {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   }
 
