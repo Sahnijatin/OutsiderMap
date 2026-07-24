@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BottomTabs } from "@/components/app/bottom-tabs";
 import { SideRail } from "@/components/app/side-rail";
 import { AuthGateProvider } from "@/components/auth/auth-gate";
+import { MobileAuthGate } from "@/components/auth/mobile-auth-gate";
 
 /**
  * The public app shell (#116): the map and place pages render for everyone,
@@ -31,6 +32,8 @@ export default async function PublicLayout({
 
   return (
     <AuthGateProvider signedIn={signedIn}>
+      {/* Native app opens to /sign-in when signed out; no-op on web (#149). */}
+      <MobileAuthGate signedIn={signedIn} />
       <div className="min-h-dvh lg:pl-[var(--rail-w)]">{children}</div>
       <SideRail
         signedIn={signedIn}
