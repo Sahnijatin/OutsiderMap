@@ -11,9 +11,11 @@ import {
   Navigation,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { baseMapStyle } from "@/lib/map/style";
 import { publicMediaUrl } from "@/lib/media/url";
 import { shareOrCopy } from "@/lib/native/share";
+import { BackLink } from "@/components/app/back-link";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -30,10 +32,12 @@ type CaptureGuide = {
 };
 
 export function QuestRun({ initial }: { initial: QuestDetail }) {
+  const router = useRouter();
   const [quest, setQuest] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
+  const [confirmQuit, setConfirmQuit] = useState(false);
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
@@ -201,6 +205,24 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
     }
   }
 
+  // Backing out. A draft is deleted; a run in progress is abandoned (the schema
+  // won't delete an active quest). The API tells us which happened.
+  async function quit() {
+    setBusy("quit");
+    setError(null);
+    try {
+      const res = await fetch(`/api/quests/${quest.id}`, { method: "DELETE" });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "Couldn't do that.");
+      setConfirmQuit(false);
+      router.push("/quests");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't do that.");
+      setBusy(null);
+    }
+  }
+
   async function complete(stop: QuestStopDetail) {
     setBusy(stop.id);
     setError(null);
@@ -230,7 +252,20 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
       )}
 
       <div className="px-5 pt-4">
-        <p className="voice capitalize">
+        <div className="flex items-center justify-between gap-3">
+          <BackLink fallbackHref="/quests" label="Quests" />
+          {quest.status !== "completed" && (
+            <button
+              type="button"
+              onClick={() => setConfirmQuit(true)}
+              disabled={!!busy}
+              className="text-sm text-ink-dim transition-colors hover:text-danger disabled:opacity-50"
+            >
+              {quest.status === "draft" ? "Delete" : "Give up"}
+            </button>
+          )}
+        </div>
+        <p className="voice mt-3 capitalize">
           {quest.city} · {stops.length} stops
         </p>
         <h1 className="mt-1 font-display text-3xl italic">{quest.title}</h1>
@@ -280,6 +315,53 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
           </p>
           <span className="relative text-xs text-ink-dim">tap to close</span>
         </button>
+      )}
+
+      {confirmQuit && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="quit-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-night/90 px-6 backdrop-blur"
+        >
+          <div className="w-full max-w-sm rounded-card border border-line bg-surface p-6 text-center">
+            <h2 id="quit-title" className="font-display text-2xl italic">
+              {quest.status === "draft"
+                ? "Delete this quest?"
+                : "Did your mom raise a quitter?"}
+            </h2>
+            <p className="mt-3 text-sm text-ink-dim">
+              {quest.status === "draft"
+                ? "It hasn't started, so nothing is lost. You can always build another."
+                : `You're ${stops.filter((s) => s.status === "completed").length} of ${stops.length} stops in. Give up now and this run goes to your abandoned pile.`}
+            </p>
+            {error && <p className="mt-3 text-sm text-danger">{error}</p>}
+            <div className="mt-5 flex flex-col gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setError(null);
+                  setConfirmQuit(false);
+                }}
+                disabled={busy === "quit"}
+              >
+                {quest.status === "draft" ? "Keep it" : "She did not"}
+              </Button>
+              <button
+                type="button"
+                onClick={quit}
+                disabled={busy === "quit"}
+                className="rounded-full py-2 text-sm text-ink-dim transition-colors hover:text-danger disabled:opacity-50"
+              >
+                {busy === "quit"
+                  ? "One moment…"
+                  : quest.status === "draft"
+                    ? "Delete it"
+                    : "Quit anyway"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

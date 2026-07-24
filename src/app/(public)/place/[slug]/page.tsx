@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { publicMediaUrl } from "@/lib/media/url";
+import { BackLink } from "@/components/app/back-link";
 import {
   listMapCategories,
   buildCategoryIndex,
@@ -149,6 +150,7 @@ export default async function PlacePage({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pb-[calc(var(--tab-clearance)+2.5rem)] pt-[calc(var(--safe-top)+1.25rem)]">
+      <BackLink fallbackHref="/map" label="Map" />
       <Link
         href={`/map?place=${place.slug}`}
         className="voice inline-flex items-center gap-1 transition-colors hover:text-ink"
