@@ -79,6 +79,8 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+          # Inject the geolocation runtime permissions into the manifest (#143).
+          node scripts/cap-native-permissions.mjs
 
       - name: Build debug APK
         working-directory: android

@@ -7,6 +7,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MAP_ACCENT as ACCENT } from "@/lib/map/style";
 import type { MapCategory } from "@/lib/map/categories";
 import { readCachedLocation, writeCachedLocation } from "@/lib/map/location";
+import {
+  getDevicePosition,
+  hasLocationPermission,
+  isNativeApp,
+} from "@/lib/map/geolocation";
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { MapSearch } from "./map-search";
 import { MapLegend } from "./map-legend";
@@ -34,6 +39,44 @@ const DOT_STROKE = "#0c0a08";
 const DOT_RADIUS = 6;
 const DOT_WEIGHT = 1.5;
 const DOT_RADIUS_SELECTED = 9;
+
+/**
+ * Draw (or redraw) the "you are here" fix: an accuracy halo + a blue dot, and
+ * cache the spot so the next open is instant. Shared by the web `locationfound`
+ * event and the native Capacitor-GPS path so both render identically.
+ */
+function drawLocation(
+  L: typeof import("leaflet"),
+  map: LeafletMap,
+  layerRef: { current: LayerGroup | null },
+  lat: number,
+  lng: number,
+  accuracy: number | null,
+) {
+  writeCachedLocation(lat, lng, Date.now());
+  if (!layerRef.current) {
+    layerRef.current = L.layerGroup().addTo(map);
+  }
+  layerRef.current.clearLayers();
+  const latlng: [number, number] = [lat, lng];
+  if (accuracy != null) {
+    L.circle(latlng, {
+      radius: accuracy,
+      color: ACCENT,
+      weight: 1,
+      opacity: 0.25,
+      fillColor: ACCENT,
+      fillOpacity: 0.06,
+    }).addTo(layerRef.current);
+  }
+  L.circleMarker(latlng, {
+    radius: 7,
+    color: "#0c0a08",
+    weight: 2,
+    fillColor: "#4aa3ff",
+    fillOpacity: 1,
+  }).addTo(layerRef.current);
+}
 
 export type CityOption = {
   slug: string;
@@ -141,10 +184,26 @@ export function MapCanvas({
     highlightPin(null);
   }, [highlightPin]);
 
-  const runLocate = useCallback(() => {
+  const runLocate = useCallback(async () => {
     const map = mapRef.current;
     if (!map) return;
     setLocating(true);
+    // Native app: Leaflet's locate() rides on the WebView's navigator.geolocation,
+    // which is unreliable on iOS WKWebView — use the Capacitor GPS plugin and
+    // draw the fix ourselves. Web keeps Leaflet's locate() unchanged.
+    const L = LRef.current;
+    if (L && (await isNativeApp())) {
+      try {
+        const pos = await getDevicePosition({ timeoutMs: 10_000 });
+        drawLocation(L, map, locationLayerRef, pos.latitude, pos.longitude, pos.accuracy);
+        map.setView([pos.latitude, pos.longitude], Math.max(map.getZoom(), 15));
+      } catch {
+        // Denied / unavailable — the button just stops spinning.
+      } finally {
+        setLocating(false);
+      }
+      return;
+    }
     map.locate({
       setView: true,
       maxZoom: 15,
@@ -205,27 +264,14 @@ export function MapCanvas({
 
       map.on("locationfound", (e) => {
         setLocating(false);
-        // Remember where they are so the next open is instant + prompt-free.
-        writeCachedLocation(e.latlng.lat, e.latlng.lng, Date.now());
-        if (!locationLayerRef.current) {
-          locationLayerRef.current = L.layerGroup().addTo(map!);
-        }
-        locationLayerRef.current.clearLayers();
-        L.circle(e.latlng, {
-          radius: e.accuracy,
-          color: ACCENT,
-          weight: 1,
-          opacity: 0.25,
-          fillColor: ACCENT,
-          fillOpacity: 0.06,
-        }).addTo(locationLayerRef.current);
-        L.circleMarker(e.latlng, {
-          radius: 7,
-          color: "#0c0a08",
-          weight: 2,
-          fillColor: "#4aa3ff",
-          fillOpacity: 1,
-        }).addTo(locationLayerRef.current);
+        drawLocation(
+          L,
+          map!,
+          locationLayerRef,
+          e.latlng.lat,
+          e.latlng.lng,
+          e.accuracy,
+        );
       });
       map.on("locationerror", () => setLocating(false));
 
@@ -249,24 +295,46 @@ export function MapCanvas({
       if (cached) {
         map.setView([cached.lat, cached.lng], Math.max(map.getZoom(), 13));
       }
-      const perms = navigator.permissions;
-      if (perms?.query) {
-        perms
-          .query({ name: "geolocation" as PermissionName })
-          .then((status) => {
-            if (status.state === "granted") {
-              setLocating(true);
-              map!.locate({
-                setView: true,
-                maxZoom: 15,
-                enableHighAccuracy: true,
-                timeout: 10_000,
-              });
+      if (await isNativeApp()) {
+        // Native: only locate if permission is already granted (no prompt on
+        // load), then read GPS via the plugin and draw the fix.
+        if (!cancelled && (await hasLocationPermission())) {
+          setLocating(true);
+          try {
+            const pos = await getDevicePosition({ timeoutMs: 10_000 });
+            if (!cancelled) {
+              drawLocation(L, map, locationLayerRef, pos.latitude, pos.longitude, pos.accuracy);
+              map.setView(
+                [pos.latitude, pos.longitude],
+                Math.max(map.getZoom(), 15),
+              );
             }
-          })
-          .catch(() => {
-            /* Permissions API unavailable — rely on the cache + "Near me". */
-          });
+          } catch {
+            /* denied / unavailable — cache + "Near me" remain */
+          } finally {
+            if (!cancelled) setLocating(false);
+          }
+        }
+      } else {
+        const perms = navigator.permissions;
+        if (perms?.query) {
+          perms
+            .query({ name: "geolocation" as PermissionName })
+            .then((status) => {
+              if (status.state === "granted") {
+                setLocating(true);
+                map!.locate({
+                  setView: true,
+                  maxZoom: 15,
+                  enableHighAccuracy: true,
+                  timeout: 10_000,
+                });
+              }
+            })
+            .catch(() => {
+              /* Permissions API unavailable — rely on the cache + "Near me". */
+            });
+        }
       }
     })();
 

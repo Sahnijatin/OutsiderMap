@@ -69,6 +69,8 @@ jobs:
         run: |
           npx cap add ios
           npx cap sync ios
+          # Inject the geolocation runtime permission into Info.plist (#143).
+          node scripts/cap-native-permissions.mjs
 
       # Compile/link the app with signing off — the "does it build" gate. This
       # mirrors @capgo/capacitor-social-login's own iOS CI recipe exactly, which

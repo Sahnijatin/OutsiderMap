@@ -212,8 +212,15 @@ npx cap open ios     # → Xcode      ·  npx cap open android → Android Studi
        capability on the iOS target (signed builds); set `NEXT_PUBLIC_APPLE_SIGN_IN=1`.
    - Verify by sideloading the APK (device-only; the harness can't cover native
      SDK sheets — §5).
-3. Plugins one at a time (geolocation → camera → push → haptics/share), each
-   device-verified.
+3. Plugins one at a time, each device-verified:
+   - **geolocation — code done.** `@capacitor/geolocation` behind a shared seam
+     (`src/lib/map/geolocation.ts`): the map's "Near me" + auto-locate and the
+     scout submit/confirm flows use native GPS in the app, `navigator.geolocation`
+     on the web (unchanged). iOS `NSLocationWhenInUseUsageDescription` + Android
+     `ACCESS_*_LOCATION` injected into the generated projects by
+     `scripts/cap-native-permissions.mjs` (run after `cap sync` in both builds).
+     Device-verify by sideloading the APK.
+   - camera → push → haptics/share (next).
 4. Store readiness — signing, icons/splash, privacy labels (#129/#70),
    TestFlight / Play internal.
 
