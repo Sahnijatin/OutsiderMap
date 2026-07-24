@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "mobile:verify": "playwright test -c mobile-verify/playwright.config.ts",
     "seed": "node scripts/seed-places.mjs",
     "seed:markets": "node scripts/seed-markets.mjs"
   },
@@ -34,6 +35,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/google.maps": "^3.65.2",
     "@types/leaflet": "^1.9.21",
