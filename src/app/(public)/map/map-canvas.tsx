@@ -106,12 +106,11 @@ type PlaceCollection = GeoJSON.FeatureCollection<
   PlaceFeatureProps
 >;
 
-const EMPTY: PlaceCollection = { type: "FeatureCollection", features: [] };
-
 export function MapCanvas({
   city,
   cities,
   categories,
+  initialPlaces,
   welcome,
   outsiderNumber,
   username,
@@ -121,6 +120,11 @@ export function MapCanvas({
   cities: CityOption[];
   /** Active map categories, for the legend key. */
   categories: MapCategory[];
+  /**
+   * The starting city's pins, rendered server-side so the map draws them in the
+   * first paint instead of waiting on a post-hydration fetch.
+   */
+  initialPlaces: PlaceCollection;
   welcome: boolean;
   outsiderNumber: number | null;
   username: string | null;
@@ -142,7 +146,7 @@ export function MapCanvas({
 
   const [ready, setReady] = useState(false);
   const [activeCity, setActiveCity] = useState(city);
-  const [places, setPlaces] = useState<PlaceCollection>(EMPTY);
+  const [places, setPlaces] = useState<PlaceCollection>(initialPlaces);
   const [selected, setSelected] = useState<SelectedPlace | null>(null);
   const [showWelcome, setShowWelcome] = useState(welcome);
   const [loadError, setLoadError] = useState(false);
@@ -393,8 +397,19 @@ export function MapCanvas({
     if (slug) highlightPin(markersRef.current.get(slug) ?? null);
   }, [places, ready, selectPlace, highlightPin]);
 
+  // The server already rendered the starting city's pins, so skip the first
+  // fetch for it - that round-trip is exactly what left the map empty on a cold
+  // open. Switching city (or a retry) still fetches.
+  const servedCity = useRef(
+    initialPlaces.features.length > 0 ? city.slug : null,
+  );
+
   // Load the city's catalog whenever the active city changes.
   useEffect(() => {
+    if (servedCity.current === activeCity.slug && reloadKey === 0) {
+      servedCity.current = null; // only skip the very first pass
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {

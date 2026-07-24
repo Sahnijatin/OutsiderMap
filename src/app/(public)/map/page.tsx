@@ -3,6 +3,7 @@ import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { FALLBACK_DELHI } from "@/lib/cities";
 import { listMapCategories } from "@/lib/map/categories";
+import { EMPTY_PLACES, listMapPlaces } from "@/lib/map/places";
 import { MapCanvas } from "./map-canvas";
 
 export const metadata: Metadata = {
@@ -37,12 +38,21 @@ export default async function MapPage({
   const city =
     live.find((c) => c.slug === profile?.home_city) ?? live[0] ?? null;
 
+  // Render the first city's pins server-side so the map has something to draw
+  // in the first paint. Without this the front door showed an empty map until a
+  // post-hydration fetch came back - a second round-trip on every cold open.
+  // A failure here is not fatal: the client re-fetches on mount as before.
+  const initialPlaces = city
+    ? await listMapPlaces(supabase, city.slug).catch(() => EMPTY_PLACES)
+    : EMPTY_PLACES;
+
   return (
     <main className="fixed left-[var(--rail-w)] right-0 top-0 bottom-[var(--tab-clearance)]">
       <MapCanvas
         city={city ?? FALLBACK_DELHI}
         cities={live}
         categories={categories}
+        initialPlaces={initialPlaces}
         welcome={welcome === "1"}
         outsiderNumber={profile?.outsider_number ?? null}
         username={profile?.username ?? null}
