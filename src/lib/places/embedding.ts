@@ -24,7 +24,7 @@ export function placeEmbeddingText(place: EmbeddablePlace) {
     group?: string[];
   };
   return [
-    `${place.name} - ${place.category ?? "place"} in ${place.area ?? "Delhi"}, Delhi.`,
+    `${place.name} - ${place.category ?? "place"} in ${place.area ?? "Delhi NCR"}, Delhi NCR.`,
     place.vibe_tags.length > 0 && `Vibe: ${place.vibe_tags.join(", ")}.`,
     place.description,
     place.editor_note,

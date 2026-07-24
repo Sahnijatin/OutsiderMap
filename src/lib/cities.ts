@@ -6,7 +6,7 @@ export type City = Tables<"cities">;
 
 export const FALLBACK_DELHI: City = {
   slug: "delhi",
-  name: "Delhi",
+  name: "Delhi NCR",
   lat: 28.6139,
   lng: 77.209,
   zoom: 11.2,

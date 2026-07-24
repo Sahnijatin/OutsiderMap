@@ -39,7 +39,7 @@ function embeddingText(place) {
     ? place.story.map((c) => c.caption).filter(Boolean).join(" ")
     : "";
   return [
-    `${place.name} - ${place.category ?? place.kind ?? "experience"} in ${place.area ?? "Delhi"}, Delhi.`,
+    `${place.name} - ${place.category ?? place.kind ?? "experience"} in ${place.area ?? "Delhi NCR"}, Delhi NCR.`,
     place.kind && place.kind !== "spot" ? `Kind: ${place.kind}.` : null,
     place.vibe_tags?.length ? `Vibe: ${place.vibe_tags.join(", ")}.` : null,
     place.description,
