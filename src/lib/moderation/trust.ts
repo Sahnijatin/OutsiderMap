@@ -43,7 +43,7 @@ export type ResolvedEnforcement = {
 /**
  * Combine a fresh strike with the reviewer's chosen action into the effective
  * enforcement. The result is the *more severe* of the ladder outcome (keyed by
- * the new strike count) and the reviewer's explicit pick — so the ladder drives
+ * the new strike count) and the reviewer's explicit pick - so the ladder drives
  * escalation automatically (repeat offenders get 7d, then a ban), while a
  * reviewer can still escalate past the ladder floor for an egregious first
  * strike. Mute duration always comes from the ladder.

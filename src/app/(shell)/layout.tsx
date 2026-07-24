@@ -29,7 +29,7 @@ export default async function ShellLayout({
   return (
     <>
       {/* Everything here is behind requireOnboarded(), so the member is signed
-          in — register for push in the native app (no-op on web). */}
+          in - register for push in the native app (no-op on web). */}
       <PushRegistrar signedIn />
       <div className="min-h-dvh lg:pl-[var(--rail-w)]">{children}</div>
       <SideRail

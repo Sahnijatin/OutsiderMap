@@ -12,7 +12,7 @@ type GrievanceUpdate = Database["public"]["Tables"]["grievances"]["Update"];
  * Grievance Officer actions. Acknowledge stamps the 24h SLA clock; resolve /
  * reject close it. Once a reporter appeals (status 'appealed'), the Grievance
  * Appellate Committee (GAC) either overturns (resolves in the reporter's
- * favour) or upholds (the original rejection stands) — the decision is recorded
+ * favour) or upholds (the original rejection stands) - the decision is recorded
  * on the grievance. The officer is recorded for compliance throughout.
  */
 const Schema = z.object({
@@ -42,7 +42,7 @@ export async function actOnGrievance(formData: FormData) {
       patch = { status: "rejected", resolved_at: now, officer_id: me.id };
       break;
     case "overturn":
-      // GAC grants the appeal — the grievance is actioned in the reporter's favour.
+      // GAC grants the appeal - the grievance is actioned in the reporter's favour.
       patch = {
         status: "resolved",
         appeal_decision: "overturned",
@@ -52,7 +52,7 @@ export async function actOnGrievance(formData: FormData) {
       };
       break;
     case "uphold":
-      // GAC denies the appeal — the original decision stands.
+      // GAC denies the appeal - the original decision stands.
       patch = {
         status: "rejected",
         appeal_decision: "upheld",

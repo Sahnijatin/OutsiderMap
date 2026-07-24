@@ -6,7 +6,7 @@ import { runMapSearch } from "@/lib/chat/map-search";
 import { describeError, withTimeout, TimeoutError } from "@/lib/ai/retry";
 
 /**
- * POST /api/map/search — natural-language map search via the lighter
+ * POST /api/map/search - natural-language map search via the lighter
  * shared-brain agent (#99). Understands a phrase / Hinglish query and returns
  * grounded catalog slugs; the client resolves them against the places it has
  * loaded and flies to them. Scoped to find/filter - not conversation.

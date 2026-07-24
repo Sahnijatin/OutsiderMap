@@ -9,7 +9,7 @@ export type PublishResolution = {
 /**
  * Map a moderation band + posture to the content's publish status and the
  * case decision (pure). Rejections and clean approvals are unconditional;
- * the uncertain middle is where posture matters — an established member's
+ * the uncertain middle is where posture matters - an established member's
  * text publishes optimistically (case stays open for async review / pull),
  * while new/restricted content is held pending a human.
  */

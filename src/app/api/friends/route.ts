@@ -9,7 +9,7 @@ import {
   type PublicMember,
 } from "@/lib/friends/model";
 
-/** GET /api/friends — {friends, incoming, outgoing} with public identities. */
+/** GET /api/friends - {friends, incoming, outgoing} with public identities. */
 export async function GET(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
 const RequestSchema = z.object({ username: UsernameSchema });
 
-/** POST /api/friends — send a request by exact username. */
+/** POST /api/friends - send a request by exact username. */
 export async function POST(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
 const IdSchema = z.object({ id: z.string().uuid() });
 
-/** PATCH /api/friends — accept an incoming request (RLS pins to addressee). */
+/** PATCH /api/friends - accept an incoming request (RLS pins to addressee). */
 export async function PATCH(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
@@ -134,7 +134,7 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-/** DELETE /api/friends — decline, cancel or unfriend (one verb, RLS-scoped). */
+/** DELETE /api/friends - decline, cancel or unfriend (one verb, RLS-scoped). */
 export async function DELETE(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {

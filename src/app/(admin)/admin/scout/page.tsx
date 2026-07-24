@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Admin · Scout" };
 
 /**
  * Scout spot-audit (#114): oversight over bounties, confirmations, and the
- * points ledger, plus the two cold-start levers — per-area validator DENSITY
+ * points ledger, plus the two cold-start levers - per-area validator DENSITY
  * instrumentation and the admin-verification FALLBACK that resolves bounties a
  * thin area can't. Density and the resolve/create RPCs guard on is_admin(), so
  * they run through the admin's session client; bulk reads use the service role.
@@ -77,13 +77,13 @@ export default async function ScoutAudit() {
           <h2 className="voice">validator density by city</h2>
           <span className="text-xs text-ink-dim">
             {thinCities > 0
-              ? `${thinCities} thin — admin verification recommended`
+              ? `${thinCities} thin - admin verification recommended`
               : "coverage healthy"}
           </span>
         </div>
         {density.length === 0 ? (
           <Card className="p-6 text-center text-sm text-ink-dim">
-            No bounties with a city yet — nothing to measure.
+            No bounties with a city yet - nothing to measure.
           </Card>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -112,7 +112,7 @@ export default async function ScoutAudit() {
         <h2 className="voice">bounties awaiting resolution</h2>
         <p className="text-xs text-ink-dim">
           Resolving (anomalies held) surfaces first. Where an area is too thin to
-          form an independent quorum, resolve by hand — every fallback is logged
+          form an independent quorum, resolve by hand - every fallback is logged
           below with the density at decision time.
         </p>
         {bounties.length === 0 ? (
@@ -126,7 +126,7 @@ export default async function ScoutAudit() {
                 <Card className="flex flex-col gap-3 p-3 text-sm">
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-mono text-xs text-ink-dim">
-                      {b.type} · {b.area ?? b.city ?? "—"} · +{b.bounty_points} pts
+                      {b.type} · {b.area ?? b.city ?? "-"} · +{b.bounty_points} pts
                     </span>
                     <span
                       className={cn(

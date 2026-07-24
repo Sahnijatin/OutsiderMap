@@ -47,7 +47,7 @@ export function SafetyMenu({
       });
       setNotice("Reported. Our team will review this.");
     } catch {
-      setNotice("Couldn't send the report — try again.");
+      setNotice("Couldn't send the report - try again.");
     } finally {
       setBusy(false);
       reset();
@@ -62,10 +62,10 @@ export function SafetyMenu({
         setBlocked(true);
         setNotice(`You blocked ${who}. You won't see each other.`);
       } else {
-        setNotice("Couldn't block — try again.");
+        setNotice("Couldn't block - try again.");
       }
     } catch {
-      setNotice("Couldn't block — try again.");
+      setNotice("Couldn't block - try again.");
     } finally {
       setBusy(false);
       reset();
@@ -161,7 +161,7 @@ export function SafetyMenu({
             <div className="flex flex-col gap-2 p-1">
               <p className="text-sm text-ink">Block {who}?</p>
               <p className="text-xs text-ink-dim">
-                You won&rsquo;t see each other anywhere — feed, profile, search.
+                You won&rsquo;t see each other anywhere - feed, profile, search.
                 They aren&rsquo;t told.
               </p>
               <div className="flex justify-end gap-2">

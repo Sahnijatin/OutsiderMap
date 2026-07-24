@@ -65,7 +65,7 @@ const places = await loadJson("data/places.delhi.json");
 const experiences = await loadJson("data/experiences.delhi.json");
 
 // Some experiences are curated upgrades of existing places (same slug).
-// Merge by slug — experience fields (kind, story, description) win, place
+// Merge by slug - experience fields (kind, story, description) win, place
 // fields (hours, price) survive where the experience omits them. A duplicate
 // slug inside one upsert batch is also a hard Postgres error
 // ("cannot affect row a second time"), so the catalog must be unique.
@@ -150,7 +150,7 @@ async function uploadCover(slug) {
 }
 
 // Existing image paths, so a re-seed never clobbers an admin-uploaded image.
-// (Bulk upsert sends the UNION of keys per batch — rows missing a key become
+// (Bulk upsert sends the UNION of keys per batch - rows missing a key become
 // explicit NULLs, so every row must carry every column with a real value.)
 const { data: existingRows, error: existingError } = await supabase
   .from("places")

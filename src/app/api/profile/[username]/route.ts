@@ -7,7 +7,7 @@ import { normalizeFollowState } from "@/lib/feed/follows";
 import type { PostCard } from "@/lib/feed/read";
 
 /**
- * GET /api/profile/[username] — a public profile: identity, follow state +
+ * GET /api/profile/[username] - a public profile: identity, follow state +
  * counts, friendship state, and the posts this viewer is allowed to see (RLS
  * via can_view_post). Used by the profile page and mobile.
  */

@@ -8,7 +8,7 @@ import type { MapCategory } from "@/lib/map/categories";
 /**
  * The map key: one swatch per category, so the colored dots decode at a glance.
  * Categories are admin-managed (`map_categories`), passed in from the map page.
- * Collapsible — open by default on lg+ where there's room, a single pill on
+ * Collapsible - open by default on lg+ where there's room, a single pill on
  * phones so it never eats the map.
  */
 export function MapLegend({ categories }: { categories: MapCategory[] }) {

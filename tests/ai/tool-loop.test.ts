@@ -80,7 +80,7 @@ describe("runToolLoop", () => {
       inputSchema: z.object({}),
       handler,
     });
-    // Every turn wants the tool again — only the step cap ends it.
+    // Every turn wants the tool again - only the step cap ends it.
     const driver: ToolLoopDriver = {
       async step() {
         return {

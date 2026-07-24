@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Admin · Metrics" };
 
 /**
  * North-star metrics (#120): Confident-Answer-Accept-Rate, the activation
- * funnel, and D1/D7/D30 retention — computed on demand by the metrics RPCs.
+ * funnel, and D1/D7/D30 retention - computed on demand by the metrics RPCs.
  * Called with the admin's session client so the is_admin() guard resolves.
  * The precise accept-rate (part 2a) joins answer_served→answer_accepted by
  * answer_id; the proxy (part 1: query + a positive action in a window) stays
@@ -53,7 +53,7 @@ export default async function MetricsPage() {
       ? activation.avgTtfaSeconds < 90
         ? `${activation.avgTtfaSeconds}s`
         : `${Math.round(activation.avgTtfaSeconds / 60)}m`
-      : "—";
+      : "-";
 
   // Rank variants by accept-rate to mark the leader (only once both have data).
   const expVariants = expRows.map((r) => ({
@@ -80,7 +80,7 @@ export default async function MetricsPage() {
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile
           label="Answer-accept-rate · 7d"
-          value={answerPct !== null ? `${answerPct}%` : "—"}
+          value={answerPct !== null ? `${answerPct}%` : "-"}
           sub={
             answerPct !== null
               ? `${answer.accepted}/${answer.served} answers`
@@ -99,7 +99,7 @@ export default async function MetricsPage() {
         />
         <Tile
           label="First-answer accept · 30d"
-          value={activationPct !== null ? `${activationPct}%` : "—"}
+          value={activationPct !== null ? `${activationPct}%` : "-"}
           sub={
             activationPct !== null
               ? `${activation.accepted}/${activation.served} activations`
@@ -110,12 +110,12 @@ export default async function MetricsPage() {
         <Tile
           label="Time to first answer"
           value={ttfa}
-          sub={ttfa === "—" ? "awaiting activations" : "avg onboarding→answer"}
-          muted={ttfa === "—"}
+          sub={ttfa === "-" ? "awaiting activations" : "avg onboarding→answer"}
+          muted={ttfa === "-"}
         />
         <Tile
           label="Stretch-success-rate"
-          value="—"
+          value="-"
           sub="pending the dial (#126)"
           muted
         />
@@ -191,7 +191,7 @@ export default async function MetricsPage() {
             {withData.length < 2 && (
               <p className="text-xs text-ink-dim">
                 {expConfig.enabled
-                  ? "Running — accept-rate per variant appears here as answers are served (14d)."
+                  ? "Running - accept-rate per variant appears here as answers are served (14d)."
                   : "Turn on to split members across variants and compare accept-rate."}
               </p>
             )}

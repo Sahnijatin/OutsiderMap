@@ -61,7 +61,7 @@ export async function getApiContext(
 
 /**
  * Anon-tolerant request context (#116). Never 401s: returns the signed-in
- * user's client, or — when there's no session (or an invalid bearer token) —
+ * user's client, or - when there's no session (or an invalid bearer token) -
  * an anon-role Supabase client. RLS still applies, so an anon client only ever
  * sees what the `using (true)` / published policies allow. Callers must treat
  * `user` as possibly null and key rate limits by IP in that case.

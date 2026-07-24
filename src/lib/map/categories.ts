@@ -1,11 +1,11 @@
 /**
- * Map categories — the color language of the map.
+ * Map categories - the color language of the map.
  *
  * Categories now live in the `map_categories` table (admin-managed: add a
  * category, change its color, reorder the legend). A place points at one via
  * `places.category_id`; this module is the framework-agnostic glue that resolves
  * a place to its color + label, shared by the map markers, the legend, the place
- * sheet, and the detail page. No React, no Leaflet, no server imports — the DB
+ * sheet, and the detail page. No React, no Leaflet, no server imports - the DB
  * read is done by the caller and the resolved list is passed in.
  */
 
@@ -21,7 +21,7 @@ export type MapCategory = {
   sortOrder: number;
 };
 
-/** Amber — the brand's default voice — for places without a resolvable category. */
+/** Amber - the brand's default voice - for places without a resolvable category. */
 export const FALLBACK_CATEGORY_COLOR = "#f0a431";
 export const FALLBACK_CATEGORY_LABEL = "Other";
 

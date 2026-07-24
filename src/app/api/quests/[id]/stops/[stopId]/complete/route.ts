@@ -9,7 +9,7 @@ import { enqueueReelJob } from "@/lib/reels/jobs";
 import { serverEnv } from "@/lib/env";
 
 /**
- * POST /api/quests/:id/stops/:stopId/complete — complete the unlocked stop,
+ * POST /api/quests/:id/stops/:stopId/complete - complete the unlocked stop,
  * unlock the next (or finish the quest). The capture flow is live: a stop
  * needs at least one captured photo/video before it counts.
  */

@@ -16,7 +16,7 @@ import { SignInPanel } from "./sign-in-panel";
  * The sign-in wall (#116). Wrap the anonymous-explore surfaces in
  * <AuthGateProvider signedIn={…}>; any client component then calls
  * requireAuth(action) before a walled action. When signed in, the action runs
- * immediately; when not, an inline modal opens and — on email-OTP success —
+ * immediately; when not, an inline modal opens and - on email-OTP success -
  * resumes the exact pending action in place (Google is a full-page redirect
  * that returns here via the callback, where the user repeats the tap).
  */

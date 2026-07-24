@@ -20,7 +20,7 @@ export const FUNNEL_LABELS: Record<string, string> = {
   returned: "Returned",
 };
 
-/** Each stage as a share of the top of the funnel (first stage) — for bar widths. */
+/** Each stage as a share of the top of the funnel (first stage) - for bar widths. */
 export function funnelShares(
   stages: readonly FunnelStage[],
 ): { stage: string; n: number; pct: number }[] {

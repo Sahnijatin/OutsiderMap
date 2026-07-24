@@ -6,7 +6,7 @@ import { useIsNativeApp } from "@/lib/capacitor/platform";
 
 /**
  * Mobile-only sign-in gate (#149). On the **native** app a fresh launch should
- * open to the sign-in screen, not the anonymous map — the web keeps its
+ * open to the sign-in screen, not the anonymous map - the web keeps its
  * browse-first front door (#116). This redirects a signed-out native user from
  * any public surface to `/sign-in`, preserving where they were headed.
  *

@@ -4,8 +4,8 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { BlockTargetSchema, isSelfBlock } from "@/lib/moderation/blocks";
 
 /**
- * POST /api/blocks/[userId] — block a member (idempotent).
- * DELETE — unblock. RLS pins every row to blocker = the caller; blocked users
+ * POST /api/blocks/[userId] - block a member (idempotent).
+ * DELETE - unblock. RLS pins every row to blocker = the caller; blocked users
  * disappear from each other's feed and profile (see hidden_user_ids()).
  */
 export async function POST(

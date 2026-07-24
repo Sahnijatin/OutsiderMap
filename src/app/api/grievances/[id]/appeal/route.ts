@@ -4,7 +4,7 @@ import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
- * POST /api/grievances/[id]/appeal — appeal a closed grievance to the Grievance
+ * POST /api/grievances/[id]/appeal - appeal a closed grievance to the Grievance
  * Appellate Committee (IT Rules 2021, 30-day window). The transition runs
  * through the security-definer appeal_grievance RPC, which pins it to the
  * reporter's own grievance, a closed status, and the window; the GAC then
@@ -14,9 +14,9 @@ const IdSchema = z.string().uuid();
 
 // Postgres SQLSTATE → HTTP status for the RPC's raised errors.
 const STATUS_BY_CODE: Record<string, number> = {
-  P0002: 404, // no_data_found — grievance missing
-  "42501": 403, // insufficient_privilege — not the reporter's grievance
-  "23514": 400, // check_violation — not closed / window passed
+  P0002: 404, // no_data_found - grievance missing
+  "42501": 403, // insufficient_privilege - not the reporter's grievance
+  "23514": 400, // check_violation - not closed / window passed
 };
 
 export async function POST(

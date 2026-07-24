@@ -6,7 +6,7 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { reportCaseSeverity } from "@/lib/moderation/reports";
 
 /**
- * POST /api/reports — file a content report. Intake only; the review queue and
+ * POST /api/reports - file a content report. Intake only; the review queue and
  * resolution live in the UGC-moderation epic (#70), which reads this table.
  */
 const ReportSchema = z.object({
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Open a moderation case for the reported target (service role) if one isn't
-  // already open, so every report — including a report of a *person* — lands in
+  // already open, so every report - including a report of a *person* - lands in
   // the review queue. Person-reports get a higher base severity (priority
   // review) and carry the reported user as author_id so the reviewer's
   // warn/mute/ban acts on them directly. Best-effort: the report is recorded

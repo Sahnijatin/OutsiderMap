@@ -1,6 +1,6 @@
 /**
  * Pure statutory SLA clock for grievances (IT Rules 2021, amended 2023).
- * Acknowledge within 24h; resolve within 15 days — but non-consensual/intimate
+ * Acknowledge within 24h; resolve within 15 days - but non-consensual/intimate
  * imagery within 24h and court/government takedown orders within 36h. The exact
  * durations are confirmed with counsel (#91); this encodes the researched
  * defaults in one testable place.

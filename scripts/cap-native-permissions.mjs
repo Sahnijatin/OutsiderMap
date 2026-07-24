@@ -1,7 +1,7 @@
 // Injects the runtime permission declarations our Capacitor plugins need into
 // the *generated* native projects. ios/ and android/ are created fresh in CI
 // from capacitor.config.ts (they're git-ignored), so this can't be a committed
-// hand-edit — run it after `npx cap sync`. Idempotent: re-running is a no-op.
+// hand-edit - run it after `npx cap sync`. Idempotent: re-running is a no-op.
 //
 //   node scripts/cap-native-permissions.mjs
 //
@@ -15,10 +15,10 @@ const ANDROID_MANIFEST = "android/app/src/main/AndroidManifest.xml";
 
 /** iOS usage-description strings (shown in the OS permission prompt). */
 const IOS_USAGE_KEYS = {
-  // @capacitor/geolocation — map "Near me" + on-site scout verification.
+  // @capacitor/geolocation - map "Near me" + on-site scout verification.
   NSLocationWhenInUseUsageDescription:
     "OutsiderMap uses your location to center the map on you and to verify spots you scout on-site.",
-  // @capacitor/camera — live scout verification photos + feed posts.
+  // @capacitor/camera - live scout verification photos + feed posts.
   NSCameraUsageDescription:
     "OutsiderMap uses the camera so you can verify spots on-site and add photos to your posts.",
   NSPhotoLibraryUsageDescription:
@@ -33,7 +33,7 @@ const ANDROID_PERMISSIONS = [
   // Camera + reading picked media (READ_MEDIA_IMAGES is the API 33+ form).
   "android.permission.CAMERA",
   "android.permission.READ_MEDIA_IMAGES",
-  // Push notifications — runtime-prompted from Android 13 (API 33) on.
+  // Push notifications - runtime-prompted from Android 13 (API 33) on.
   "android.permission.POST_NOTIFICATIONS",
 ];
 

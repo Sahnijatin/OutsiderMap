@@ -4,7 +4,7 @@ import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
- * GET /api/places/search?q=&city= — the composer's catalog place picker.
+ * GET /api/places/search?q=&city= - the composer's catalog place picker.
  * Name-matches published places (RLS already hides unpublished ones) so a
  * post can anchor to a real catalog place. Not semantic search - just a
  * fast typeahead over names within a city.

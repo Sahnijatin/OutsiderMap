@@ -10,7 +10,7 @@ import {
 } from "@/lib/map/categories";
 
 /**
- * GET /api/map/places?city=delhi — the map's data source: every published,
+ * GET /api/map/places?city=delhi - the map's data source: every published,
  * mappable place in a city as a slim GeoJSON FeatureCollection. RLS already
  * scopes this to published rows; chains are excluded by product law.
  */

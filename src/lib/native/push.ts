@@ -7,7 +7,7 @@ import { isNativeApp } from "@/lib/capacitor/platform";
  *
  * The server side already exists: `POST/DELETE /api/notifications/token` stores
  * device tokens, and `lib/notifications/frequency.ts` holds the send rules. This
- * is the missing client half — ask for permission, register with APNs/FCM, and
+ * is the missing client half - ask for permission, register with APNs/FCM, and
  * hand the token to that endpoint.
  *
  * Delivery additionally needs credentials we don't have yet (an APNs key for
@@ -15,7 +15,7 @@ import { isNativeApp } from "@/lib/capacitor/platform";
  * fails at runtime, which we swallow: no crashes, no bogus tokens, and the
  * moment the credentials land this starts working with no code change.
  *
- * Nothing here runs on the web — the plugin is dynamically imported behind an
+ * Nothing here runs on the web - the plugin is dynamically imported behind an
  * `isNativeApp()` guard, so it never enters the web bundle.
  */
 
@@ -39,7 +39,7 @@ async function sendToken(token: string, platform: "ios" | "android") {
 
 /**
  * Ask for notification permission and register the device. Safe to call more
- * than once (subsequent calls are a no-op) and safe to call when signed out —
+ * than once (subsequent calls are a no-op) and safe to call when signed out -
  * though the token only binds to a user when the request is authenticated, so
  * callers should register after sign-in.
  */
@@ -65,7 +65,7 @@ export async function registerPushNotifications(): Promise<PushRegistration> {
     await PushNotifications.addListener("registration", (token) => {
       currentToken = token.value;
       void sendToken(token.value, platform).catch(() => {
-        // Offline or signed out — the next registration will retry.
+        // Offline or signed out - the next registration will retry.
       });
     });
 
@@ -94,7 +94,7 @@ export async function registerPushNotifications(): Promise<PushRegistration> {
 }
 
 /**
- * Drop this device's token — call on sign-out so a shared phone stops receiving
+ * Drop this device's token - call on sign-out so a shared phone stops receiving
  * the previous member's notifications.
  */
 export async function unregisterPushNotifications(): Promise<void> {

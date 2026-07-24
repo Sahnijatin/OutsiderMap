@@ -15,7 +15,7 @@ import { extractRupees } from "@/lib/chat/budget";
  * CHAT_EVAL_LIVE and is skipped by default - see scenarios.ts `route`.
  */
 
-describe("chat eval — deterministic layer (register + budget)", () => {
+describe("chat eval - deterministic layer (register + budget)", () => {
   it.each(EVAL_SCENARIOS)(
     "#$id reads register + budget: $text",
     (scenario) => {

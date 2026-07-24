@@ -9,7 +9,7 @@ import { publicMediaUrl } from "@/lib/media/url";
 
 const idOk = (id: string) => z.string().uuid().safeParse(id).success;
 
-/** GET /api/posts/[id] — the post (RLS-gated) plus its ordered media. */
+/** GET /api/posts/[id] - the post (RLS-gated) plus its ordered media. */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -53,7 +53,7 @@ export async function GET(
   });
 }
 
-/** PATCH /api/posts/[id] — author edits their own post's editable fields. */
+/** PATCH /api/posts/[id] - author edits their own post's editable fields. */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -98,7 +98,7 @@ export async function PATCH(
   return NextResponse.json({ ok: true });
 }
 
-/** DELETE /api/posts/[id] — author removes their own post and its media. */
+/** DELETE /api/posts/[id] - author removes their own post and its media. */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },

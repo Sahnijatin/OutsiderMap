@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { formatOutsiderNumber } from "@/lib/identity/username";
 import { easeOutExpo } from "@/components/motion/primitives";
 
-// The signature scene — ten thousand lights collapsing to one — is the beat.
+// The signature scene - ten thousand lights collapsing to one - is the beat.
 const ConvergenceField = dynamic(
   () => import("@/components/three/ConvergenceField"),
   { ssr: false },
@@ -57,7 +57,7 @@ export function ActivationReveal({
         const res = await fetch("/api/activation", { method: "POST" });
         if (res.ok) data = await res.json();
       } catch {
-        // Network hiccup — fall through to the graceful welcome.
+        // Network hiccup - fall through to the graceful welcome.
       }
       const wait = Math.max(0, minDwell - (Date.now() - startedAt));
       window.setTimeout(() => {
@@ -167,7 +167,7 @@ export function ActivationReveal({
               Your city&rsquo;s ready.
             </p>
             <p className="max-w-xs text-sm text-ink-dim">
-              Ask for anything — a late dinner, a quiet corner, somewhere new —
+              Ask for anything - a late dinner, a quiet corner, somewhere new -
               and we&rsquo;ll answer with one place, not a list.
             </p>
             <ButtonLink href="/map?welcome=1" size="lg">

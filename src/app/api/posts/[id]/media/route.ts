@@ -16,8 +16,8 @@ import {
 } from "@/lib/media/post";
 
 /**
- * POST — issue a signed direct-to-Storage upload URL for the author's own,
- * still-pending post. DELETE — drop one of the post's media rows + object.
+ * POST - issue a signed direct-to-Storage upload URL for the author's own,
+ * still-pending post. DELETE - drop one of the post's media rows + object.
  */
 
 const idOk = (id: string) => z.string().uuid().safeParse(id).success;

@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // The pipeline runs LLM extract + summary + embedding — the costliest
+  // The pipeline runs LLM extract + summary + embedding - the costliest
   // endpoint per call, and one a member only legitimately hits a few times.
   const allowed = await checkRateLimit(`onboarding:${ctx.user.id}`, 5, 3600);
   if (!allowed) {

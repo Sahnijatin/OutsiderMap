@@ -4,7 +4,7 @@ import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { startQuest } from "@/lib/quests/machine";
 
-/** POST /api/quests/:id/start — draft -> active, unlocks stop 1. */
+/** POST /api/quests/:id/start - draft -> active, unlocks stop 1. */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },

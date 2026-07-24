@@ -9,7 +9,7 @@ import {
 } from "@/lib/media/quest";
 
 /**
- * POST — after the client PUTs to the signed URL, verify the object landed
+ * POST - after the client PUTs to the signed URL, verify the object landed
  * (and fits the cap), then record the quest_stop_media row. Returns the
  * stop's media list with fresh signed display URLs.
  */

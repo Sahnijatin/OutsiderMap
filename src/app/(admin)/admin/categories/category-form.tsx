@@ -58,7 +58,7 @@ export function CategoryForm({
           defaultChecked={category?.is_active ?? true}
           className="size-4 accent-(--color-accent)"
         />
-        Active — shown on the map and legend
+        Active - shown on the map and legend
       </label>
 
       <div className="flex items-center gap-4 border-t border-line pt-5">

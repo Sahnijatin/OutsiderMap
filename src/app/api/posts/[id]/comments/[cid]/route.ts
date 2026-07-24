@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
 
-/** DELETE /api/posts/[id]/comments/[cid] — the author removes their comment. */
+/** DELETE /api/posts/[id]/comments/[cid] - the author removes their comment. */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; cid: string }> },

@@ -5,11 +5,11 @@ import type { Database } from "@/types/database";
 /**
  * Typed wrappers around the Scout Economy RPCs (migrations 30/31). Every
  * mutation lives in the database behind a security-definer RPC; these shape
- * params + errors. Bounty listings are deliberately *blind* — the lister's
+ * params + errors. Bounty listings are deliberately *blind* - the lister's
  * identity is never selected, so validators can't be biased or collude.
  */
 
-/** A bounty as shown to a prospective validator — no lister identity. */
+/** A bounty as shown to a prospective validator - no lister identity. */
 export type NearbyBounty = {
   id: string;
   type: "verify" | "discover";
@@ -74,7 +74,7 @@ export async function listNearbyBounties(
     { name: string; area: string | null; lat: number | null; lng: number | null }
   >();
   if (placeIds.length > 0) {
-    // Read place location only — never who submitted it.
+    // Read place location only - never who submitted it.
     const { data: places } = await supabase
       .from("places")
       .select("id, name, area, lat, lng")

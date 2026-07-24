@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
- * POST /api/scout/submissions — a scout submits a hidden spot. Creates an
+ * POST /api/scout/submissions - a scout submits a hidden spot. Creates an
  * unpublished, source='submitted' catalog place attributed to the scout, then
  * spawns a verify bounty so independent members can confirm it exists on-site.
  * The place stays invisible in the catalog until a quorum publishes it (#113).

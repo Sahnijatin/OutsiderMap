@@ -1,7 +1,7 @@
 import type { CategoryScores } from "./types";
 
 /**
- * Cheap, pure text heuristics — the fast gate before the LLM classifier.
+ * Cheap, pure text heuristics - the fast gate before the LLM classifier.
  * These catch obvious spam (link flooding, repetition, known spam phrases);
  * nuanced categories (hate, harassment, threats, Hinglish subtext) are the
  * LLM's job. Abusive-term lists are configuration, never hardcoded here.
@@ -27,7 +27,7 @@ export const DEFAULT_SPAM_PHRASES = [
   "limited time offer",
 ];
 
-/** Pure heuristic scores. Only ever raises `spam` — never a safety category. */
+/** Pure heuristic scores. Only ever raises `spam` - never a safety category. */
 export function heuristicScores(
   text: string,
   spamPhrases: readonly string[] = DEFAULT_SPAM_PHRASES,

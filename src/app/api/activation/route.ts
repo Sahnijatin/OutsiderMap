@@ -6,7 +6,7 @@ import { publicMediaUrl } from "@/lib/media/url";
 import { ANSWER_SERVED, newAnswerId, servedPayload } from "@/lib/events/answers";
 
 /**
- * POST /api/activation — the first-answer moment (#121). Generates one confident,
+ * POST /api/activation - the first-answer moment (#121). Generates one confident,
  * taste-derived pick for a brand-new member (no query needed), emits the precise
  * answer_served event (source "activation", so time-to-first-answer =
  * served − onboarding_completed_at and accept-rate is measurable), and marks the

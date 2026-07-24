@@ -49,7 +49,7 @@ function formatWindow(hhmm: string): string {
 }
 
 function dayHours(hours: Json | null, key: string): string {
-  if (!hours || typeof hours !== "object" || Array.isArray(hours)) return "—";
+  if (!hours || typeof hours !== "object" || Array.isArray(hours)) return "-";
   const windows = (hours as Record<string, unknown>)[key];
   if (!Array.isArray(windows) || windows.length === 0) return "Closed";
   return windows

@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Welcome" };
 
 /**
  * The activation beat (#121): the once-only first-answer moment. Reached right
- * after onboarding. Gated so it fires exactly once — an already-activated
+ * after onboarding. Gated so it fires exactly once - an already-activated
  * member (or anyone arriving here later) is sent straight into the app. `?redo`
  * lets us re-watch it in dev without resetting the flag.
  */

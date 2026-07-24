@@ -164,7 +164,9 @@ export function MapSearch({
   return (
     <div
       className="absolute inset-x-4 z-[600]"
-      style={{ top: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      // --map-top is set by MapCanvas and clears the status bar; every top
+      // overlay derives from it so they can never overlap each other.
+      style={{ top: "var(--map-top, calc(env(safe-area-inset-top, 0px) + 0.75rem))" }}
     >
       <div className="mx-auto max-w-md">
         <div

@@ -83,7 +83,7 @@ function areaFromGeocode(
  * Dark, brand-styled Google map with Places search and a draggable pin. Search
  * is a convenience (best venue/address coverage for India); the draggable pin
  * (drag or tap the map) is the fallback for unlisted spots. Reports the chosen
- * point up via onChange. Load this via next/dynamic ssr:false — it needs
+ * point up via onChange. Load this via next/dynamic ssr:false - it needs
  * window. `token` is the Google Maps API key.
  */
 export function LocationPicker({

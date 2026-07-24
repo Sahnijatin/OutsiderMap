@@ -5,7 +5,7 @@ import { isNativeApp } from "@/lib/capacitor/platform";
 /**
  * Native photo capture (#143 plugins track; Scout #80, Feed #67).
  *
- * On the web, surfaces keep their `<input type="file">` — nothing changes. In
+ * On the web, surfaces keep their `<input type="file">` - nothing changes. In
  * the Capacitor app this opens the real native camera / photo picker, with OS
  * permission handling, and hands back a plain `File` so every existing upload
  * path works unchanged.
@@ -16,13 +16,13 @@ import { isNativeApp } from "@/lib/capacitor/platform";
  * We request `DataUrl` rather than `Uri`: this is a *hybrid* shell (the WebView
  * loads the hosted site), so a `capacitor://` file URL would be cross-origin to
  * the page and `fetch` could be blocked. A data URL converts to a File purely
- * in-page, with no network read — reliable regardless of origin.
+ * in-page, with no network read - reliable regardless of origin.
  */
 
 /** Where the photo comes from. `camera` forces a live shot (no gallery). */
 export type PhotoSource = "camera" | "library" | "prompt";
 
-/** Long edge cap + JPEG quality — keeps the base64 payload sane on device. */
+/** Long edge cap + JPEG quality - keeps the base64 payload sane on device. */
 const MAX_WIDTH = 2048;
 const QUALITY = 82;
 
@@ -51,7 +51,7 @@ export function isNativeCameraAvailable(): Promise<boolean> {
 /**
  * Open the native camera / picker and return the photo as a `File`.
  * Returns `null` when the user cancels, or when called on the web (callers
- * should fall back to their file input). Throws only on a real failure —
+ * should fall back to their file input). Throws only on a real failure -
  * e.g. permission permanently denied.
  */
 export async function captureNativePhoto(
@@ -113,7 +113,7 @@ export async function captureNativePhoto(
       `capture-${Date.now()}.${extensionFor(mime)}`,
     );
   } catch (e) {
-    // The plugin throws on dismissal — that's a normal outcome, not an error.
+    // The plugin throws on dismissal - that's a normal outcome, not an error.
     const msg = e instanceof Error ? e.message : String(e);
     if (/cancel/i.test(msg) || /no image/i.test(msg)) return null;
     throw e;

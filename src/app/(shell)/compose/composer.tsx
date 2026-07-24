@@ -41,7 +41,7 @@ const TYPE_LABELS: Record<PostType, string> = {
 };
 
 const VISIBILITY_LABELS: Record<(typeof POST_VISIBILITIES)[number], string> = {
-  public: "Public — any member",
+  public: "Public - any member",
   followers: "Followers only",
   friends: "Friends only",
   private: "Only me",
@@ -141,7 +141,7 @@ export function Composer({ homeCity }: { homeCity: string }) {
       if (media.length + next.length >= MAX_POST_MEDIA) break;
       const ke = fileKindExt(file);
       if (!ke) {
-        setError("Unsupported file — images (JPG/PNG/WebP) or video (MP4/WebM/MOV).");
+        setError("Unsupported file - images (JPG/PNG/WebP) or video (MP4/WebM/MOV).");
         continue;
       }
       next.push({ file, url: URL.createObjectURL(file), ...ke });
@@ -187,7 +187,7 @@ export function Composer({ homeCity }: { homeCity: string }) {
     const { error: uploadError } = await supabase.storage
       .from("post-media")
       .uploadToSignedUrl(issued.path, issued.token, item.file);
-    if (uploadError) throw new Error("Upload failed — try again.");
+    if (uploadError) throw new Error("Upload failed - try again.");
 
     const confirm = await fetch(`/api/posts/${postId}/media/confirm`, {
       method: "POST",
@@ -301,7 +301,7 @@ export function Composer({ homeCity }: { homeCity: string }) {
         ))}
       </div>
 
-      <Field label="Place" hint="Search the catalog — posts are place-first.">
+      <Field label="Place" hint="Search the catalog - posts are place-first.">
         {placeId ? (
           <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3">
             <span className="flex min-w-0 items-center gap-2 text-ink">
@@ -347,7 +347,7 @@ export function Composer({ homeCity }: { homeCity: string }) {
         )}
       </Field>
 
-      <Field label="What's happening" hint="Optional — e.g. eating, exploring, chilling.">
+      <Field label="What's happening" hint="Optional - e.g. eating, exploring, chilling.">
         <Input
           value={action}
           onChange={(e) => setAction(e.target.value)}
@@ -399,7 +399,7 @@ export function Composer({ homeCity }: { homeCity: string }) {
               <span className="text-[0.65rem]">Add</span>
             </button>
           )}
-          {/* Native app: a real camera tile next to the picker (#143). Additive —
+          {/* Native app: a real camera tile next to the picker (#143). Additive -
               "Add" still opens the OS picker for existing photos and video. */}
           {isNative && media.length < MAX_POST_MEDIA && (
             <button

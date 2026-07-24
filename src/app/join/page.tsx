@@ -30,7 +30,7 @@ export default async function JoinPage({
     term: first(sp.utm_term),
     content: first(sp.utm_content),
   };
-  // Public key — read directly from process.env (not serverEnv) so the page
+  // Public key - read directly from process.env (not serverEnv) so the page
   // renders without full env validation. Null disables the widget.
   const turnstileSiteKey =
     process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null;

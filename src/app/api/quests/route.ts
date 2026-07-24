@@ -3,7 +3,7 @@ import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { generateQuest, QuestBriefSchema } from "@/lib/quests/generate";
 
-/** GET /api/quests — the member's quests, newest first. */
+/** GET /api/quests - the member's quests, newest first. */
 export async function GET(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ quests: data ?? [] });
 }
 
-/** POST /api/quests — generate a new draft quest (LLM path, tight limit). */
+/** POST /api/quests - generate a new draft quest (LLM path, tight limit). */
 export async function POST(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {

@@ -4,7 +4,7 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { listNearbyBounties } from "@/lib/scout/bounties";
 
 /**
- * GET /api/bounties?city=&area= — open verification bounties near the member,
+ * GET /api/bounties?city=&area= - open verification bounties near the member,
  * filterable by area. Blind: the lister's identity is never returned.
  * Eligibility to actually confirm is enforced when a confirmation is submitted.
  */

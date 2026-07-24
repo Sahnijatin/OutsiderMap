@@ -7,7 +7,7 @@ import { assignVariant } from "./assign";
  * Server-side experiment resolution (#120 part 2b). Reads the enabled
  * experiments (via the security-definer active_experiments RPC, so no admin
  * client on the hot path) and assigns the caller a stable variant. Returns null
- * when the experiment is disabled or absent — the serve path then falls back to
+ * when the experiment is disabled or absent - the serve path then falls back to
  * its default behavior, so a flag that's off is a no-op.
  */
 

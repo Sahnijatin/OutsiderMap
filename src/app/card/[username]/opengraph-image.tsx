@@ -89,7 +89,7 @@ export default async function Image({
             color: "#f0a431",
           }}
         >
-          outsider {card ? formatOutsiderNumber(card.outsiderNumber) : "—"}
+          outsider {card ? formatOutsiderNumber(card.outsiderNumber) : "-"}
         </div>
         <div
           style={{

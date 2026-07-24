@@ -5,8 +5,8 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { ReactionKindSchema } from "@/lib/feed/model";
 
 /**
- * POST /api/posts/[id]/reactions — like or want_to_go a post.
- * DELETE — remove your reaction.
+ * POST /api/posts/[id]/reactions - like or want_to_go a post.
+ * DELETE - remove your reaction.
  * The like/comment/want counters are trigger-maintained; the author
  * notification is trigger-driven. want_to_go is the social→intent bridge:
  * it also saves the post's place to the member's bucket and logs the signal.

@@ -60,7 +60,7 @@ export default async function QuestsPage() {
         <div className="min-w-0">
           <p className="font-display text-lg italic">Scout bounties</p>
           <p className="mt-0.5 text-xs text-ink-dim">
-            Verify hidden spots on-site, or list your own — earn points as the
+            Verify hidden spots on-site, or list your own - earn points as the
             map grows.
           </p>
         </div>
