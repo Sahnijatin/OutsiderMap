@@ -18,7 +18,7 @@ import type { Json } from "@/types/database";
 import { PlaceGallery, type GalleryCard } from "./place-gallery";
 
 const DETAIL_FIELDS =
-  "id, slug, name, area, kind, category, category_id, price_level, vibe_tags, description, editor_note, hours, best_for, image_path, story, lat, lng";
+  "id, slug, name, area, kind, category, category_id, price_level, vibe_tags, description, editor_note, hours, best_for, image_path, story, lat, lng, google_place_id";
 
 type StoryCard = {
   media_path?: string;
@@ -140,7 +140,12 @@ export default async function PlacePage({
 
   const dirUrl =
     place.lat != null && place.lng != null
-      ? googleMapsDirUrl(place.lat, place.lng, place.name)
+      ? googleMapsDirUrl({
+          lat: place.lat,
+          lng: place.lng,
+          name: place.name,
+          googlePlaceId: place.google_place_id,
+        })
       : null;
 
   const hasHours =

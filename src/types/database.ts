@@ -292,6 +292,11 @@ export type Database = {
           kind: PlaceKind;
           is_chain: boolean;
           story: Json;
+          google_place_id: string | null;
+          geo_source: "typed" | "osm" | "overture" | "scout_median" | "owner";
+          geo_accuracy_m: number | null;
+          geo_confirmed_count: number;
+          geo_updated_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -319,6 +324,11 @@ export type Database = {
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;
+          google_place_id?: string | null;
+          geo_source?: "typed" | "osm" | "overture" | "scout_median" | "owner";
+          geo_accuracy_m?: number | null;
+          geo_confirmed_count?: number;
+          geo_updated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -346,6 +356,11 @@ export type Database = {
           kind?: PlaceKind;
           is_chain?: boolean;
           story?: Json;
+          google_place_id?: string | null;
+          geo_source?: "typed" | "osm" | "overture" | "scout_median" | "owner";
+          geo_accuracy_m?: number | null;
+          geo_confirmed_count?: number;
+          geo_updated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -30,6 +30,8 @@ export type MapPlaceProperties = {
   categoryLabel: string;
   price_level: number | null;
   image_path: string | null;
+  /** Exact Google navigation destination. Null until the pin is resolved. */
+  googlePlaceId: string | null;
 };
 
 export type MapPlaceCollection = GeoJSON.FeatureCollection<
@@ -50,7 +52,7 @@ export async function listMapPlaces(
     supabase
       .from("places")
       .select(
-        "id, slug, name, area, kind, category, category_id, price_level, lat, lng, image_path",
+        "id, slug, name, area, kind, category, category_id, price_level, lat, lng, image_path, google_place_id",
       )
       .eq("city", citySlug)
       .eq("is_published", true)
@@ -88,6 +90,7 @@ export async function listMapPlaces(
           categoryLabel: label,
           price_level: p.price_level,
           image_path: p.image_path,
+          googlePlaceId: p.google_place_id,
         },
       };
     }),

@@ -276,7 +276,12 @@ export function PlaceSheet({
               aria-label="Directions on Google Maps"
               onClick={() =>
                 window.open(
-                  googleMapsDirUrl(place.lat, place.lng, place.name),
+                  googleMapsDirUrl({
+                    lat: place.lat,
+                    lng: place.lng,
+                    name: place.name,
+                    googlePlaceId: place.googlePlaceId ?? null,
+                  }),
                   "_blank",
                   "noopener",
                 )

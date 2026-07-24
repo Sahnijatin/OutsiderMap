@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { googleMapsDirUrl } from "@/lib/map/directions";
 import { baseMapStyle } from "@/lib/map/style";
 import { publicMediaUrl } from "@/lib/media/url";
 import { shareOrCopy } from "@/lib/native/share";
@@ -788,7 +789,12 @@ function StopCard({
                 className="w-9 px-0"
                 onClick={() =>
                   window.open(
-                    `https://www.google.com/maps/dir/?api=1&destination=${stop.place!.lat},${stop.place!.lng}`,
+                    googleMapsDirUrl({
+                      lat: stop.place!.lat!,
+                      lng: stop.place!.lng!,
+                      name: stop.place!.name,
+                      googlePlaceId: stop.place!.google_place_id ?? null,
+                    }),
                     "_blank",
                     "noopener",
                   )
