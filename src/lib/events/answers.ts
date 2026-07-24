@@ -15,7 +15,7 @@ export const ANSWER_SERVED = "answer_served" as const;
 export const ANSWER_ACCEPTED = "answer_accepted" as const;
 
 /** Where a served answer came from — the surface, for later breakdowns. */
-export type AnswerSource = "chat" | "now";
+export type AnswerSource = "chat" | "now" | "activation";
 
 /** A fresh id for one served answer. Web Crypto is available in both runtimes. */
 export function newAnswerId(): string {

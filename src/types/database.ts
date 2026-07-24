@@ -75,6 +75,7 @@ export type Database = {
           is_admin: boolean;
           personalization_enabled: boolean;
           onboarding_completed_at: string | null;
+          activated_at: string | null;
           outsider_number: number | null;
           username: string | null;
           home_city: string | null;
@@ -90,6 +91,7 @@ export type Database = {
           is_admin?: boolean;
           personalization_enabled?: boolean;
           onboarding_completed_at?: string | null;
+          activated_at?: string | null;
           outsider_number?: number | null;
           username?: string | null;
           home_city?: string | null;
@@ -105,6 +107,7 @@ export type Database = {
           is_admin?: boolean;
           personalization_enabled?: boolean;
           onboarding_completed_at?: string | null;
+          activated_at?: string | null;
           outsider_number?: number | null;
           username?: string | null;
           home_city?: string | null;
@@ -2022,6 +2025,14 @@ export type Database = {
       metrics_answer_accept_rate: {
         Args: { p_days?: number };
         Returns: { served: number; accepted: number }[];
+      };
+      metrics_activation: {
+        Args: { p_days?: number };
+        Returns: {
+          served: number;
+          accepted: number;
+          avg_ttfa_seconds: number | null;
+        }[];
       };
       active_experiments: {
         Args: Record<PropertyKey, never>;
