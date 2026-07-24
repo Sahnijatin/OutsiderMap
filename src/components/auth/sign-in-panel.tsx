@@ -3,18 +3,24 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useIsNativeApp } from "@/lib/capacitor/platform";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
 /**
- * The shared sign-in flow (email OTP + Google), used by both the /sign-in page
- * and the inline auth modal (#116). On OTP success it either runs `onSignedIn`
- * (the modal resumes the pending action in place) or navigates to `next`.
+ * The shared sign-in flow, used by both the /sign-in page and the inline auth
+ * modal (#116). On OTP success it either runs `onSignedIn` (the modal resumes
+ * the pending action in place) or navigates to `next`.
  *
- * Google is a full-page redirect, so a JS closure can't survive it: we stash
- * `next` in a short-lived cookie before redirecting and the callback reads it —
- * which also fixes the long-standing "OAuth drops ?next" gap.
+ * On the web: email code + Google. Google is a full-page redirect, so a JS
+ * closure can't survive it — we stash `next` in a short-lived cookie before
+ * redirecting and the callback reads it (also fixes the "OAuth drops ?next" gap).
+ *
+ * In the native app (#149): the email-code flow stays entirely in-app, so that's
+ * all we show. Web-redirect Google would kick the user out to a browser, which
+ * we don't want on mobile — native Google/Apple sign-in sheets come next, gated
+ * on their native client IDs.
  */
 
 /** Cookie the OAuth callback reads to restore the intended destination. */
@@ -60,6 +66,7 @@ export function SignInPanel({
   initialError?: string | null;
 }) {
   const router = useRouter();
+  const isNative = useIsNativeApp();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -122,21 +129,27 @@ export function SignInPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <Button
-        type="button"
-        variant="secondary"
-        onClick={signInWithGoogle}
-        disabled={pending}
-      >
-        <GoogleIcon />
-        Continue with Google
-      </Button>
+      {/* Web: Google redirect. Hidden in the native app — it would leave to a
+          browser; native social sign-in sheets land next (#149). */}
+      {!isNative && (
+        <>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={signInWithGoogle}
+            disabled={pending}
+          >
+            <GoogleIcon />
+            Continue with Google
+          </Button>
 
-      <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-line" />
-        <span className="font-mono text-xs text-ink-dim">or</span>
-        <span className="h-px flex-1 bg-line" />
-      </div>
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-line" />
+            <span className="font-mono text-xs text-ink-dim">or</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        </>
+      )}
 
       {step === "email" ? (
         <form onSubmit={sendCode} className="flex flex-col gap-3">
