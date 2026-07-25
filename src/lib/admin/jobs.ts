@@ -111,6 +111,33 @@ function slugify(name: string, lat: number, lng: number) {
 }
 
 /**
+ * Every place in a city, read past PostgREST's 1000-row page cap.
+ *
+ * This cap is why the first version of the importer stalled at about 1,100
+ * rows: it read "all" existing places, silently got only the first 1000, so
+ * candidates it had already imported stopped looking like duplicates. They
+ * were re-selected every batch, collided on their unique slug, inserted
+ * nothing, and the runner read zero-inserted as "done".
+ */
+async function loadAllPlaces(admin: Admin, city: string) {
+  const PAGE = 1000;
+  const rows: { slug: string; name: string; lat: number | null; lng: number | null }[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await admin
+      .from("places")
+      .select("slug, name, lat, lng")
+      .eq("city", city)
+      .order("slug")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return rows;
+}
+
+/**
  * Import a batch of Overture candidates as unpublished drafts.
  *
  * Unpublished on purpose: Overture gives a name, a category and a point. It
@@ -127,13 +154,19 @@ export async function importOvertureBatch(
   const candidates = await loadCandidates();
   const counts = countByName(candidates);
 
-  const { data: existing } = await admin
-    .from("places")
-    .select("name, lat, lng")
-    .eq("city", city);
+  const existing = await loadAllPlaces(admin, city);
 
+  // Two indexes, because they answer different questions.
+  //
+  // By slug: "did WE already import this exact candidate?" Slugs are derived
+  // from name + coordinates, so they are stable across runs.
+  //
+  // By name + distance: "is this the same venue as something already in the
+  // hand-curated catalog?", where the slug will not match because a human
+  // wrote it.
+  const existingSlugs = new Set(existing.map((p) => p.slug));
   const byName = new Map<string, { lat: number | null; lng: number | null }[]>();
-  for (const p of existing ?? []) {
+  for (const p of existing) {
     const key = normaliseName(p.name);
     if (!byName.has(key)) byName.set(key, []);
     byName.get(key)!.push(p);
@@ -167,7 +200,8 @@ export async function importOvertureBatch(
       skippedReview += 1;
       continue;
     }
-    if (alreadyHere(c)) {
+    const slug = slugify(c.name, c.lat, c.lng);
+    if (existingSlugs.has(slug) || alreadyHere(c)) {
       skippedDupe += 1;
       continue;
     }
@@ -176,7 +210,7 @@ export async function importOvertureBatch(
       continue;
     }
     rows.push({
-      slug: slugify(c.name, c.lat, c.lng),
+      slug,
       name: c.name,
       city,
       lat: c.lat,
@@ -192,6 +226,7 @@ export async function importOvertureBatch(
     });
     // Count it locally so two candidates for the same venue in one batch
     // cannot both land.
+    existingSlugs.add(slug);
     const key = normaliseName(c.name);
     if (!byName.has(key)) byName.set(key, []);
     byName.get(key)!.push({ lat: c.lat, lng: c.lng });
