@@ -51,13 +51,14 @@ export async function POST(
     );
   }
 
-  // RLS keeps this to published, non-chain places, so a member cannot seed
-  // media onto a draft or a place we deliberately do not carry.
+  // Published places are open to any member. Drafts are visible to admins
+  // only, and RLS already enforces that - so an admin curating the imported
+  // NCR drafts can attach photos before anything goes live, while a member
+  // still cannot reach an unpublished row at all.
   const { data: place } = await ctx.supabase
     .from("places")
     .select("id")
     .eq("slug", slug)
-    .eq("is_published", true)
     .maybeSingle();
   if (!place) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });

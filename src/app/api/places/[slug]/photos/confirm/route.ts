@@ -45,11 +45,14 @@ export async function POST(
   }
   const { path, caption, capturedLat, capturedLng } = parsed.data;
 
+  // Published places are open to any member. Drafts are visible to admins
+  // only, and RLS already enforces that - so an admin curating the imported
+  // NCR drafts can attach photos before anything goes live, while a member
+  // still cannot reach an unpublished row at all.
   const { data: place } = await ctx.supabase
     .from("places")
     .select("id")
     .eq("slug", slug)
-    .eq("is_published", true)
     .maybeSingle();
   if (!place) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });

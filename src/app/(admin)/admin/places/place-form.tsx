@@ -4,6 +4,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import type { PlaceKind, Tables } from "@/types/database";
 import type { MapCategory } from "@/lib/map/categories";
 import { PlaceLocation } from "./place-location";
+import { PhotoInput } from "./photo-input";
 import { StoryEditor } from "./story-editor";
 import { deletePlace, upsertPlace } from "./actions";
 
@@ -149,7 +150,7 @@ export function PlaceForm({
         htmlFor="image"
         hint={place?.image_path ? `Current: ${place.image_path}` : "Optional"}
       >
-        <Input id="image" name="image" type="file" accept="image/*" />
+        <PhotoInput id="image" name="image" />
       </Field>
 
       <label className="flex items-center gap-3 text-sm">
