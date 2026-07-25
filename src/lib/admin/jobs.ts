@@ -304,8 +304,10 @@ export async function candidateSourceLinks(): Promise<Map<string, string>> {
   for (const c of await loadCandidates()) {
     const url = c.website ?? c.instagram;
     if (!url) continue;
-    const key = c.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    if (!links.has(key)) links.set(key, url);
+    // Keyed by the exact name we insert, so the enrichment query can filter
+    // server-side with .in("name", ...) instead of pulling drafts blindly and
+    // hoping they happen to have a source.
+    if (!links.has(c.name)) links.set(c.name, url);
   }
   return links;
 }
@@ -382,6 +384,11 @@ export async function resolvePlaceIdsBatch(
   let resolved = 0;
   let unresolved = 0;
   let drifted = 0;
+  // A failed API call and a genuine no-match are completely different
+  // problems, and reporting both as "left alone" hid a broken key behind a
+  // sentence that read like careful behaviour.
+  let apiErrors = 0;
+  let firstError: string | null = null;
 
   for (const place of places ?? []) {
     const body = {
@@ -409,10 +416,14 @@ export async function resolvePlaceIdsBatch(
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(12_000),
       });
-      if (!res.ok) throw new Error(`Places API ${res.status}`);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Places API ${res.status}: ${body.slice(0, 200)}`);
+      }
       candidates = ((await res.json()) as { places?: GooglePlace[] }).places ?? [];
-    } catch {
-      unresolved += 1;
+    } catch (err) {
+      apiErrors += 1;
+      firstError ??= err instanceof Error ? err.message : String(err);
       continue;
     }
 
@@ -462,12 +473,23 @@ export async function resolvePlaceIdsBatch(
     .not("lat", "is", null)
     .eq("is_published", true);
 
+  if (apiErrors > 0 && resolved === 0) {
+    // Every call failed. That is a broken key or a disabled API, not a
+    // cautious matcher, and saying so is the whole point.
+    throw new Error(
+      `Google Places rejected all ${apiErrors} requests. ${firstError ?? ""}`.trim(),
+    );
+  }
+
   return {
     processed: resolved,
     remaining: Math.max(0, (count ?? 0) - unresolved),
     notes: [
       `${resolved} pinned exactly`,
-      `${unresolved} left alone - no confident match, and a wrong pin is worse than none`,
+      unresolved > 0
+        ? `${unresolved} left alone - no confident match, and a wrong pin is worse than none`
+        : "",
+      apiErrors > 0 ? `${apiErrors} failed at the API: ${firstError}` : "",
       drifted > 0 ? `${drifted} of our pins were more than 150m out` : "",
     ].filter(Boolean),
   };
