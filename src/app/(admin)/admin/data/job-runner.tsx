@@ -39,7 +39,11 @@ export function JobRunner({
   const stopRef = useRef(false);
   const [, startTransition] = useTransition();
 
-  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  // Clamp: a job can report more work done than the file has rows (the import
+  // also backfills areas on existing drafts), and "8,521 of 7,554" reads like
+  // a bug even though the run was fine.
+  const shown = total > 0 ? Math.min(done, total) : done;
+  const pct = total > 0 ? Math.min(100, Math.round((shown / total) * 100)) : 0;
 
   async function runToCompletion() {
     setRunning(true);
@@ -117,7 +121,7 @@ export function JobRunner({
             />
           </div>
           <p className="mt-1.5 text-xs text-ink-dim">
-            {done.toLocaleString()} of {total.toLocaleString()} {unit} ({pct}%)
+            {shown.toLocaleString()} of {total.toLocaleString()} {unit} ({pct}%)
           </p>
         </div>
       )}

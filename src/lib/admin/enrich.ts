@@ -85,6 +85,30 @@ export async function enrichDraftsBatch(
   const batchSize = opts.batchSize ?? 8;
   const links = opts.links ?? new Map<string, string>();
 
+  // Ask only for drafts we have a source for, and rotate which slice of them
+  // we ask about.
+  //
+  // The first version pulled the oldest drafts and then discarded the ones
+  // with no website. That had two failure modes at once: most of a window was
+  // wasted, and a window where everything declined came back identical on the
+  // next click - so the job could never move past a bad patch. It reported
+  // "Done" while having written nothing.
+  const sourced = [...links.keys()];
+  if (sourced.length === 0) {
+    return {
+      enriched: 0,
+      skipped: 0,
+      remaining: 0,
+      notes: ["No candidate in the data file has a website to read."],
+    };
+  }
+  const SLICE = 300;
+  const start = Math.floor(Math.random() * sourced.length);
+  const names = [
+    ...sourced.slice(start, start + SLICE),
+    ...sourced.slice(0, Math.max(0, start + SLICE - sourced.length)),
+  ];
+
   const { data: drafts, error } = await admin
     .from("places")
     .select("id, name, slug, area, category, kind")
@@ -92,26 +116,29 @@ export async function enrichDraftsBatch(
     .eq("is_published", false)
     .eq("geo_source", "overture")
     .is("description", null)
-    .order("created_at")
-    .limit(batchSize * 4);
+    .in("name", names)
+    .limit(batchSize);
   if (error) throw new Error(error.message);
 
-  // Only the ones we have a readable source for. The rest are counted as
-  // skipped so the operator sees the honest shape of the problem.
-  const workable = (drafts ?? []).filter((d) => links.has(normalise(d.name)));
-  const noSource = (drafts ?? []).length - workable.length;
+  const workable = drafts ?? [];
 
   let enriched = 0;
   let declined = 0;
+  // Separated deliberately. Reporting a dead website, a broken AI key and a
+  // model that honestly said "this page tells me nothing" as one number made
+  // a total failure look like careful behaviour.
+  let unreadable = 0;
+  let failed = 0;
+  let firstError: string | null = null;
 
   for (const place of workable.slice(0, batchSize)) {
-    const url = links.get(normalise(place.name))!;
+    const url = links.get(place.name)!;
     try {
       const meta = await fetchPublicMetadata(url, detectKind(url));
       // A page with no title and no description tells us nothing; do not pay
       // a model to confirm that.
       if (!meta.title && !meta.description) {
-        declined += 1;
+        unreadable += 1;
         continue;
       }
 
@@ -154,8 +181,9 @@ export async function enrichDraftsBatch(
         .eq("id", place.id);
       if (writeErr) throw new Error(writeErr.message);
       enriched += 1;
-    } catch {
-      declined += 1;
+    } catch (err) {
+      failed += 1;
+      firstError ??= err instanceof Error ? err.message : String(err);
     }
   }
 
@@ -167,28 +195,33 @@ export async function enrichDraftsBatch(
     .eq("geo_source", "overture")
     .is("description", null);
 
+  const attempted = workable.slice(0, batchSize).length;
+  if (failed > 0 && failed === attempted) {
+    // Everything blew up. That is a configuration problem, not a cautious
+    // model, and the operator needs the actual message.
+    throw new Error(`All ${failed} attempts failed. ${firstError ?? ""}`.trim());
+  }
+
   return {
     enriched,
-    skipped: declined,
-    // Only the ones we can actually act on count as remaining work, otherwise
-    // the runner would spin forever on drafts with no source to read.
-    remaining: Math.max(0, workable.length - batchSize),
+    skipped: declined + unreadable + failed,
+    // Remaining is the whole outstanding pile, not just this window, so the
+    // runner keeps going instead of declaring victory after one batch.
+    remaining: Math.max(0, (count ?? 0) - enriched),
     notes: [
       `${enriched} written from the venue's own page`,
       declined > 0
         ? `${declined} left blank - the page did not describe the place`
         : "",
-      noSource > 0
-        ? `${noSource} in this window have no website to read; they need a scout, not a model`
+      unreadable > 0
+        ? `${unreadable} websites returned nothing readable (dead or blocked)`
         : "",
+      failed > 0 ? `${failed} errored: ${firstError}` : "",
       `${count ?? 0} drafts still without a description`,
     ].filter(Boolean),
   };
 }
 
-function normalise(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
 
 function detectKind(url: string): "instagram" | "youtube" | "blog" | "other" {
   try {
