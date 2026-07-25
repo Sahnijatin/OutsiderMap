@@ -5,10 +5,12 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import {
+  candidateSourceLinks,
   importOvertureBatch,
   resolvePlaceIdsBatch,
   type BatchResult,
 } from "@/lib/admin/jobs";
+import { enrichDraftsBatch } from "@/lib/admin/enrich";
 
 /**
  * Server actions behind the Data tab.
@@ -53,4 +55,30 @@ export async function resolvePlaceIdsAction(): Promise<JobOutcome> {
     };
   }
   return run(() => resolvePlaceIdsBatch(createAdminClient(), { apiKey }));
+}
+
+export async function enrichDraftsAction(): Promise<JobOutcome> {
+  await requireAdmin();
+  const env = serverEnv();
+  if (!env.OPENAI_API_KEY && !env.ANTHROPIC_API_KEY) {
+    return {
+      processed: 0,
+      remaining: 0,
+      notes: [],
+      error:
+        "Set OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel, then redeploy.",
+    };
+  }
+  return run(async () => {
+    const links = await candidateSourceLinks();
+    const out = await enrichDraftsBatch(createAdminClient(), {
+      city: "delhi",
+      links,
+    });
+    return {
+      processed: out.enriched,
+      remaining: out.remaining,
+      notes: out.notes,
+    };
+  });
 }
