@@ -26,10 +26,16 @@ export function AddPlacePhoto({ slug }: { slug: string }) {
   );
   const [error, setError] = useState<string | null>(null);
 
-  async function upload(file: File) {
+  async function upload(original: File) {
+    let file = original;
     setError(null);
     setState("busy");
     try {
+      // Shrink first: an 8MB phone photo on mobile data is a minute of
+      // someone's life for a picture that looks identical in the gallery.
+      const { downscaleImage } = await import("@/lib/media/downscale");
+      file = await downscaleImage(file);
+
       const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
 
       const issued = await fetch(`/api/places/${slug}/photos`, {

@@ -59,6 +59,8 @@ const FRANCHISE_BRANDS = [
   "wenger", "monginis", "ribbons and balloons",
   // Bakery / grocery / retail chains that show up as "places"
   "bakers street", "l opera", "lopera", "bread and more",
+  // Retail chains that arrive as "cultural" venues from POI data.
+  "crossword", "om book shop", "oxford bookstore", "starmark",
   "reliance fresh", "more supermarket", "spencers", "big bazaar",
   "dmart", "vishal mega mart", "24 seven", "easyday",
 ];
