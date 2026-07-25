@@ -45,6 +45,12 @@ export type OvertureCandidate = {
   confidence: number;
   lat: number;
   lng: number;
+  /** Neighbourhood, from the venue's own address or nearest area centroid. */
+  area?: string | null;
+  address?: string | null;
+  website?: string | null;
+  instagram?: string | null;
+  phone?: string | null;
 };
 
 let candidateCache: OvertureCandidate[] | null = null;
@@ -121,11 +127,17 @@ function slugify(name: string, lat: number, lng: number) {
  */
 async function loadAllPlaces(admin: Admin, city: string) {
   const PAGE = 1000;
-  const rows: { slug: string; name: string; lat: number | null; lng: number | null }[] = [];
+  const rows: {
+    slug: string;
+    name: string;
+    area: string | null;
+    lat: number | null;
+    lng: number | null;
+  }[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await admin
       .from("places")
-      .select("slug, name, lat, lng")
+      .select("slug, name, area, lat, lng")
       .eq("city", city)
       .order("slug")
       .range(from, from + PAGE - 1);
@@ -165,6 +177,11 @@ export async function importOvertureBatch(
   // hand-curated catalog?", where the slug will not match because a human
   // wrote it.
   const existingSlugs = new Set(existing.map((p) => p.slug));
+  // Rows imported before we knew each venue's neighbourhood. Cheap to fix
+  // while we are here, and area is the single most visible empty field.
+  const missingArea = new Map(
+    existing.filter((p) => !p.area).map((p) => [p.slug, true] as const),
+  );
   const byName = new Map<string, { lat: number | null; lng: number | null }[]>();
   for (const p of existing) {
     const key = normaliseName(p.name);
@@ -182,6 +199,7 @@ export async function importOvertureBatch(
   let skippedReview = 0;
   let skippedDupe = 0;
   let remaining = 0;
+  const areaFixes: { slug: string; area: string }[] = [];
 
   for (const c of candidates) {
     const verdict = classifyPlace({
@@ -202,6 +220,7 @@ export async function importOvertureBatch(
     }
     const slug = slugify(c.name, c.lat, c.lng);
     if (existingSlugs.has(slug) || alreadyHere(c)) {
+      if (c.area && missingArea.has(slug)) areaFixes.push({ slug, area: c.area });
       skippedDupe += 1;
       continue;
     }
@@ -215,6 +234,7 @@ export async function importOvertureBatch(
       city,
       lat: c.lat,
       lng: c.lng,
+      area: c.area ?? null,
       category: c.category,
       kind: (KIND_BY_CATEGORY[c.category ?? ""] ??
         "spot") as Database["public"]["Tables"]["places"]["Insert"]["kind"],
@@ -232,6 +252,18 @@ export async function importOvertureBatch(
     byName.get(key)!.push({ lat: c.lat, lng: c.lng });
   }
 
+  // Backfill areas before inserting, capped so one batch stays inside the
+  // request budget.
+  let areasFilled = 0;
+  for (const fix of areaFixes.slice(0, 200)) {
+    const { error } = await admin
+      .from("places")
+      .update({ area: fix.area })
+      .eq("slug", fix.slug)
+      .is("area", null);
+    if (!error) areasFilled += 1;
+  }
+
   let processed = 0;
   if (rows.length > 0) {
     // Ignore duplicates rather than failing the batch: a slug collision means
@@ -245,18 +277,37 @@ export async function importOvertureBatch(
   }
 
   return {
-    processed,
-    remaining,
+    // Area backfills count as work done, so the runner keeps going while
+    // there are still drafts to repair even when nothing new inserts.
+    processed: processed + areasFilled,
+    remaining: remaining + Math.max(0, areaFixes.length - 200),
     notes: [
       `${candidates.length} candidates in the file`,
+      areasFilled > 0 ? `${areasFilled} existing drafts given their area` : "",
       `${skippedChain} excluded as chains`,
       `${skippedReview} held for human review`,
       `${skippedDupe} already in the catalog`,
       processed > 0
         ? `${processed} imported as unpublished drafts`
         : "nothing new to import",
-    ],
+    ].filter(Boolean),
   };
+}
+
+/**
+ * Name -> a page we can actually read about that venue, for enrichment.
+ * Its own website first, Instagram second. Venues with neither are absent,
+ * which is the point: there is nothing to write from.
+ */
+export async function candidateSourceLinks(): Promise<Map<string, string>> {
+  const links = new Map<string, string>();
+  for (const c of await loadCandidates()) {
+    const url = c.website ?? c.instagram;
+    if (!url) continue;
+    const key = c.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!links.has(key)) links.set(key, url);
+  }
+  return links;
 }
 
 /** How much of the import is left, without importing anything. */

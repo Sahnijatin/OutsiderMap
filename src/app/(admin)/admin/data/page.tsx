@@ -3,7 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { overtureImportStatus } from "@/lib/admin/jobs";
 import { JobRunner } from "./job-runner";
-import { importOvertureAction, resolvePlaceIdsAction } from "./actions";
+import {
+  enrichDraftsAction,
+  importOvertureAction,
+  resolvePlaceIdsAction,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +54,16 @@ export default async function AdminDataPage() {
     })(),
   ]);
 
-  const hasGoogleKey = Boolean(serverEnv().GOOGLE_MAPS_API_KEY);
+  const env = serverEnv();
+  const hasGoogleKey = Boolean(env.GOOGLE_MAPS_API_KEY);
+  const hasAiKey = Boolean(env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY);
+
+  const { count: thinDrafts } = await admin
+    .from("places")
+    .select("id", { count: "exact", head: true })
+    .eq("is_published", false)
+    .eq("geo_source", "overture")
+    .is("description", null);
 
   return (
     <div>
@@ -99,6 +112,37 @@ export default async function AdminDataPage() {
             done={imported.imported}
             unit="candidates processed"
           />
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-card border border-line bg-surface p-5">
+        <h2 className="font-display text-lg italic">Fill in the drafts</h2>
+        <p className="mt-1 text-sm leading-relaxed text-ink-dim">
+          Reads each venue&apos;s own website or Instagram and writes a
+          description from what is actually there. A venue whose page says
+          nothing useful is <strong className="text-ink">left blank on
+          purpose</strong> - inventing &quot;a cosy neighbourhood
+          favourite&quot; would be a lie about a real business, and someone
+          would act on it. Those need a scout, not a model.
+        </p>
+        {!hasAiKey && (
+          <p className="mt-3 rounded-card border border-line/70 bg-raise p-3 text-xs text-ink-dim">
+            Needs <code className="text-ink">OPENAI_API_KEY</code> or{" "}
+            <code className="text-ink">ANTHROPIC_API_KEY</code> in Vercel.
+          </p>
+        )}
+        <div className="mt-4">
+          <JobRunner
+            action={enrichDraftsAction}
+            label="Fill in drafts"
+            runningLabel="Writing"
+            total={0}
+            done={0}
+            unit="drafts"
+          />
+          <p className="mt-2 text-xs text-ink-dim">
+            {(thinDrafts ?? 0).toLocaleString()} drafts have no description yet.
+          </p>
         </div>
       </section>
 
