@@ -15,6 +15,7 @@ const tabs = [
   { href: "/admin/ingest", label: "Ingest" },
   { href: "/admin/markets", label: "Markets" },
   { href: "/admin/photos", label: "Photos" },
+  { href: "/admin/data", label: "Data" },
   { href: "/admin/reels", label: "Reels" },
   { href: "/admin/moderation", label: "Moderation" },
   { href: "/admin/grievances", label: "Grievances" },

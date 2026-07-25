@@ -16,6 +16,9 @@ const serverEnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(1).optional(),
+  /** Places API (New) key. Used ONLY to resolve place_ids for navigation -
+   *  place_id is the one Maps Platform field cacheable indefinitely. */
+  GOOGLE_MAPS_API_KEY: z.string().min(1).optional(),
   /** Base URL for server-to-self calls (reel job kickoff). A bare domain
    *  ("outsidermap.com") is a common dashboard entry - normalize it. */
   NEXT_PUBLIC_APP_URL: z.preprocess(
