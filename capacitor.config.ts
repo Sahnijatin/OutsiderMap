@@ -24,7 +24,13 @@ const config: CapacitorConfig = {
   // Warm brand-black behind the WebView so there's no white flash on launch
   // or during navigation (brand token --color-night).
   backgroundColor: "#0c0a08",
-  ...(serverUrl ? { server: { url: serverUrl, cleartext: false } } : {}),
+  server: {
+    // When the remote app fails to load (offline, DNS, server down), show the
+    // bundled brand offline page instead of the raw WebView error screen.
+    // Relative to webDir (mobile-shell/).
+    errorPath: "index.html",
+    ...(serverUrl ? { url: serverUrl, cleartext: false } : {}),
+  },
   ios: {
     backgroundColor: "#0c0a08",
     // Let CSS env(safe-area-inset-*) own the insets (already wired in

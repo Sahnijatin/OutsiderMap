@@ -351,8 +351,8 @@ brand art. Baselines green: web `tsc`/`lint`/`build`, `mobile tsc`.
 
 - **Web/API:** `npm install && npm run dev` (root). Checks: `npx tsc --noEmit`,
   `npm run lint`, `npm run build`.
-- **Mobile:** `cd mobile && npm install && npx expo start` (email OTP works in
-  Expo Go; Apple/Google need `npx expo run:ios` — see `mobile/README.md`).
+- **Mobile:** `npm run mobile:verify` (device-free review harness); native
+  builds run in CI — see `MOBILE_PLAN.md` §6.
 - **DB:** migrations auto-apply on merge to `main`; manual `npx supabase db push`.
 
 ---

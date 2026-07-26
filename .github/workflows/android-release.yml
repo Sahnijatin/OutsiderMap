@@ -81,10 +81,18 @@ jobs:
       - run: npm ci
 
       - name: Generate Android project
+        env:
+          # Play requires a strictly increasing versionCode; the script stamps
+          # it into defaultConfig (the Capacitor template never reads Gradle
+          # -P properties, so passing it to gradlew would be a no-op).
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: |
           npx cap add android
           npx cap sync android
           node scripts/cap-native-permissions.mjs
+
+      - name: Generate app icons + splash screens
+        run: npx capacitor-assets generate --android
 
       - name: Restore keystore
         run: |
@@ -120,10 +128,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          ./gradlew --no-daemon \
-            -PversionCode=${{ github.run_number }} \
-            bundleRelease assembleRelease
+        run: ./gradlew --no-daemon bundleRelease assembleRelease
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

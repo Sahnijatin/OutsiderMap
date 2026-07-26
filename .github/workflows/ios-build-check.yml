@@ -72,6 +72,9 @@ jobs:
           # Inject the geolocation runtime permission into Info.plist (#143).
           node scripts/cap-native-permissions.mjs
 
+      - name: Generate app icons + splash screens
+        run: npx capacitor-assets generate --ios
+
       # Compile/link the app with signing off — the "does it build" gate. This
       # mirrors @capgo/capacitor-social-login's own iOS CI recipe exactly, which
       # is the authoritative config for this plugin's Google Sign-In SPM chain:

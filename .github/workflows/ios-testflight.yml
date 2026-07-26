@@ -84,6 +84,9 @@ jobs:
           npx cap sync ios
           node scripts/cap-native-permissions.mjs
 
+      - name: Generate app icons + splash screens
+        run: npx capacitor-assets generate --ios
+
       # Place the API key where both xcodebuild (-authenticationKeyPath) and
       # altool (auto-discovery) can find it.
       - name: Install App Store Connect API key
