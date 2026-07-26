@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Screen } from "@/components/app/screen";
 import type { FollowState } from "@/lib/feed/follows";
 import type { PostCard as PostCardData } from "@/lib/feed/read";
 import { PostCard } from "../../feed/post-card";
@@ -56,20 +57,26 @@ export function ProfileView({ username }: { username: string }) {
   }
   if (status === "notfound") {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-2 px-5 text-center">
+      <Screen
+        width="narrow"
+        className="flex flex-col items-center justify-center gap-2 text-center"
+      >
         <p className="font-display text-lg text-ink">No outsider here</p>
         <p className="text-sm text-ink-dim">@{username} isn&apos;t someone we know.</p>
         <Link href="/feed" className="mt-2 text-sm text-accent hover:underline">
           Back to feed
         </Link>
-      </main>
+      </Screen>
     );
   }
   if (status === "error" || !data) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-xl items-center justify-center px-5">
+      <Screen
+        width="narrow"
+        className="flex items-center justify-center"
+      >
         <p className="text-sm text-danger">Couldn&apos;t load this profile.</p>
-      </main>
+      </Screen>
     );
   }
 
@@ -77,7 +84,7 @@ export function ProfileView({ username }: { username: string }) {
   const name = profile.display_name ?? (profile.username ? `@${profile.username}` : "An outsider");
 
   return (
-    <main className="mx-auto min-h-dvh max-w-xl px-4 pb-28 pt-4">
+    <Screen width="narrow">
       <Link
         href="/feed"
         className="mb-3 inline-flex items-center gap-1 text-sm text-ink-dim hover:text-ink"
@@ -132,7 +139,7 @@ export function ProfileView({ username }: { username: string }) {
           posts.map((post) => <PostCard key={post.id} post={post} />)
         )}
       </div>
-    </main>
+    </Screen>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUpRight, Bookmark, BookmarkCheck, Navigation, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -48,6 +48,8 @@ export function PlaceSheet({
 }) {
   const reduced = useReducedMotion() ?? false;
   const { requireAuth } = useAuthGate();
+  const titleId = useId();
+  const panelRef = useRef<HTMLElement>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -72,6 +74,27 @@ export function PlaceSheet({
       cancelled = true;
     };
   }, [place.slug]);
+
+  // Dialog contract: focus moves into the sheet when it opens (so screen
+  // readers announce it and Escape lands here), and back to whatever had it -
+  // usually the tapped map pin - when it closes. Escape closes; the component
+  // mounts per selected place, so a plain window listener is enough.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const raf = requestAnimationFrame(() => panelRef.current?.focus());
+    return () => {
+      cancelAnimationFrame(raf);
+      opener?.focus();
+    };
+  }, [place.slug]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   async function interact(action: "save" | "start") {
     setBusy(action);
@@ -116,8 +139,11 @@ export function PlaceSheet({
     <AnimatePresence>
       <motion.section
         key={place.slug}
+        ref={panelRef}
         role="dialog"
-        aria-label={place.name}
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         initial={reduced ? false : { y: "100%" }}
         animate={{ y: 0 }}
         exit={reduced ? undefined : { y: "100%" }}
@@ -133,21 +159,26 @@ export function PlaceSheet({
         <div className="flex justify-center pt-2.5">
           <span className="h-1 w-10 rounded-full bg-line" />
         </div>
+        {/* 44px minimum touch target - the icon stays small, the hit area doesn't. */}
         <button
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="absolute right-3 top-3 rounded-full border border-line/70 bg-night/60 p-1.5 text-ink-dim"
+          className="absolute right-1.5 top-1.5 z-10 flex size-11 items-center justify-center text-ink-dim"
         >
-          <X className="size-4" />
+          <span className="flex items-center justify-center rounded-full border border-line bg-night/60 p-1.5">
+            <X className="size-4" />
+          </span>
         </button>
 
-        <div className="overflow-y-auto px-5 pb-6 pt-3">
+        <div className="overscroll-contain overflow-y-auto px-5 pb-6 pt-3">
           <p className="voice">
             {[place.area, detail?.openLabel].filter(Boolean).join(" · ") ||
               place.kind}
           </p>
-          <h2 className="mt-1 font-display text-2xl italic">{place.name}</h2>
+          <h2 id={titleId} className="mt-1 text-balance font-display text-2xl italic">
+            {place.name}
+          </h2>
 
           <div className="mt-2 flex items-center gap-1.5">
             <span
@@ -168,7 +199,7 @@ export function PlaceSheet({
               {cards.map((card, i) => (
                 <figure
                   key={i}
-                  className="w-64 shrink-0 snap-center overflow-hidden rounded-xl border border-line/60"
+                  className="w-64 shrink-0 snap-center overflow-hidden rounded-xl border border-line"
                 >
                   {card.type === "video" ? (
                     <video

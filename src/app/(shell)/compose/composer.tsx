@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/app/page-header";
+import { Screen } from "@/components/app/screen";
 import {
   LOCATION_PRECISIONS,
   POST_TYPES,
@@ -256,7 +258,10 @@ export function Composer({ homeCity }: { homeCity: string }) {
 
   if (done) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-4 px-5 text-center">
+      <Screen
+        width="narrow"
+        className="flex flex-col items-center justify-center gap-4 text-center"
+      >
         <div className="flex size-14 items-center justify-center rounded-full bg-accent/15 text-accent">
           <MapPin className="size-7" />
         </div>
@@ -268,18 +273,17 @@ export function Composer({ homeCity }: { homeCity: string }) {
         <Button variant="secondary" onClick={reset}>
           Share another
         </Button>
-      </main>
+      </Screen>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-xl flex-col gap-6 px-5 pb-28 pt-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-2xl text-ink">Share a place</h1>
-        <p className="text-sm text-ink-dim">
-          Anchor it to a real spot on the map. You choose who sees it.
-        </p>
-      </header>
+    <Screen width="narrow" className="flex flex-col gap-6">
+      <PageHeader
+        eyebrow="the network"
+        title="Share a place"
+        lead="Anchor it to a real spot on the map. You choose who sees it."
+      />
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Post type">
         {POST_TYPES.map((t) => (
@@ -463,6 +467,6 @@ export function Composer({ homeCity }: { homeCity: string }) {
         </Button>
         <span className="text-xs text-ink-dim">Goes through review first.</span>
       </div>
-    </main>
+    </Screen>
   );
 }

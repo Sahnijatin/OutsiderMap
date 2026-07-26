@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
+import { Screen } from "@/components/app/screen";
 import { ChatThread, type Message } from "./thread";
 import { ThreadList, type ThreadSummary } from "./thread-list";
 
@@ -179,9 +180,14 @@ export function ChatShell({ displayName }: { displayName: string | null }) {
   );
 
   return (
-    <main className="h-dvh pb-[var(--tab-clearance)] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
+    // Full-bleed: chat is a fixed-height split pane that owns its own
+    // geometry (composer pinned to the keyboard, history sidebar).
+    <Screen
+      inset={false}
+      className="h-dvh pb-[var(--tab-clearance)] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]"
+    >
       {/* Desktop: persistent history sidebar. */}
-      <aside className="hidden h-full flex-col overflow-hidden border-r border-line/60 bg-surface/30 lg:flex">
+      <aside className="hidden h-full flex-col overflow-hidden border-r border-line bg-surface/30 lg:flex">
         {list}
       </aside>
 
@@ -220,13 +226,13 @@ export function ChatShell({ displayName }: { displayName: string | null }) {
               animate={{ x: 0 }}
               exit={{ x: reduced ? 0 : "100%" }}
               transition={{ duration: reduced ? 0 : 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed inset-y-0 right-0 z-50 w-[85vw] max-w-sm border-l border-line/60 bg-night lg:hidden"
+              className="fixed inset-y-0 right-0 z-50 w-[85vw] max-w-sm border-l border-line bg-night lg:hidden"
             >
               {list}
             </motion.div>
           </>
         )}
       </AnimatePresence>
-    </main>
+    </Screen>
   );
 }

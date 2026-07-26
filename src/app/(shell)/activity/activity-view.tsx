@@ -5,6 +5,8 @@ import { ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/app/page-header";
+import { Screen } from "@/components/app/screen";
 
 type ActivityType = "follow" | "like" | "want_to_go" | "comment" | "quest_complete";
 
@@ -70,7 +72,7 @@ export function ActivityView() {
   }, []);
 
   return (
-    <main className="mx-auto min-h-dvh max-w-xl px-4 pb-28 pt-4">
+    <Screen width="narrow">
       <Link
         href="/feed"
         className="mb-3 inline-flex items-center gap-1 text-sm text-ink-dim hover:text-ink"
@@ -78,7 +80,7 @@ export function ActivityView() {
         <ChevronLeft className="size-4" />
         Feed
       </Link>
-      <h1 className="mb-4 font-display text-xl text-ink">Activity</h1>
+      <PageHeader className="mb-4" eyebrow="the network" title="Activity" />
 
       {status === "loading" ? (
         <div className="flex justify-center py-16">
@@ -137,6 +139,6 @@ export function ActivityView() {
           })}
         </ul>
       )}
-    </main>
+    </Screen>
   );
 }

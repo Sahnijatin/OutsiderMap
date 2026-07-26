@@ -286,7 +286,7 @@ export function LocationPicker({
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder="Search a place or address…"
           aria-label="Search for the spot's location"
-          className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink placeholder:text-ink-dim/60 transition-colors focus:border-accent focus:outline-none"
+          className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink placeholder:text-ink-dim/60 transition-colors focus:border-accent"
         />
         {open && query.trim().length >= 3 && results.length > 0 && (
           <ul className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-xl border border-line bg-raise shadow-lg">

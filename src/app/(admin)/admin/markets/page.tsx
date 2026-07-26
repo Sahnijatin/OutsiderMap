@@ -155,7 +155,7 @@ export default async function AdminMarketsPage() {
             {markets!.map((m) => (
               <div
                 key={m.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line/60 p-4"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line p-4"
               >
                 <div className="min-w-0">
                   <p className="truncate">

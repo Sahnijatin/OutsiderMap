@@ -126,7 +126,7 @@ export default async function AdminDataPage() {
           would act on it. Those need a scout, not a model.
         </p>
         {!hasAiKey && (
-          <p className="mt-3 rounded-card border border-line/70 bg-raise p-3 text-xs text-ink-dim">
+          <p className="mt-3 rounded-card border border-line bg-raise p-3 text-xs text-ink-dim">
             Needs <code className="text-ink">OPENAI_API_KEY</code> or{" "}
             <code className="text-ink">ANTHROPIC_API_KEY</code> in Vercel.
           </p>
@@ -155,7 +155,7 @@ export default async function AdminDataPage() {
           anything uncertain is left alone for a human.
         </p>
         {!hasGoogleKey && (
-          <p className="mt-3 rounded-card border border-line/70 bg-raise p-3 text-xs text-ink-dim">
+          <p className="mt-3 rounded-card border border-line bg-raise p-3 text-xs text-ink-dim">
             Needs <code className="text-ink">GOOGLE_MAPS_API_KEY</code> in
             Vercel, with Places API (New) enabled. Add it under Settings -&gt;
             Environment Variables, then redeploy.

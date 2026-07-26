@@ -3,7 +3,7 @@ import { ButtonLink } from "@/components/ui/button";
 
 export function MarketingNav() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-line/60 bg-night/70 backdrop-blur-md">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-night/70 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Link href="/about" className="font-display text-lg italic">
           OutsiderMap

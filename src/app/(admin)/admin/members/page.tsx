@@ -101,7 +101,7 @@ export default async function AdminMembersPage({
           <tbody>
             {(members ?? []).map((m) => {
               return (
-                <tr key={m.id} className="border-b border-line/50">
+                <tr key={m.id} className="border-b border-line">
                   <td className="px-4 py-2.5 font-mono text-xs text-accent">
                     {formatOutsiderNumber(m.outsider_number)}
                   </td>

@@ -126,7 +126,7 @@ export function ActivationReveal({
             <Link
               href={`/map?place=${encodeURIComponent(pick.slug)}`}
               onClick={acceptFirstAnswer}
-              className="group flex w-full flex-col overflow-hidden rounded-card border border-line/70 bg-surface/80 text-left backdrop-blur transition-colors hover:border-accent/60"
+              className="group flex w-full flex-col overflow-hidden rounded-card border border-line bg-surface/80 text-left backdrop-blur transition-colors hover:border-accent/60"
             >
               {pick.image && (
                 // eslint-disable-next-line @next/next/no-img-element

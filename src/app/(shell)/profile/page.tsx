@@ -19,6 +19,10 @@ import {
 import { TasteCardShare } from "./taste-card-share";
 import { IdentityCard } from "./identity-card";
 import { StatsRow } from "./stats-row";
+import { EmptyState } from "@/components/app/empty-state";
+import { PageHeader } from "@/components/app/page-header";
+import { Screen } from "@/components/app/screen";
+import { ButtonLink } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Your taste profile",
@@ -92,17 +96,15 @@ export default async function ProfilePage({
     Object.keys(taste.learned_signals).length > 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)] lg:max-w-5xl lg:px-8 lg:pt-12">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl sm:text-4xl">
-            {welcome
-              ? "Here’s our first read."
-              : (profile.display_name ?? "You, mapped.")}
-          </h1>
-          <p className="voice">Your taste profile · v{taste?.version ?? 1}</p>
-        </div>
-      </header>
+    <Screen width="wide" className="flex flex-col gap-10">
+      <PageHeader
+        eyebrow={`Your taste profile · v${taste?.version ?? 1}`}
+        title={
+          welcome
+            ? "Here’s our first read."
+            : (profile.display_name ?? "You, mapped.")
+        }
+      />
 
       <div className="flex flex-col gap-10 lg:grid lg:grid-cols-5 lg:items-start lg:gap-8">
       <div className="flex flex-col gap-5 lg:sticky lg:top-8 lg:col-span-2">
@@ -243,7 +245,7 @@ export default async function ProfilePage({
               <li key={row.place_id}>
                 <Link
                   href={`/map?place=${encodeURIComponent(row.place?.slug ?? "")}`}
-                  className="flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface px-4 py-3 transition-colors hover:border-accent/50"
+                  className="flex items-center justify-between gap-3 rounded-card border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm text-ink">
@@ -269,12 +271,15 @@ export default async function ProfilePage({
             ))}
           </ul>
         ) : (
-          <Card>
-            <p className="text-sm text-ink-dim">
-              Nothing saved yet. Tap a light on the map and save what calls
-              to you - it collects here.
-            </p>
-          </Card>
+          <EmptyState
+            title="Nothing saved yet."
+            body="Tap a light on the map and save what calls to you - it collects here."
+            action={
+              <ButtonLink href="/map" variant="secondary">
+                Open the map
+              </ButtonLink>
+            }
+          />
         )}
       </section>
       </div>
@@ -296,6 +301,6 @@ export default async function ProfilePage({
         <span className="text-line">·</span>
         <SignOutForm action={signOut} />
       </footer>
-    </main>
+    </Screen>
   );
 }

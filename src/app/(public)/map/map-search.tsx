@@ -211,7 +211,7 @@ export function MapSearch({
           {(() => {
             const list = results.length > 0 ? results : aiResults ?? [];
             return open && list.length > 0 ? (
-              <ul className="max-h-72 overflow-y-auto border-t border-line/60 py-1">
+              <ul className="max-h-72 overflow-y-auto border-t border-line py-1">
                 {list.map((r, i) => (
                   <li key={`${r.type}-${r.label}-${i}`}>
                     <button
@@ -232,7 +232,7 @@ export function MapSearch({
             ) : null;
           })()}
           {open && query.trim().length >= 2 && results.length === 0 && (
-            <div className="border-t border-line/60 px-4 py-3">
+            <div className="border-t border-line px-4 py-3">
               {aiLoading ? (
                 <p className="text-xs text-ink-dim">Searching the catalog…</p>
               ) : aiResults ? (

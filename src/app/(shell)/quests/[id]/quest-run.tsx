@@ -540,7 +540,7 @@ function StopCard({
           ? "border-accent/40 bg-surface"
           : unlocked
             ? "border-accent bg-surface"
-            : "border-line/60 bg-surface/60",
+            : "border-line bg-surface/60",
       )}
     >
       <div className="flex items-start gap-3 p-4">
@@ -577,7 +577,7 @@ function StopCard({
       </div>
 
       {unlocked && (
-        <div className="border-t border-line/60 px-4 py-3">
+        <div className="border-t border-line px-4 py-3">
           {img && stop.media.length === 0 && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -613,7 +613,7 @@ function StopCard({
                       src={m.url}
                       muted
                       playsInline
-                      className="h-20 w-16 shrink-0 rounded-lg border border-line/60 object-cover"
+                      className="h-20 w-16 shrink-0 rounded-lg border border-line object-cover"
                     />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -621,7 +621,7 @@ function StopCard({
                       key={m.id}
                       src={m.url}
                       alt=""
-                      className="h-20 w-16 shrink-0 rounded-lg border border-line/60 object-cover"
+                      className="h-20 w-16 shrink-0 rounded-lg border border-line object-cover"
                     />
                   )
                 ) : null,

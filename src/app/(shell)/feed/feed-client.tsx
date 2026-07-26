@@ -4,21 +4,14 @@ import Link from "next/link";
 import { Bell, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/app/empty-state";
+import { Screen } from "@/components/app/screen";
 import { FEED_TABS, type FeedTab, type PostCard as PostCardData } from "@/lib/feed/read";
 import { PostCard } from "./post-card";
 
 const TAB_LABEL: Record<FeedTab, string> = { home: "Home", discover: "Discover" };
-const EMPTY_COPY: Record<FeedTab, { title: string; body: string }> = {
-  home: {
-    title: "Your feed is quiet",
-    body: "Follow a few outsiders or add friends, and their posts land here.",
-  },
-  discover: {
-    title: "Nothing to discover yet",
-    body: "Public posts show up here as members share places. Be the first.",
-  },
-};
 
 type FeedResponse = { posts: PostCardData[]; nextCursor: string | null };
 
@@ -90,11 +83,15 @@ export function FeedClient() {
   }, [cursor, loadingMore, tab]);
 
   return (
-    <main className="mx-auto min-h-dvh max-w-xl px-4 pb-28 pt-4">
+    <Screen width="narrow">
+      <h1 className="sr-only">Feed</h1>
+      {/* The bar starts below the notch (the negative margin cancels the
+          screen's safe-top padding), then re-pads itself so the blurred
+          background covers the notch once it sticks. */}
       <div
         role="tablist"
         aria-label="Feed"
-        className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-1 border-b border-line/60 bg-night/85 px-4 py-2 backdrop-blur-md"
+        className="sticky top-0 z-10 -mx-5 mb-4 -mt-[var(--safe-top)] flex items-center gap-1 border-b border-line bg-night/85 px-5 pb-2 pt-[calc(var(--safe-top)+0.5rem)] backdrop-blur-md"
       >
         {FEED_TABS.map((t) => (
           <button
@@ -131,10 +128,25 @@ export function FeedClient() {
           </button>
         </div>
       ) : posts.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="font-display text-lg text-ink">{EMPTY_COPY[tab].title}</p>
-          <p className="max-w-xs text-sm text-ink-dim">{EMPTY_COPY[tab].body}</p>
-        </div>
+        tab === "home" ? (
+          <EmptyState
+            className="mt-8"
+            title="Your feed is quiet"
+            body="Follow a few outsiders and their posts land here. Discover is where you find them."
+            action={
+              <Button variant="secondary" onClick={() => setTab("discover")}>
+                Browse Discover
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            className="mt-8"
+            title="Nothing to discover yet"
+            body="Public posts show up here as members share places. Be the first."
+            action={<ButtonLink href="/compose">Share a place</ButtonLink>}
+          />
+        )
       ) : (
         <div className="flex flex-col gap-4">
           {posts.map((post) => (
@@ -164,6 +176,6 @@ export function FeedClient() {
       >
         <Plus className="size-6" />
       </Link>
-    </main>
+    </Screen>
   );
 }

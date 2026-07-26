@@ -7,6 +7,7 @@ import { formatEventTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { BackLink } from "@/components/app/back-link";
+import { Screen } from "@/components/app/screen";
 
 export const metadata: Metadata = {
   title: "Event",
@@ -30,7 +31,7 @@ export default async function EventPage({
   if (!event) notFound();
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)]">
+    <Screen className="flex flex-col gap-8">
       <BackLink fallbackHref="/events" label="Events" />
       <Link href="/events" className="voice transition-colors hover:text-ink">
         ← Events
@@ -81,6 +82,6 @@ export default async function EventPage({
           </span>
         )}
       </div>
-    </main>
+    </Screen>
   );
 }

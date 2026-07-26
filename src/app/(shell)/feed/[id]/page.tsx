@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { publicMediaUrl } from "@/lib/media/url";
+import { Screen } from "@/components/app/screen";
 import type { PostCard as PostCardData } from "@/lib/feed/read";
 import { PostCard } from "../post-card";
 import { PostActions } from "./post-actions";
@@ -72,7 +73,7 @@ export default async function PostDetailPage({
   };
 
   return (
-    <main className="mx-auto min-h-dvh max-w-xl px-4 pb-28 pt-4">
+    <Screen width="narrow">
       <Link
         href="/feed"
         className="mb-3 inline-flex items-center gap-1 text-sm text-ink-dim hover:text-ink"
@@ -88,9 +89,9 @@ export default async function PostDetailPage({
         likeCount={card.like_count}
         wantCount={card.want_count}
       />
-      <div className="mt-2 border-t border-line/60 pt-4">
+      <div className="mt-2 border-t border-line pt-4">
         <Comments postId={card.id} />
       </div>
-    </main>
+    </Screen>
   );
 }

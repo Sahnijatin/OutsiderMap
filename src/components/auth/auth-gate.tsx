@@ -144,7 +144,7 @@ function SignInModal({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-3 top-3 rounded-full border border-line/70 bg-night/60 p-1.5 text-ink-dim transition-colors hover:text-ink"
+          className="absolute right-3 top-3 rounded-full border border-line bg-night/60 p-1.5 text-ink-dim transition-colors hover:text-ink"
         >
           <X className="size-4" />
         </button>

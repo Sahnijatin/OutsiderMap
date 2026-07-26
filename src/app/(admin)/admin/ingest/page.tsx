@@ -210,7 +210,7 @@ export default async function AdminIngestPage() {
             {failed!.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between gap-3 rounded-card border border-line/60 p-3"
+                className="flex items-center justify-between gap-3 rounded-card border border-line p-3"
               >
                 <div className="min-w-0">
                   <p className="truncate font-mono text-xs">{item.url}</p>

@@ -272,7 +272,7 @@ export function ChatThread({
                         ? "border border-danger/40 bg-danger/5 text-ink-dim"
                         : m.tone === "limit"
                           ? "border border-line/40 bg-transparent text-ink-dim italic"
-                          : "border border-line/70 bg-surface text-ink",
+                          : "border border-line bg-surface text-ink",
                   )}
                 >
                   {m.content}
@@ -328,7 +328,7 @@ export function ChatThread({
       </div>
 
       <form
-        className="border-t border-line/60 bg-night/90 px-4 py-3 backdrop-blur"
+        className="border-t border-line bg-night/90 px-4 py-3 backdrop-blur"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input);
@@ -454,7 +454,7 @@ function PickCard({ pick }: { pick: ChatPickCard }) {
     <Link
       href={`/map?place=${encodeURIComponent(pick.slug)}`}
       onClick={logClick}
-      className="flex gap-3 rounded-card border border-line/70 bg-surface p-3 transition-colors hover:border-accent/50"
+      className="flex gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-accent/50"
     >
       {img ? (
         // eslint-disable-next-line @next/next/no-img-element

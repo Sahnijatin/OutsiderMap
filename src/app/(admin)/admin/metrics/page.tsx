@@ -287,7 +287,7 @@ export default async function MetricsPage() {
               </thead>
               <tbody>
                 {retention.map((c) => (
-                  <tr key={c.cohortWeek} className="border-b border-line/50">
+                  <tr key={c.cohortWeek} className="border-b border-line">
                     <td className="px-4 py-2 font-mono text-xs text-ink-dim">
                       {c.cohortWeek}
                     </td>

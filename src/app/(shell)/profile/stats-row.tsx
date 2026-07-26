@@ -28,7 +28,7 @@ export function StatsRow({
       {stats.map((s) => (
         <div
           key={s.label}
-          className="rounded-card border border-line/70 bg-surface px-4 py-3"
+          className="rounded-card border border-line bg-surface px-4 py-3"
         >
           <Counter
             value={s.value}

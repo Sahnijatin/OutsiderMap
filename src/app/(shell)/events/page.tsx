@@ -4,7 +4,11 @@ import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { resolveCity } from "@/lib/cities";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Reveal, RevealItem } from "@/components/motion/reveal";
+import { EmptyState } from "@/components/app/empty-state";
+import { PageHeader } from "@/components/app/page-header";
+import { Screen } from "@/components/app/screen";
 import { formatEventTime } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -29,22 +33,22 @@ export default async function EventsPage() {
   const visibleCount = events?.length ?? 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)] lg:max-w-4xl lg:px-8 lg:pt-12">
-      <header className="flex flex-col gap-2">
-        <p className="voice">Events · {city.name}</p>
-        <h1 className="font-display text-3xl sm:text-4xl">
-          What&rsquo;s actually on.
-        </h1>
-      </header>
+    <Screen className="flex flex-col gap-10">
+      <PageHeader
+        eyebrow={`Events · ${city.name}`}
+        title="What&rsquo;s actually on."
+      />
 
       {visibleCount === 0 && (
-        <div className="rounded-card border border-line bg-surface p-10 text-center">
-          <p className="font-display text-xl">Quiet week, on paper.</p>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-ink-dim">
-            New events land as the curators find them. The good ones rarely
-            announce themselves far ahead.
-          </p>
-        </div>
+        <EmptyState
+          title="Quiet week, on paper."
+          body="New events land as the curators find them. The good ones rarely announce themselves far ahead."
+          action={
+            <ButtonLink href="/map" variant="secondary">
+              Explore the map instead
+            </ButtonLink>
+          }
+        />
       )}
 
       {visibleCount > 0 && (
@@ -83,6 +87,6 @@ export default async function EventsPage() {
         </ul>
         </Reveal>
       )}
-    </main>
+    </Screen>
   );
 }
