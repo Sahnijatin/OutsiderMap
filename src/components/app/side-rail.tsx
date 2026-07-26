@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 /**
  * Desktop navigation: a fixed left rail, hidden below lg. The bottom tabs
  * own phones; this owns laptops. Width comes from --rail-w so full-bleed
- * surfaces (map, reels) can offset themselves with the same variable.
+ * surfaces (the map) can offset themselves with the same variable.
  */
 export function SideRail({
   username,

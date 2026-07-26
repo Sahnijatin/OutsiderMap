@@ -56,16 +56,6 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
     }
   }
 
-  // While the reel is rendering, poll until it lands.
-  const rendering =
-    quest.status === "completed" && quest.reel?.status === "rendering";
-  useEffect(() => {
-    if (!rendering) return;
-    const t = setInterval(() => void refresh(), 20_000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rendering]);
-
   // The route map: stops as numbered lights, connected by a dashed path.
   useEffect(() => {
     if (!mapContainer.current || mapRef.current || withCoords.length === 0) {
@@ -279,7 +269,7 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
             Start the quest
           </Button>
         )}
-        {quest.status === "completed" && <ReelPanel quest={quest} />}
+        {quest.status === "completed" && <CompletePanel quest={quest} />}
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       </div>
 
@@ -312,7 +302,7 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
           </h2>
           <p className="relative max-w-xs text-sm text-ink-dim">
             That&rsquo;s the whole point of this app. Your taste profile just
-            got sharper, and your reel is being cut from what you shot.
+            got sharper, and every shot you took is saved to this run.
           </p>
           <span className="relative text-xs text-ink-dim">tap to close</span>
         </button>
@@ -368,131 +358,28 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
   );
 }
 
-function ReelPanel({ quest }: { quest: QuestDetail }) {
-  const reel = quest.reel;
-  const videoUrl = publicMediaUrl("reel-media", reel?.videoPath);
-  const posterUrl = publicMediaUrl("reel-media", reel?.posterPath);
-  const [exporting, setExporting] = useState<"share" | "download" | null>(null);
+function CompletePanel({ quest }: { quest: QuestDetail }) {
+  const shots = quest.stops.reduce((n, s) => n + s.media_count, 0);
 
-  function logShare() {
-    void fetch("/api/interactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "reel_share" }),
-    }).catch(() => {});
-  }
-
-  async function fetchReelFile(): Promise<File> {
-    const res = await fetch(videoUrl!);
-    if (!res.ok) throw new Error("reel fetch failed");
-    const blob = await res.blob();
-    return new File([blob], "outsider-reel.mp4", { type: "video/mp4" });
-  }
-
-  // Share the actual FILE - a cross-origin URL neither downloads nor posts
-  // to Instagram on iOS; the file opens the real share sheet.
   async function share() {
-    if (!videoUrl || exporting) return;
-    setExporting("share");
-    try {
-      const file = await fetchReelFile();
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: quest.title });
-        logShare();
-        return;
-      }
-      // Otherwise share the link: in the native app this opens the real OS
-      // share sheet (the WebView has no navigator.share, so without this it
-      // would silently degrade to the clipboard). Sharing the actual file on
-      // native would need the reel written to disk first (@capacitor/filesystem)
-      // - the link path is the honest fallback until then.
-      const outcome = await shareOrCopy({ title: quest.title, url: videoUrl });
-      if (outcome !== "dismissed" && outcome !== "failed") {
-        logShare(); // the clipboard path counts as a share too
-      }
-    } catch {
-      // Share sheet dismissed or unavailable - nothing to clean up.
-    } finally {
-      setExporting(null);
-    }
-  }
-
-  async function download() {
-    if (!videoUrl || exporting) return;
-    setExporting("download");
-    try {
-      const file = await fetchReelFile();
-      const url = URL.createObjectURL(file);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch {
-      window.open(videoUrl, "_blank", "noopener");
-    } finally {
-      setExporting(null);
-    }
-  }
-
-  if (reel?.status === "ready" && videoUrl) {
-    return (
-      <div className="mt-4 overflow-hidden rounded-card border border-accent/40 bg-surface">
-        <video
-          src={videoUrl}
-          poster={posterUrl ?? undefined}
-          controls
-          playsInline
-          className="aspect-[9/16] max-h-96 w-full bg-night object-contain"
-        />
-        <div className="flex gap-2 p-3">
-          <Button
-            className="h-10 flex-1"
-            disabled={exporting !== null}
-            onClick={share}
-          >
-            {exporting === "share" ? (
-              <Spinner className="border-night/30 border-t-night" />
-            ) : null}
-            Share reel
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-10"
-            disabled={exporting !== null}
-            onClick={download}
-          >
-            {exporting === "download" ? <Spinner className="size-4" /> : null}
-            Save
-          </Button>
-        </div>
-        <p className="px-3 pb-3 text-xs text-ink-dim">
-          Your shots, your number, no branding. Post it anywhere.
-        </p>
-      </div>
-    );
+    await shareOrCopy({
+      title: quest.title,
+      text: `Finished "${quest.title}" on OutsiderMap. ${quest.stops.length} stops, no chains, no tourist traps.`,
+      url: "https://www.outsidermap.com",
+    });
   }
 
   return (
     <div className="mt-4 rounded-card border border-accent/40 bg-accent/10 p-4">
-      <p className="font-display text-lg italic text-accent">
-        Quest complete.
+      <p className="font-display text-lg italic text-accent">Quest complete.</p>
+      <p className="mt-1 text-sm text-ink-dim">
+        {quest.stops.length} stops done
+        {shots > 0 ? `, ${shots} shots captured along the way.` : "."} Your
+        shots live on each stop below, ready to post anywhere.
       </p>
-      {reel?.status === "failed" ? (
-        <p className="mt-1 text-sm text-ink-dim">
-          The automatic edit hit a snag - the desk is crafting your reel by
-          hand. It&rsquo;ll appear here.
-        </p>
-      ) : (
-        <p className="mt-1 flex items-center gap-2 text-sm text-ink-dim">
-          <Spinner className="size-3.5" />
-          Cutting your reel from what you shot - a few minutes. It&rsquo;ll
-          appear right here.
-        </p>
-      )}
+      <Button variant="secondary" size="sm" className="mt-3 h-10" onClick={share}>
+        Share the run
+      </Button>
     </div>
   );
 }

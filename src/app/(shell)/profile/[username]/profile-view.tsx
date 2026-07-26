@@ -10,8 +10,6 @@ import type { PostCard as PostCardData } from "@/lib/feed/read";
 import { PostCard } from "../../feed/post-card";
 import { SafetyMenu } from "./safety-menu";
 
-type FriendStatus = "self" | "none" | "pending_out" | "pending_in" | "accepted";
-
 type ProfilePayload = {
   profile: {
     id: string;
@@ -21,8 +19,6 @@ type ProfilePayload = {
     outsider_number: number | null;
   };
   follow: FollowState;
-  friendStatus: FriendStatus;
-  friendshipId: string | null;
   isSelf: boolean;
   posts: PostCardData[];
 };
@@ -150,8 +146,6 @@ function ProfileActions({
   initial: ProfilePayload;
 }) {
   const [following, setFollowing] = useState(initial.follow.isFollowing);
-  const [friend, setFriend] = useState<FriendStatus>(initial.friendStatus);
-  const [friendshipId, setFriendshipId] = useState(initial.friendshipId);
   const [busy, setBusy] = useState(false);
 
   async function toggleFollow() {
@@ -171,43 +165,6 @@ function ProfileActions({
     }
   }
 
-  async function addFriend() {
-    if (busy || !username) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/friends", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
-      });
-      if (res.ok) setFriend("pending_out");
-    } catch {
-      // leave state; the button can be retried
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function acceptFriend() {
-    if (busy || !friendshipId) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/friends", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: friendshipId }),
-      });
-      if (res.ok) {
-        setFriend("accepted");
-        setFriendshipId(friendshipId);
-      }
-    } catch {
-      // retryable
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
@@ -218,27 +175,6 @@ function ProfileActions({
       >
         {following ? "Following" : "Follow"}
       </Button>
-
-      {friend === "none" && (
-        <Button variant="secondary" size="sm" onClick={addFriend} disabled={busy}>
-          Add friend
-        </Button>
-      )}
-      {friend === "pending_out" && (
-        <Button variant="ghost" size="sm" disabled>
-          Requested
-        </Button>
-      )}
-      {friend === "pending_in" && (
-        <Button variant="secondary" size="sm" onClick={acceptFriend} disabled={busy}>
-          Accept friend
-        </Button>
-      )}
-      {friend === "accepted" && (
-        <Button variant="ghost" size="sm" disabled>
-          Friends
-        </Button>
-      )}
 
       <div className="ml-auto">
         <SafetyMenu targetId={targetId} username={username} />

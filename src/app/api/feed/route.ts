@@ -21,20 +21,14 @@ import {
 const CARD_FIELDS =
   "id, author_id, type, place_id, area, city, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area)";
 
-/** followees + accepted-friend counterparts + self - the "home" author set. */
+/** followees + self - the "home" author set. */
 async function networkAuthorIds(ctx: ApiContext): Promise<string[]> {
-  const [{ data: follows }, { data: friends }] = await Promise.all([
-    ctx.supabase.from("follows").select("followee").eq("follower", ctx.user.id),
-    ctx.supabase
-      .from("friendships")
-      .select("requester, addressee")
-      .eq("status", "accepted"),
-  ]);
+  const { data: follows } = await ctx.supabase
+    .from("follows")
+    .select("followee")
+    .eq("follower", ctx.user.id);
   const ids = new Set<string>([ctx.user.id]);
   for (const f of follows ?? []) ids.add(f.followee);
-  for (const fr of friends ?? []) {
-    ids.add(fr.requester === ctx.user.id ? fr.addressee : fr.requester);
-  }
   return [...ids];
 }
 

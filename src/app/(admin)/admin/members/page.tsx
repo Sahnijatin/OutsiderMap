@@ -43,20 +43,12 @@ export default async function AdminMembersPage({
   const { data: members, count } = await query;
 
   const ids = (members ?? []).map((m) => m.id);
-  const [quests, reels] = ids.length
-    ? await Promise.all([
-        admin.from("quests").select("user_id").in("user_id", ids),
-        admin.from("reels").select("user_id").in("user_id", ids),
-      ])
-    : [{ data: [] }, { data: [] }];
+  const quests = ids.length
+    ? await admin.from("quests").select("user_id").in("user_id", ids)
+    : { data: [] };
   const questCounts = new Map<string, number>();
   for (const row of quests.data ?? []) {
     questCounts.set(row.user_id, (questCounts.get(row.user_id) ?? 0) + 1);
-  }
-  const reelCounts = new Map<string, number>();
-  for (const row of reels.data ?? []) {
-    if (!row.user_id) continue;
-    reelCounts.set(row.user_id, (reelCounts.get(row.user_id) ?? 0) + 1);
   }
 
   const total = count ?? 0;
@@ -103,7 +95,6 @@ export default async function AdminMembersPage({
               <th className="px-4 py-3 font-normal">City</th>
               <th className="px-4 py-3 font-normal">Onboarded</th>
               <th className="px-4 py-3 font-normal">Quests</th>
-              <th className="px-4 py-3 font-normal">Reels</th>
               <th className="px-4 py-3 font-normal">Joined</th>
             </tr>
           </thead>
@@ -128,9 +119,6 @@ export default async function AdminMembersPage({
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs">
                     {questCounts.get(m.id) ?? 0}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-xs">
-                    {reelCounts.get(m.id) ?? 0}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-ink-dim">
                     {new Date(m.created_at).toLocaleDateString("en-IN", {

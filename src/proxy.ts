@@ -10,7 +10,7 @@ import { SESSION_COOKIE_MAX_AGE_SECONDS } from "@/lib/auth/session";
 const PROTECTED_PREFIXES = [
   "/chat",
   "/quests",
-  "/reels",
+  
   "/setup",
   "/now",
   "/onboarding",

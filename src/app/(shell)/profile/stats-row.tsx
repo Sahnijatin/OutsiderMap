@@ -8,20 +8,20 @@ import { Counter } from "@/components/motion/counter";
  */
 export function StatsRow({
   quests,
-  reels,
   saved,
-  friends,
+  followers,
+  following,
 }: {
   quests: number;
-  reels: number;
   saved: number;
-  friends: number;
+  followers: number;
+  following: number;
 }) {
   const stats = [
     { label: "quests done", value: quests },
-    { label: "reels made", value: reels },
     { label: "places saved", value: saved },
-    { label: "friends", value: friends },
+    { label: "followers", value: followers },
+    { label: "following", value: following },
   ];
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

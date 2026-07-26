@@ -11,16 +11,13 @@ const tabs = [
   { href: "/admin/places", label: "Places" },
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/events", label: "Events" },
-  { href: "/admin/submissions", label: "Submissions" },
   { href: "/admin/ingest", label: "Ingest" },
   { href: "/admin/markets", label: "Markets" },
   { href: "/admin/photos", label: "Photos" },
   { href: "/admin/data", label: "Data" },
-  { href: "/admin/reels", label: "Reels" },
   { href: "/admin/moderation", label: "Moderation" },
   { href: "/admin/grievances", label: "Grievances" },
   { href: "/admin/scout", label: "Scout" },
-  { href: "/admin/waitlist", label: "Waitlist" },
   { href: "/admin/diagnostics", label: "Diagnostics" },
 ];
 

@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 
 /**
  * Per-navigation enter transition for every shell page. Opacity ONLY:
- * the map and reels mains are position: fixed, and a transformed ancestor
+ * the map main is position: fixed, and a transformed ancestor
  * re-scopes fixed children - a translate here would visibly shift them. That
  * constraint is real, so this stays a fade.
  *

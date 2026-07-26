@@ -43,7 +43,6 @@ const TYPE_LABELS: Record<PostType, string> = {
 const VISIBILITY_LABELS: Record<(typeof POST_VISIBILITIES)[number], string> = {
   public: "Public - any member",
   followers: "Followers only",
-  friends: "Friends only",
   private: "Only me",
 };
 

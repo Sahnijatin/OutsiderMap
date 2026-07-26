@@ -125,7 +125,7 @@ export function DangerZone({ username }: { username: string | null }) {
       <p className="text-sm font-medium text-danger">Danger zone</p>
       <p className="mt-1 text-xs leading-relaxed text-ink-dim">
         Deleting your account erases everything - profile, taste data, quests,
-        captures, reels, your number. Gone means gone; numbers are never
+        captures, posts, your number. Gone means gone; numbers are never
         reissued.
       </p>
       {!open ? (

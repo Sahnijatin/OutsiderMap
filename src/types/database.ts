@@ -1084,103 +1084,6 @@ export type Database = {
           },
         ];
       };
-      reel_jobs: {
-        Row: {
-          id: string;
-          quest_id: string;
-          user_id: string;
-          status: "queued" | "processing" | "done" | "failed";
-          template: string;
-          attempts: number;
-          error: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          quest_id: string;
-          user_id: string;
-          status?: "queued" | "processing" | "done" | "failed";
-          template?: string;
-          attempts?: number;
-          error?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          quest_id?: string;
-          user_id?: string;
-          status?: "queued" | "processing" | "done" | "failed";
-          template?: string;
-          attempts?: number;
-          error?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "reel_jobs_quest_id_fkey";
-            columns: ["quest_id"];
-            isOneToOne: true;
-            referencedRelation: "quests";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      reels: {
-        Row: {
-          id: string;
-          source: "curated" | "user_quest";
-          user_id: string | null;
-          quest_id: string | null;
-          place_id: string | null;
-          city: string;
-          video_path: string;
-          poster_path: string | null;
-          caption: string | null;
-          duration_seconds: number | null;
-          status: "pending" | "approved" | "rejected";
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          source?: "curated" | "user_quest";
-          user_id?: string | null;
-          quest_id?: string | null;
-          place_id?: string | null;
-          city?: string;
-          video_path: string;
-          poster_path?: string | null;
-          caption?: string | null;
-          duration_seconds?: number | null;
-          status?: "pending" | "approved" | "rejected";
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          source?: "curated" | "user_quest";
-          user_id?: string | null;
-          quest_id?: string | null;
-          place_id?: string | null;
-          city?: string;
-          video_path?: string;
-          poster_path?: string | null;
-          caption?: string | null;
-          duration_seconds?: number | null;
-          status?: "pending" | "approved" | "rejected";
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "reels_place_id_fkey";
-            columns: ["place_id"];
-            isOneToOne: false;
-            referencedRelation: "places";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       ingest_items: {
         Row: {
           id: string;
@@ -1351,7 +1254,7 @@ export type Database = {
           action: string | null;
           mood: string | null;
           body: string | null;
-          visibility: "public" | "followers" | "friends" | "private";
+          visibility: "public" | "followers" | "private";
           location_precision: "exact" | "area" | "hidden";
           status: "pending" | "approved" | "rejected" | "removed";
           like_count: number;
@@ -1369,7 +1272,7 @@ export type Database = {
           action?: string | null;
           mood?: string | null;
           body?: string | null;
-          visibility?: "public" | "followers" | "friends" | "private";
+          visibility?: "public" | "followers" | "private";
           location_precision?: "exact" | "area" | "hidden";
           status?: "pending" | "approved" | "rejected" | "removed";
           like_count?: number;
@@ -1387,7 +1290,7 @@ export type Database = {
           action?: string | null;
           mood?: string | null;
           body?: string | null;
-          visibility?: "public" | "followers" | "friends" | "private";
+          visibility?: "public" | "followers" | "private";
           location_precision?: "exact" | "area" | "hidden";
           status?: "pending" | "approved" | "rejected" | "removed";
           like_count?: number;

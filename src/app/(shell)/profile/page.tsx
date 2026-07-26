@@ -19,7 +19,6 @@ import {
 import { TasteCardShare } from "./taste-card-share";
 import { IdentityCard } from "./identity-card";
 import { StatsRow } from "./stats-row";
-import { FriendsPanel } from "./friends";
 
 export const metadata: Metadata = {
   title: "Your taste profile",
@@ -49,9 +48,9 @@ export default async function ProfilePage({
     { data: taste },
     { data: bucket },
     { count: questCount },
-    { count: reelCount },
     { count: savedCount },
-    { count: friendCount },
+    { count: followerCount },
+    { count: followingCount },
     city,
   ] = await Promise.all([
     supabase
@@ -70,17 +69,17 @@ export default async function ProfilePage({
       .select("id", { count: "exact", head: true })
       .eq("status", "completed"),
     supabase
-      .from("reels")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", profile.id),
-    supabase
       .from("saved_places")
       .select("place_id", { count: "exact", head: true })
       .eq("user_id", profile.id),
     supabase
-      .from("friendships")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "accepted"),
+      .from("follows")
+      .select("follower", { count: "exact", head: true })
+      .eq("followee", profile.id),
+    supabase
+      .from("follows")
+      .select("followee", { count: "exact", head: true })
+      .eq("follower", profile.id),
     resolveCity(supabase, profile.home_city),
   ]);
 
@@ -116,9 +115,9 @@ export default async function ProfilePage({
         />
         <StatsRow
           quests={questCount ?? 0}
-          reels={reelCount ?? 0}
           saved={savedCount ?? 0}
-          friends={friendCount ?? 0}
+          followers={followerCount ?? 0}
+          following={followingCount ?? 0}
         />
       </div>
 
@@ -235,7 +234,6 @@ export default async function ProfilePage({
         </p>
       </Card>
 
-      <FriendsPanel />
 
       <section className="flex flex-col gap-3">
         <h2 className="voice">Your bucket</h2>

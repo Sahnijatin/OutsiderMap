@@ -51,11 +51,9 @@ until the corresponding env vars are set.
 
 ## Membership & access
 
-Signup is open by default. The earlier invite-gated vetting flow
-(`/join` + `/thank-you`, with referral codes and selfie/ID review in the admin
-waitlist desk) is **kept but dormant** — it is not linked from any public
-marketing surface and is reachable only via a referral URL (`/join?ref=…`).
-It's retained for a possible future invite phase; there is no live CTA to it.
+Signup is open. The old invite-gated vetting funnel (`/join`, `/thank-you`,
+the admin waitlist desk) was removed after it shipped without ever being
+enforced; git history has it if an invite phase ever returns.
 
 ## Project layout
 
