@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,10 @@ export const metadata: Metadata = { title: "Diagnostics · Admin" };
 type EnvCheck = { name: string; ok: boolean; breaks: string };
 
 export default async function DiagnosticsPage() {
+  // Defense in depth: the layout already gates rendering, but every admin
+  // page that touches the service role double-checks (house convention).
+  await requireAdmin();
+
   let env: ReturnType<typeof serverEnv> | null = null;
   let envError: string | null = null;
   try {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,10 @@ function ageLabel(iso: string | null): string {
  * until reviewed), and publish/unpublish markets.
  */
 export default async function AdminMarketsPage() {
+  // Defense in depth: the layout already gates rendering, but every admin
+  // page that touches the service role double-checks (house convention).
+  await requireAdmin();
+
   const admin = createAdminClient();
 
   const [{ data: markets }, { data: pending }] = await Promise.all([

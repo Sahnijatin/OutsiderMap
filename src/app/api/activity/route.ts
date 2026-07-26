@@ -59,6 +59,14 @@ export async function POST(request: NextRequest) {
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const allowed = await checkRateLimit(
+    `activity-read:${ctx.user.id}`,
+    60,
+    3600,
+  );
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
 
   // RLS pins the update to the caller's own rows.
   const { error } = await ctx.supabase

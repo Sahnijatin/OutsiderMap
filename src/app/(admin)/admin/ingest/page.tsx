@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CandidateSchema, type DedupeMatch } from "@/lib/ingest/pipeline";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,10 @@ export const metadata: Metadata = { title: "Ingest · Admin" };
  * source: ingested) or reject.
  */
 export default async function AdminIngestPage() {
+  // Defense in depth: the layout already gates rendering, but every admin
+  // page that touches the service role double-checks (house convention).
+  await requireAdmin();
+
   const admin = createAdminClient();
 
   const [{ data: review }, { data: inflight }, { data: failed }] =

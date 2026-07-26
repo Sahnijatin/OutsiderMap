@@ -86,6 +86,10 @@ export async function DELETE(
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const allowed = await checkRateLimit(`react-del:${ctx.user.id}`, 120, 3600);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
   const { id } = await params;
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!idOk(id) || !parsed.success) {

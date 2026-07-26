@@ -6,6 +6,19 @@ import { distanceMeters } from "./geo";
  * recomputes and stores the authoritative flags.
  */
 
+/**
+ * Where confirmation evidence lives. The client uploads straight to this
+ * bucket under the caller-owned prefix below (storage RLS enforces the
+ * owner segment on insert), and the confirm route accepts nothing else -
+ * so a submitted {bucket, path} can never point at somebody else's object.
+ */
+export const SCOUT_EVIDENCE_BUCKET = "quest-media";
+
+/** The only path prefix the confirm route accepts as this member's evidence. */
+export function scoutEvidencePrefix(userId: string): string {
+  return `scout/${userId}/`;
+}
+
 /** A capture must be no older than this many minutes (live, not gallery). */
 export const CAPTURE_FRESH_MINUTES = 20;
 /** Small tolerance for device clock skew into the future. */

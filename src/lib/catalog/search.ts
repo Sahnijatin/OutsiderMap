@@ -161,7 +161,10 @@ export async function keywordSearch(
     let q = supabase
       .from("places")
       .select(KEYWORD_COLUMNS)
-      .eq("city", opts.city.slug);
+      .eq("city", opts.city.slug)
+      // Product law: chains never surface - including on this degraded
+      // fallback path (match_places applies the same filter).
+      .eq("is_chain", false);
     if (opts.budgetMax != null) q = q.lte("price_level", opts.budgetMax);
     return q;
   };
