@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { createDiscoverBounty, resolveBounty } from "@/lib/scout/admin";
+import {
+  createDiscoverBounty,
+  grantValidator,
+  resolveBounty,
+} from "@/lib/scout/admin";
 
 /**
  * Scout admin desk mutations (#114). These call is_admin()-guarded RPCs, so
@@ -60,5 +64,36 @@ export async function createDiscoverBountyAction(formData: FormData) {
     bountyPoints: input.bounty_points,
   });
 
+  revalidatePath("/admin/scout");
+}
+
+const GrantSchema = z.object({
+  member: z.string().trim().min(1).max(80),
+});
+
+/**
+ * Hand-mint a validator (admin_grant_validator RPC, is_admin()-guarded).
+ * Accepts a username or a profile uuid - the desk usually knows the handle.
+ */
+export async function grantValidatorAction(formData: FormData) {
+  await requireAdmin();
+  const { member } = GrantSchema.parse({ member: formData.get("member") });
+
+  const supabase = await createClient();
+
+  let targetId = member;
+  if (!z.string().uuid().safeParse(member).success) {
+    const handle = member.replace(/^@/, "");
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", handle)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!profile) throw new Error(`No member with username "${handle}".`);
+    targetId = profile.id;
+  }
+
+  await grantValidator(supabase, targetId);
   revalidatePath("/admin/scout");
 }

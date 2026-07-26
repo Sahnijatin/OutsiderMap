@@ -83,6 +83,21 @@ export async function createDiscoverBounty(
   return data as string;
 }
 
+/**
+ * Hand-mint a validator: curator_score = greatest(curator_score, 3), the
+ * can_validate threshold. The genesis trigger (migration 0046) covers the
+ * first 200 onboarded members; this is the desk's lever after that window.
+ */
+export async function grantValidator(
+  supabase: SupabaseClient<Database>,
+  targetId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("admin_grant_validator", {
+    target: targetId,
+  });
+  if (error) throw new Error(friendly(error.message));
+}
+
 export type VerificationAuditRow = {
   id: string;
   bounty_id: string;

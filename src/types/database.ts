@@ -1952,6 +1952,10 @@ export type Database = {
         Args: { p_area: string | null; p_city: string; p_bounty_points?: number };
         Returns: string;
       };
+      admin_grant_validator: {
+        Args: { target: string };
+        Returns: undefined;
+      };
       scout_leaderboard: {
         Args: { p_limit?: number };
         Returns: {

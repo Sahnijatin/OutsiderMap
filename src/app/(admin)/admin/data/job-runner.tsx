@@ -36,6 +36,11 @@ export function JobRunner({
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<{
+    scanned: number;
+    enriched: number;
+    declined: number;
+  } | null>(null);
   const stopRef = useRef(false);
   const [, startTransition] = useTransition();
 
@@ -49,9 +54,14 @@ export function JobRunner({
     setRunning(true);
     setError(null);
     setFinished(false);
+    setProgress(null);
     stopRef.current = false;
 
     let guard = 0;
+    // Cumulative scan-level tallies, for jobs that report them.
+    let scanned = 0;
+    let enriched = 0;
+    let declined = 0;
     // Hard ceiling so a job that stops making progress cannot spin forever.
     while (!stopRef.current && guard < 200) {
       guard += 1;
@@ -63,8 +73,22 @@ export function JobRunner({
       }
       setNotes(result.notes);
       setDone((d) => d + result.processed);
+      if (result.progress) {
+        scanned += result.progress.scanned;
+        enriched += result.progress.enriched;
+        declined += result.progress.declined;
+        setProgress({ scanned, enriched, declined });
+      }
 
-      if (result.remaining === 0 || result.processed === 0) {
+      // "Wrote nothing" and "nothing left" are different outcomes. For jobs
+      // that report scans (enrichment), declining a whole batch is designed
+      // behaviour and the run continues; only a round that scanned zero rows
+      // means the pile is exhausted. Jobs without scan reporting keep the old
+      // rule: zero processed means done.
+      const roundWork = result.progress
+        ? result.progress.scanned
+        : result.processed;
+      if (result.remaining === 0 || roundWork === 0) {
         setFinished(true);
         break;
       }
@@ -124,6 +148,14 @@ export function JobRunner({
             {shown.toLocaleString()} of {total.toLocaleString()} {unit} ({pct}%)
           </p>
         </div>
+      )}
+
+      {progress && (
+        <p className="mt-3 text-xs text-ink-dim">
+          scanned {progress.scanned.toLocaleString()}, enriched{" "}
+          {progress.enriched.toLocaleString()}, declined{" "}
+          {progress.declined.toLocaleString()}
+        </p>
       )}
 
       {notes.length > 0 && (

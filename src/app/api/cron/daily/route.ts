@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processIngestItems } from "@/lib/ingest/pipeline";
+import { sweepPublishedWithoutEmbeddings } from "@/lib/admin/embed-sweep";
 import { serverEnv } from "@/lib/env";
 
 /**
@@ -20,5 +21,12 @@ export async function GET(request: NextRequest) {
 
   const admin = createAdminClient();
   const ingest = await processIngestItems(admin, 25);
-  return NextResponse.json({ ingest });
+
+  // Safety net: published places with no embedding are invisible to
+  // chat/search (match_places filters `embedding is not null`). Quorum
+  // publishes flip is_published in SQL and cannot embed, so this sweep gives
+  // them one, up to 50 a day. Skips with a report when no OPENAI_API_KEY.
+  const embedSweep = await sweepPublishedWithoutEmbeddings(admin, 50);
+
+  return NextResponse.json({ ingest, embedSweep });
 }
