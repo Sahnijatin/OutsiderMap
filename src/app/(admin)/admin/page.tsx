@@ -25,7 +25,6 @@ export default async function AdminDashboard() {
     submissions,
     eventsUpcoming,
     usersOnboarded,
-    premiumActive,
     recentEvents,
   ] = await Promise.all([
     admin
@@ -50,11 +49,6 @@ export default async function AdminDashboard() {
       .from("profiles")
       .select("id", { count: "exact", head: true })
       .not("onboarding_completed_at", "is", null),
-    admin
-      .from("subscriptions")
-      .select("user_id", { count: "exact", head: true })
-      .eq("tier", "premium")
-      .eq("status", "active"),
     admin
       .from("interaction_events")
       .select("event_type, place_id, payload, created_at")
@@ -112,7 +106,6 @@ export default async function AdminDashboard() {
     { label: "Submissions waiting", value: submissions.count ?? 0 },
     { label: "Upcoming events", value: eventsUpcoming.count ?? 0 },
     { label: "Onboarded members", value: usersOnboarded.count ?? 0 },
-    { label: "Premium active", value: premiumActive.count ?? 0 },
     { label: "Asks · 7d", value: queries.length },
     { label: "Save rate · 7d", value: saveRate },
     { label: "Dismissals · 7d", value: dismisses.length },

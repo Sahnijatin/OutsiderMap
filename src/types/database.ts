@@ -204,39 +204,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      subscriptions: {
-        Row: {
-          user_id: string;
-          tier: "free" | "premium";
-          status: "active" | "past_due" | "canceled";
-          provider: string;
-          provider_subscription_id: string | null;
-          current_period_end: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          tier?: "free" | "premium";
-          status?: "active" | "past_due" | "canceled";
-          provider?: string;
-          provider_subscription_id?: string | null;
-          current_period_end?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          user_id?: string;
-          tier?: "free" | "premium";
-          status?: "active" | "past_due" | "canceled";
-          provider?: string;
-          provider_subscription_id?: string | null;
-          current_period_end?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
       taste_profiles: {
         Row: {
           user_id: string;
@@ -452,7 +419,6 @@ export type Database = {
           ends_at: string | null;
           vibe_tags: string[];
           is_underground: boolean;
-          required_tier: "free" | "premium";
           ticket_url: string | null;
           image_path: string | null;
           is_published: boolean;
@@ -472,7 +438,6 @@ export type Database = {
           ends_at?: string | null;
           vibe_tags?: string[];
           is_underground?: boolean;
-          required_tier?: "free" | "premium";
           ticket_url?: string | null;
           image_path?: string | null;
           is_published?: boolean;
@@ -492,7 +457,6 @@ export type Database = {
           ends_at?: string | null;
           vibe_tags?: string[];
           is_underground?: boolean;
-          required_tier?: "free" | "premium";
           ticket_url?: string | null;
           image_path?: string | null;
           is_published?: boolean;
@@ -1982,16 +1946,6 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
-      event_teasers: {
-        Args: { max_count?: number };
-        Returns: {
-          id: string;
-          area: string | null;
-          starts_at: string;
-          vibe_tags: string[];
-          is_underground: boolean;
-        }[];
-      };
       is_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
@@ -2215,10 +2169,6 @@ export type Database = {
           taste_summary: string | null;
           vibe_keywords: Json;
         }[];
-      };
-      is_premium: {
-        Args: Record<PropertyKey, never>;
-        Returns: boolean;
       };
       username_available: {
         Args: { candidate: string };

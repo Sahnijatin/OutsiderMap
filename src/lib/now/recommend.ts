@@ -42,10 +42,8 @@ export type TonightEvent = {
 export type RecommendResult = {
   picks: Recommendation[];
   intent: QueryIntent;
-  /** Events starting tonight that this user is allowed to see. */
+  /** Events starting tonight. */
   tonight: TonightEvent[];
-  /** Premium events tonight hidden from this (free) user - the tease. */
-  lockedTonightCount: number;
 };
 
 // Areas are city data now (cities.areas); these builders keep the prompts
@@ -141,8 +139,8 @@ export async function recommend(
     count: CANDIDATES,
   });
   if (enriched.length === 0) {
-    const { tonight, lockedTonightCount } = await tonightPromise;
-    return { picks: [], intent, tonight, lockedTonightCount };
+    const tonight = await tonightPromise;
+    return { picks: [], intent, tonight };
   }
 
   const pool = preferOpen(enriched);
@@ -202,49 +200,25 @@ export async function recommend(
     }
   }
 
-  const { tonight, lockedTonightCount } = await tonightPromise;
-  return { picks: picks.slice(0, 3), intent, tonight, lockedTonightCount };
+  const tonight = await tonightPromise;
+  return { picks: picks.slice(0, 3), intent, tonight };
 }
 
-/**
- * "Happening tonight": events from now until 6am IST tomorrow. RLS scopes
- * the visible list to the viewer's tier; the locked count comes from the
- * teaser function and is shown to free users as the underground hook.
- */
+/** "Happening tonight": events from now until 6am IST tomorrow. */
 async function fetchTonight(
   supabase: Awaited<ReturnType<typeof createClient>>,
-) {
+): Promise<TonightEvent[]> {
   const now = new Date();
   const cutoff = new Date(now.getTime() + 14 * 60 * 60 * 1000);
 
-  const [{ data: visible }, { data: teasers }, { data: premium }] = await Promise.all([
-    supabase
-      .from("events")
-      .select("id, title, venue_name, area, starts_at, is_underground")
-      .eq("is_published", true)
-      .gte("starts_at", new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString())
-      .lte("starts_at", cutoff.toISOString())
-      .order("starts_at", { ascending: true })
-      .limit(2),
-    supabase.rpc("event_teasers"),
-    supabase.rpc("is_premium"),
-  ]);
+  const { data: visible } = await supabase
+    .from("events")
+    .select("id, title, venue_name, area, starts_at, is_underground")
+    .eq("is_published", true)
+    .gte("starts_at", new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString())
+    .lte("starts_at", cutoff.toISOString())
+    .order("starts_at", { ascending: true })
+    .limit(2);
 
-  // Premium users already see everything - nothing is "locked" for them.
-  if (premium === true) {
-    return { tonight: visible ?? [], lockedTonightCount: 0 };
-  }
-
-  const visibleIds = new Set((visible ?? []).map((e) => e.id));
-  const lockedTonight = (teasers ?? []).filter(
-    (t) =>
-      !visibleIds.has(t.id) &&
-      new Date(t.starts_at) <= cutoff &&
-      new Date(t.starts_at) >= new Date(now.getTime() - 3 * 60 * 60 * 1000),
-  );
-
-  return {
-    tonight: visible ?? [],
-    lockedTonightCount: lockedTonight.length,
-  };
+  return visible ?? [];
 }

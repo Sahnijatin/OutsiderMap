@@ -193,17 +193,10 @@ saved effort on inventory and the loop.
 
 ## 6. Monetization
 
-**Decision: monetize access and belonging, never the core answer.**
-
-- **Free, forever:** the taste profile + the one confident Right Now answer. This
-  is the habit-forming hook — never paywalled.
-- **Premium:** curated **experiences** + **people/events** you can't get
-  otherwise (the underground / belonging ring). You pay for access and curation,
-  not for "more recommendations."
-- Keeps invite-only scarcity intact and aligns price with the thing that's
-  genuinely scarce.
-- Payments via **Razorpay** (UPI / UPI Autopay — non-negotiable for Indian
-  consumer subscriptions). Razorpay integration already scaffolded.
+**Decision: the core answer is free, always. There is no paid member tier.**
+The scout economy is the model: members earn points by submitting and
+verifying places now, and merchant-funded rewards and payouts follow later
+(businesses fund bounties on their own places; ranking is never for sale).
 
 ---
 
@@ -237,8 +230,9 @@ saved effort on inventory and the loop.
   cinematic UI (Motion + react-three-fiber). Marketing site + `/join` +
   **HTTP API backend** (`src/app/api/*`) + the shared brain
   (`src/lib/{ai,now,taste,places}`).
-- **Expo / React Native app** (`mobile/`) — own toolchain, talks to the API with
-  a Supabase bearer token.
+- **Mobile: Capacitor hybrid shell** (see `MOBILE_PLAN.md`) — the native iOS +
+  Android apps load the hosted web app; native projects are generated in CI
+  from `capacitor.config.ts`. (The earlier Expo/React-Native app was deleted.)
 - **Supabase** — Postgres + Auth + Storage + RLS, **pgvector** for matching.
   Migrations auto-apply on merge to `main` via `.github/workflows/migrate.yml`.
 - **Provider-agnostic AI layer** (`src/lib/ai/`) — server-only Anthropic/OpenAI
@@ -262,15 +256,15 @@ exposed it over HTTP and built the app on top.
 |---|---|
 | Backend HTTP API | ✅ built (+ `/api/bucket`, `DELETE /api/account`, companion stream, push-token routes; per-user rate limits on every route), ⏳ not tested against live DB |
 | DB schema (migrations 0006/0007) | ✅ **applied to live DB** (migrate action ran green on the PR #17 merge); 0008 (push tables) merged — confirm the action ran |
-| Expo mobile app | ✅ scaffolded + typechecks + lints + bundles (iOS/Android), ⏳ not run on a device |
+| Mobile app | ✅ Capacitor hybrid shell + native plugin seams (see `MOBILE_PLAN.md`); the old Expo app was deleted, ⏳ not run on a device |
 | Social auth (Apple + Google) | ✅ coded, ⏳ needs credentials + dev build |
 | Admin authoring + vetting UI | ✅ built (A1–A3, B1–B4); buckets exist (0006/0007 live), ⏳ untested at runtime |
 | Catalog content (experiences + stories) | ✅ dataset ready (`data/experiences.delhi.json`, 12 + kinds/stories on all 110 places), ⏳ `npm run seed` not yet run against live DB |
-| CI (typecheck/lint/test/build, web + mobile) | ✅ `.github/workflows/ci.yml` (22 unit tests) |
+| CI (typecheck/lint/test/build) | ✅ `.github/workflows/ci.yml` + native build workflows (`android-build`, `android-release`, `ios-build-check`, `ios-testflight`) |
 | **Data-ingestion pipeline** | ❌ not built (Section 4) |
 | **Adventurousness dial / bandit** | ❌ not built (Section 5.3) |
 | **People & belonging ring** | ❌ not built (Section 2, ring 3) |
-| Store readiness | ❌ not started (`mobile/eas.json` build profiles now exist) |
+| Store readiness | ⏳ in progress — icons/splash, entitlements, versionCode and privacy/terms handled in-repo; accounts + signing secrets still needed (MOBILE_PLAN.md §3) |
 
 **Done (PR #17):** bearer/cookie API auth + route handlers (`/api/now`,
 `/api/now/why` stream, `/api/onboarding`, `/api/interactions`, `/api/feed`,
@@ -290,11 +284,12 @@ brand art. Baselines green: web `tsc`/`lint`/`build`, `mobile tsc`.
    (`device_tokens` / `notification_sends`, merged with the vetting PR).
 2. **End-to-end API test** vs live DB — bearer scoping, 401s, rate-limit,
    `is_chain` exclusion. **Unblocked.**
-3. **Run on a device** — 60fps, animations, haptics, story gestures, streamed
-   why; polish. Note: ConvergenceField is now Skia (native) — needs a dev build,
-   no longer runs in Expo Go.
+3. **Run on a device** — sideload the debug APK from `android-build.yml` and
+   verify the native shell (safe areas, session persistence, plugins); polish.
 4. **Social-auth credentials** — Apple provider in Supabase; Google OAuth
-   clients + config; reversed iOS client id in `mobile/app.json`; dev client.
+   clients + config (the reversed iOS client id is injected into the generated
+   `Info.plist` by `scripts/cap-native-permissions.mjs` when
+   `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` is set).
 5. ~~**Admin authoring gaps**~~ ✅ built — place form exposes
    `kind`/`is_chain`/rich story editor with media upload (A1–A3); `/join` selfie
    + photos capture, vetting queue with approve/reject/waitlist (B1–B4).
@@ -332,9 +327,8 @@ brand art. Baselines green: web `tsc`/`lint`/`build`, `mobile tsc`.
   the data layer + frequency caps are built).
 - **Companion UI wiring** in the experience screen (backend stream is live).
 - **Map + full filters** surface (kind chips shipped as the first slice).
-- **Payments / premium** reconciliation with the new vision.
-- Expo SDK 52 → 57 upgrade (five majors; do with a device in hand, before
-  store submission). **Playbook: [`docs/EXPO_SDK_MIGRATION.md`](./docs/EXPO_SDK_MIGRATION.md).**
+- ~~Expo SDK 52 → 57 upgrade~~ — obsolete: the Expo app (and its migration
+  playbooks) were deleted when mobile moved to the Capacitor shell.
 
 ---
 
@@ -344,7 +338,7 @@ brand art. Baselines green: web `tsc`/`lint`/`build`, `mobile tsc`.
 |---|---|
 | 2026-06-26 | Pivot to mobile-first, invite-only "curated experiences." |
 | 2026-06-28 | **People & belonging (ring 3) is in scope** — taste-matched social, built on the existing embedding infra. |
-| 2026-06-28 | **Monetize access & belonging, never the core answer.** Free taste profile + one Right Now answer forever; premium = experiences + underground/people access. |
+| 2026-06-28 | **Never monetize the core answer.** Free taste profile + one Right Now answer forever. (2026-07: the paid member tier is gone entirely; the scout economy and merchant-funded rewards are the model.) |
 | 2026-06-28 | **Go all-in on data aggregation** (District, BMS/Insider, Google, Instagram, everywhere). Aggregated data = coverage/leads; taste enforced by the AI curation classifier; scraped signal isolated from published content. |
 | 2026-06-28 | **AI/ML sequencing:** LLM-as-ranker now; behavior-aware LTR/CF only after interaction volume; add a contextual bandit for the adventurousness/novelty dial; people-matching reuses the place embedding. |
 | 2026-06-28 | **North-star metric = Confident Answer Accept Rate + Stretch Success Rate**, not DAU. |

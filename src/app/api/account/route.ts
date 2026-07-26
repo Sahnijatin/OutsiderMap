@@ -9,7 +9,7 @@ import { MEMBER_VETTING_BUCKET } from "@/lib/vetting/media";
  *
  * Authenticates the caller (bearer or cookie) like every other /api route, then
  * uses the service role to erase everything keyed to them across the schema -
- * behavioural events, saved places, weekend plans, subscription, taste profile,
+ * behavioural events, saved places, weekend plans, taste profile,
  * profile row, any waitlist application (and its private vetting media) - and
  * finally deletes the auth user so the account is gone, not just emptied.
  *
@@ -93,7 +93,6 @@ export async function DELETE(request: NextRequest) {
     admin.from("reel_jobs").delete().eq("user_id", userId),
     admin.from("reels").delete().eq("user_id", userId),
     admin.from("device_tokens").delete().eq("user_id", userId),
-    admin.from("subscriptions").delete().eq("user_id", userId),
     admin.from("taste_profiles").delete().eq("user_id", userId),
     admin.from("profiles").delete().eq("id", userId),
   ];

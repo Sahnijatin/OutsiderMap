@@ -19,7 +19,7 @@ export function ClosingCta() {
         </RevealItem>
         <RevealItem>
           <p className="font-mono text-xs text-ink-dim/60">
-            Free to start · premium when you’re ready
+            Free to explore · earn your way deeper
           </p>
         </RevealItem>
       </Reveal>

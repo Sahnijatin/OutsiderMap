@@ -13,13 +13,12 @@ Set in Vercel → Project → Settings → Environment Variables (Production).
 | Variable | Without it |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Nothing works. Required. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Crons, reel renders, ingest, Razorpay webhook, account deletion all fail. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Crons, reel renders, ingest, account deletion all fail. |
 | `OPENAI_API_KEY` | Embeddings die: chat, quest generation, Right Now, seeding. Needed even with `AI_PROVIDER=anthropic`. |
 | `ANTHROPIC_API_KEY` | Chat + quest generation fail (default provider). |
 | `CRON_SECRET` | Reels never render, ingest never processes, nightly learning recompute never runs. Any long random string; must match nothing else. |
 | `NEXT_PUBLIC_APP_URL` | Instant reel kickoff after quest completion is skipped (daily cron still catches up). Set to `https://www.outsidermap.com`. |
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Rate limiting silently off (fails open). |
-| `RAZORPAY_KEY_ID` / `KEY_SECRET` / `WEBHOOK_SECRET` / `PREMIUM_PLAN_ID` | Premium checkout + webhook fail when used. |
 | `RESEND_API_KEY` / `RESEND_FROM` / `RESEND_ADMIN_EMAIL` | Transactional email silently skipped. |
 | `TURNSTILE_SECRET_KEY` + `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | /join captcha off (flow is dormant anyway). |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Admin place-location picker degrades. |
@@ -78,9 +77,8 @@ Storage → the bucket exists and is public/private as listed.
 ## 5. Events
 
 No seed file exists. Events enter through **/admin/events/new**: title,
-venue, area, start time (IST), tier (`free`/`premium`), underground flag,
-publish. Premium members see underground events; free members see teaser
-counts only.
+venue, area, start time (IST), underground flag, publish. Published events
+are visible to every member.
 
 ## 6. Reels feed content (cold start)
 
@@ -100,5 +98,5 @@ result in the same desk.
 ## 8. Known dormant surfaces
 
 `/join`, `/thank-you`, and the vetting flow are retired (open signup won) -
-code kept, nothing links to them. The Expo app in `mobile/` predates the
-web shell and is deferred.
+code kept, nothing links to them. The old Expo app has been deleted; mobile
+is the Capacitor hybrid shell (see MOBILE_PLAN.md).

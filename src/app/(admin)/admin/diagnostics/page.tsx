@@ -56,11 +56,6 @@ export default async function DiagnosticsPage() {
           breaks: "rate limiting (fails open without)",
         },
         {
-          name: "RAZORPAY_KEY_ID",
-          ok: !!env.RAZORPAY_KEY_ID,
-          breaks: "premium checkout",
-        },
-        {
           name: "RESEND_API_KEY",
           ok: !!env.RESEND_API_KEY,
           breaks: "transactional email",

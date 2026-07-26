@@ -5,8 +5,6 @@ import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TasteDimensionsSchema } from "@/lib/taste/profile";
 import { retryTasteRead } from "@/app/setup/actions";
-import { cancelPremium } from "@/app/(marketing)/pricing/actions";
-import { revalidatePath } from "next/cache";
 import { signOut } from "./actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,7 +47,6 @@ export default async function ProfilePage({
 
   const [
     { data: taste },
-    { data: subscription },
     { data: bucket },
     { count: questCount },
     { count: reelCount },
@@ -60,11 +57,6 @@ export default async function ProfilePage({
     supabase
       .from("taste_profiles")
       .select("*")
-      .eq("user_id", profile.id)
-      .maybeSingle(),
-    supabase
-      .from("subscriptions")
-      .select("tier, status, current_period_end")
       .eq("user_id", profile.id)
       .maybeSingle(),
     supabase
@@ -94,14 +86,6 @@ export default async function ProfilePage({
 
   const parsed = StoredAnswersSchema.safeParse(taste?.quiz_answers);
   const dimensions = parsed.success ? parsed.data.dimensions : undefined;
-  const premium =
-    subscription?.tier === "premium" && subscription.status === "active";
-
-  async function cancelPremiumAction() {
-    "use server";
-    await cancelPremium();
-    revalidatePath("/profile");
-  }
 
   const learnedSignals =
     taste?.learned_signals &&
@@ -119,9 +103,6 @@ export default async function ProfilePage({
           </h1>
           <p className="voice">Your taste profile · v{taste?.version ?? 1}</p>
         </div>
-        <Badge variant={premium ? "under" : "outline"}>
-          {premium ? "Premium" : "Free tier"}
-        </Badge>
       </header>
 
       <div className="flex flex-col gap-10 lg:grid lg:grid-cols-5 lg:items-start lg:gap-8">
@@ -304,44 +285,6 @@ export default async function ProfilePage({
       <PersonalizationToggle
         initial={profile.personalization_enabled !== false}
       />
-
-      <Card className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="voice">Membership</p>
-          <p className="text-sm text-ink-dim">
-            {premium
-              ? `Premium · renews ${
-                  subscription?.current_period_end
-                    ? new Date(
-                        subscription.current_period_end,
-                      ).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        timeZone: "Asia/Kolkata",
-                      })
-                    : "at the end of this period"
-                }`
-              : "Free tier - Right Now answers, unlimited."}
-          </p>
-        </div>
-        {premium ? (
-          <form action={cancelPremiumAction}>
-            <button
-              type="submit"
-              className="text-sm text-ink-dim transition-colors hover:text-danger"
-            >
-              Cancel premium
-            </button>
-          </form>
-        ) : (
-          <Link
-            href="/pricing"
-            className="text-sm text-under transition-colors hover:underline"
-          >
-            Go premium →
-          </Link>
-        )}
-      </Card>
 
       <DangerZone username={profile.username} />
 

@@ -9,7 +9,7 @@
  *  - night/surface/line: warm asphalt darks with a brown undertone
  *  - ink: warm paper-white
  *  - accent: sodium-vapor amber - the default voice of the brand
- *  - under: neon violet - reserved exclusively for underground/premium
+ *  - under: neon violet - reserved exclusively for the underground
  *
  * Tokens are real CSS custom properties: usable as Tailwind utilities
  * (bg-night, text-ink, border-line) and readable from Motion variants and

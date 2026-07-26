@@ -6,8 +6,9 @@ go and what to do, even at 3am.
 
 Generic tools give you ten thousand options; OutsiderMap builds a personal
 taste profile (onboarding quiz + continuous learning from your behavior) and
-gives you *the* answer. Free tier: instant "Right Now" recommendations.
-Premium: AI-planned weekends + access to underground events and locations.
+gives you *the* answer. The answer is free, always. Members earn their way
+deeper by exploring: scout submissions and verifications mint points toward
+badges, invites, and rewards.
 
 📋 **Full product + technical plan:** [PROJECT_PLAN.md](./PROJECT_PLAN.md)
 
@@ -42,12 +43,9 @@ until the corresponding env vars are set.
    editing `data/places.delhi.json`.
 3. **AI keys**: `ANTHROPIC_API_KEY` (or `AI_PROVIDER=openai`), plus
    `OPENAI_API_KEY` for embeddings in all cases.
-4. **Razorpay** (premium): create a monthly plan, set the `RAZORPAY_*` vars,
-   and point a webhook at `/api/razorpay/webhook` subscribed to the
-   `subscription.*` events.
-5. **Cron**: `vercel.json` schedules the nightly learned-signals recompute
+4. **Cron**: `vercel.json` schedules the nightly learned-signals recompute
    (`/api/cron/recompute`, gated by `CRON_SECRET`).
-6. **Admin**: flip `is_admin` on your profile row once —
+5. **Admin**: flip `is_admin` on your profile row once —
    `update profiles set is_admin = true where id = '<your-uuid>';` — and the
    curation desk appears at `/admin`.
 
@@ -80,8 +78,8 @@ supabase/migrations/    # schema (applied to a live project in Phase 2)
 
 Schema lives in `supabase/migrations/00000000000001_init.sql` — profiling-first
 design: `taste_profiles` (quiz + learned signals + embedding), `places` and
-`events` with pgvector matching via the `match_places` function, append-only
-`interaction_events` feeding the learning loop, tier-gated `events` via RLS.
+`events` with pgvector matching via the `match_places` function, and
+append-only `interaction_events` feeding the learning loop.
 
 Apply with the Supabase CLI once a project is linked:
 

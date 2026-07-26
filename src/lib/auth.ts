@@ -61,13 +61,6 @@ export async function requireOnboarded() {
   return profile;
 }
 
-/** True when the user has an active premium subscription. */
-export async function isPremium() {
-  const supabase = await createClient();
-  const { data } = await supabase.rpc("is_premium");
-  return data === true;
-}
-
 export async function requireAdmin() {
   const profile = await getProfile();
   if (!profile) redirect("/sign-in");
