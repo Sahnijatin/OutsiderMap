@@ -21,7 +21,6 @@ Set in Vercel → Project → Settings → Environment Variables (Production).
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Rate limiting silently off (fails open). |
 | `RESEND_API_KEY` / `RESEND_FROM` / `RESEND_ADMIN_EMAIL` | Transactional email silently skipped. |
 | `TURNSTILE_SECRET_KEY` + `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | /join captcha off (flow is dormant anyway). |
-| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Admin place-location picker degrades. |
 | `AI_MODEL` / `AI_FAST_MODEL` | Optional overrides; sensible defaults per provider. |
 
 After changing env vars, **redeploy** (Vercel → Deployments → Redeploy) -

@@ -2,8 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import type { LocationValue } from "@/components/map/location-picker";
 
 const LocationPicker = dynamic(
@@ -19,52 +17,22 @@ const LocationPicker = dynamic(
 
 /**
  * Map-backed lat/lng editor for the admin place form. Drives hidden `lat`/`lng`
- * inputs so it submits with the surrounding native form. Falls back to plain
- * number inputs when no Mapbox token is configured.
+ * inputs so it submits with the surrounding native form. The picker runs on
+ * Leaflet + OpenStreetMap and needs no API key, so it always renders.
  */
-export function PlaceLocation({
-  token,
-  lat,
-  lng,
-}: {
-  token: string | null;
+export function PlaceLocation(props: {
   lat: number | null;
   lng: number | null;
 }) {
+  const { lat, lng } = props;
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     lat !== null && lng !== null ? { lat, lng } : null,
   );
-
-  if (!token) {
-    return (
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Latitude" htmlFor="lat">
-          <Input
-            id="lat"
-            name="lat"
-            type="number"
-            step="any"
-            defaultValue={lat ?? ""}
-          />
-        </Field>
-        <Field label="Longitude" htmlFor="lng">
-          <Input
-            id="lng"
-            name="lng"
-            type="number"
-            step="any"
-            defaultValue={lng ?? ""}
-          />
-        </Field>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-ink">Location</p>
       <LocationPicker
-        token={token}
         value={coords}
         onChange={(loc: LocationValue) =>
           setCoords({ lat: loc.lat, lng: loc.lng })

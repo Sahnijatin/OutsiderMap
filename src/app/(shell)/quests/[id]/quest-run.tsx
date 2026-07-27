@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import "leaflet/dist/leaflet.css";
+import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import {
   Camera,
   Check,
@@ -14,7 +14,12 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { googleMapsDirUrl } from "@/lib/map/directions";
-import { baseMapStyle } from "@/lib/map/style";
+import {
+  MAP_ACCENT as ACCENT,
+  MAP_INK as INK,
+  MAP_NIGHT as NIGHT,
+  baseTileLayer,
+} from "@/lib/map/style";
 import { publicMediaUrl } from "@/lib/media/url";
 import { shareOrCopy } from "@/lib/native/share";
 import { success as hapticSuccess } from "@/lib/native/haptics";
@@ -26,15 +31,33 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { QuestDetail, QuestStopDetail } from "@/lib/quests/machine";
 
-const ACCENT = "#f0a431";
-const NIGHT = "#0c0a08";
-const INK = "#ede7db";
-
 type CaptureGuide = {
   photos?: number;
   videos?: number;
   prompts?: string[];
 };
+
+/**
+ * A numbered stop light for the route map: done stops fill amber, pending
+ * stops stay night-dark inside an amber ring. Plain divIcon markup - the
+ * content is only the stop number we generate, never user text.
+ */
+function stopIcon(L: typeof import("leaflet"), n: number, done: boolean) {
+  const size = 22;
+  return L.divIcon({
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html:
+      `<span style="display:flex;width:${size}px;height:${size}px;` +
+      "align-items:center;justify-content:center;border-radius:9999px;" +
+      `border:1.5px solid ${ACCENT};` +
+      `background:${done ? ACCENT : NIGHT};` +
+      `color:${done ? NIGHT : INK};` +
+      'font-size:12px;line-height:1;font-family:var(--font-mono,ui-monospace,monospace);">' +
+      `${n}</span>`,
+  });
+}
 
 export function QuestRun({ initial }: { initial: QuestDetail }) {
   const router = useRouter();
@@ -44,7 +67,13 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
   const [celebrate, setCelebrate] = useState(false);
   const [confirmQuit, setConfirmQuit] = useState(false);
   const mapContainer = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  // The Leaflet module, loaded on the client only (it touches window at
+  // import, which would break SSR), plus the layer holding the stop markers
+  // so completions can repaint them.
+  const LRef = useRef<typeof import("leaflet") | null>(null);
+  const stopLayerRef = useRef<LayerGroup | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const stops = quest.stops;
   const withCoords = stops.filter(
@@ -61,127 +90,83 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
   }
 
   // The route map: stops as numbered lights, connected by a dashed path.
+  // Leaflet (raster tiles) like the main map - same basemap, no WebGL.
   useEffect(() => {
-    if (!mapContainer.current || mapRef.current || withCoords.length === 0) {
-      return;
-    }
-    const lats = withCoords.map((s) => s.place!.lat!);
-    const lngs = withCoords.map((s) => s.place!.lng!);
-    const bounds = new maplibregl.LngLatBounds(
-      [Math.min(...lngs), Math.min(...lats)],
-      [Math.max(...lngs), Math.max(...lats)],
-    );
+    let cancelled = false;
+    let map: LeafletMap | null = null;
 
-    const map = new maplibregl.Map({
-      container: mapContainer.current,
-      style: baseMapStyle(),
-      bounds,
-      fitBoundsOptions: { padding: 48, maxZoom: 14 },
-      attributionControl: false,
-      interactive: false,
-    });
-    mapRef.current = map;
-    map.addControl(
-      new maplibregl.AttributionControl({
-        compact: true,
-        customAttribution: "© OpenStreetMap",
-      }),
-      "bottom-left",
-    );
+    (async () => {
+      if (!mapContainer.current || mapRef.current || withCoords.length === 0) {
+        return;
+      }
+      const L = (await import("leaflet")).default;
+      if (cancelled || !mapContainer.current || mapRef.current) return;
+      LRef.current = L;
 
-    map.on("load", () => {
-      map.addSource("route", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: withCoords.map((s) => [s.place!.lng!, s.place!.lat!]),
-          },
-          properties: {},
-        },
+      const bounds = L.latLngBounds(
+        withCoords.map(
+          (s) => [s.place!.lat!, s.place!.lng!] as [number, number],
+        ),
+      );
+
+      // A route overview, not an explorable map: all interaction off.
+      map = L.map(mapContainer.current, {
+        zoomControl: false,
+        dragging: false,
+        touchZoom: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        attributionControl: true,
       });
-      map.addLayer({
-        id: "route-line",
-        type: "line",
-        source: "route",
-        paint: {
-          "line-color": ACCENT,
-          "line-width": 2,
-          "line-dasharray": [1.5, 2.5],
-          "line-opacity": 0.7,
+      mapRef.current = map;
+      map.attributionControl.setPrefix(false);
+      baseTileLayer(L).addTo(map);
+      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 });
+
+      L.polyline(
+        withCoords.map(
+          (s) => [s.place!.lat!, s.place!.lng!] as [number, number],
+        ),
+        {
+          color: ACCENT,
+          weight: 2,
+          opacity: 0.7,
+          dashArray: "6 10",
+          interactive: false,
         },
-      });
-      map.addSource("stops", {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: withCoords.map((s, i) => ({
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates: [s.place!.lng!, s.place!.lat!],
-            },
-            properties: { n: String(i + 1), done: s.status === "completed" },
-          })),
-        },
-      });
-      map.addLayer({
-        id: "stop-circles",
-        type: "circle",
-        source: "stops",
-        paint: {
-          "circle-color": [
-            "case",
-            ["get", "done"],
-            ACCENT,
-            NIGHT,
-          ],
-          "circle-stroke-color": ACCENT,
-          "circle-stroke-width": 1.5,
-          "circle-radius": 11,
-        },
-      });
-      map.addLayer({
-        id: "stop-numbers",
-        type: "symbol",
-        source: "stops",
-        layout: {
-          "text-field": ["get", "n"],
-          "text-font": ["Noto Sans Regular"],
-          "text-size": 12,
-        },
-        paint: {
-          "text-color": ["case", ["get", "done"], NIGHT, INK],
-        },
-      });
-    });
+      ).addTo(map);
+
+      stopLayerRef.current = L.layerGroup().addTo(map);
+      setMapReady(true);
+    })();
 
     return () => {
-      map.remove();
+      cancelled = true;
+      map?.remove();
       mapRef.current = null;
+      stopLayerRef.current = null;
+      setMapReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Repaint stop states after a completion.
+  // Draw the stop markers - and redraw after a completion flips a stop amber.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    const source = map.getSource("stops") as maplibregl.GeoJSONSource | undefined;
-    source?.setData({
-      type: "FeatureCollection",
-      features: withCoords.map((s, i) => ({
-        type: "Feature",
-        geometry: {
-          type: "Point",
-          coordinates: [s.place!.lng!, s.place!.lat!],
-        },
-        properties: { n: String(i + 1), done: s.status === "completed" },
-      })),
+    const L = LRef.current;
+    const layer = stopLayerRef.current;
+    if (!mapReady || !L || !layer) return;
+    layer.clearLayers();
+    withCoords.forEach((s, i) => {
+      L.marker([s.place!.lat!, s.place!.lng!], {
+        icon: stopIcon(L, i + 1, s.status === "completed"),
+        interactive: false,
+        keyboard: false,
+      }).addTo(layer);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quest]);
+  }, [quest, mapReady]);
 
   async function start() {
     setBusy("start");
@@ -252,7 +237,10 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
   return (
     <>
       {withCoords.length > 0 && (
-        <div ref={mapContainer} className="h-56 w-full" />
+        // `isolate` keeps Leaflet's internal panes (z-index up to 1000) inside
+        // their own stacking context so they never paint over the celebrate /
+        // quit overlays (see map-canvas.tsx for the long version).
+        <div ref={mapContainer} className="isolate h-56 w-full" />
       )}
 
       <div className="px-5 pt-4">

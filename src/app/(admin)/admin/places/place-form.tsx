@@ -16,12 +16,10 @@ const KINDS: PlaceKind[] = [
 export function PlaceForm({
   place,
   categories,
-  googleMapsApiKey,
 }: {
   place?: Tables<"places">;
   /** Admin-managed map categories (drives the pin color + legend). */
   categories: MapCategory[];
-  googleMapsApiKey: string | null;
 }) {
   return (
     <form action={upsertPlace} className="flex max-w-2xl flex-col gap-5">
@@ -109,7 +107,6 @@ export function PlaceForm({
       </Field>
 
       <PlaceLocation
-        token={googleMapsApiKey}
         lat={place?.lat ?? null}
         lng={place?.lng ?? null}
       />

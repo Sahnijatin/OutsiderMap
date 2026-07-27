@@ -25,15 +25,11 @@ be closed.
       - `NEXT_PUBLIC_APP_URL` — used to build absolute links in those emails
         (referral share link, admin review link). Set it to the production
         domain.
-      - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` — powers the map + location search on
-        the "drop a spot" form and the admin place editor. In Google Cloud:
-        enable **Maps JavaScript API**, **Places API (New)**, and **Geocoding
-        API**; create an API key and **restrict it** to HTTP referrers
-        (`https://outsidermap.com/*`, `http://localhost:3000/*`) and to those
-        three APIs (the key is exposed in the browser — referrer restriction
-        prevents quota theft); ensure billing is enabled. If unset, those
-        surfaces fall back to plain text/number inputs. Redeploy after setting
-        it (it's `NEXT_PUBLIC`, baked at build time).
+      - The admin place editor's location picker runs on Leaflet +
+        OpenStreetMap (CARTO tiles, Nominatim search) and needs no API key.
+        (`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is retired; the server-side
+        `GOOGLE_MAPS_API_KEY` for place-id resolution is separate and still
+        applies.)
 
 ## Content & decisions
 

@@ -41,7 +41,6 @@ export default async function EditPlacePage({
       <PlaceForm
         place={place}
         categories={categories}
-        googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null}
       />
     </main>
   );
