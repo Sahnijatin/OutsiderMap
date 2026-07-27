@@ -264,6 +264,32 @@ describe("repeat suppression (thread memory)", () => {
     expect(searchOut).toContain('"already_shown":true');
   });
 
+  it("notes a built plan's id in the transcript so later turns can get_plan it", async () => {
+    let historyContents: string[] = [];
+    runToolsImpl = async ({ messages }) => {
+      historyContents = messages
+        .filter((m) => m.role === "assistant")
+        .map((m) => m.content);
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(
+      fakeSupabase({
+        chatMessages: [
+          {
+            role: "assistant",
+            content: "Three stops in GK.",
+            picks: null,
+            plan_id: "q-77",
+          },
+        ],
+      }),
+      "u1",
+      { threadId: "3fa85f64-5717-4562-b3fc-2c963f66afa6", message: "explain the plan" },
+    );
+    expect(historyContents.join("\n")).toContain("[built plan, plan_id: q-77]");
+  });
+
   it("does not flag anything on a fresh thread", async () => {
     let searchOut = "";
     runToolsImpl = async ({ tools, messages }) => {

@@ -74,6 +74,8 @@ export function ChatShell({ displayName }: { displayName: string | null }) {
           role: "user" | "assistant";
           content: string;
           picks: Message["picks"];
+          plan_id?: string | null;
+          market_run_id?: string | null;
           degraded?: boolean;
         }>;
       };
@@ -84,6 +86,8 @@ export function ChatShell({ displayName }: { displayName: string | null }) {
           role: m.role,
           content: m.content,
           picks: m.picks,
+          planId: m.plan_id,
+          marketRunId: m.market_run_id,
           degraded: m.degraded,
         })),
       );

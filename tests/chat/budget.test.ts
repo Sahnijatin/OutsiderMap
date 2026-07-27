@@ -8,6 +8,14 @@ describe("extractRupees", () => {
     expect(extractRupees("budget 1200 for two")).toBe(1200);
   });
 
+  it('reads the "4k" thousands shorthand people actually type', () => {
+    expect(extractRupees("i am in south delhi and budget is 4k")).toBe(4000);
+    expect(extractRupees("₹2k per head")).toBe(2000);
+    expect(extractRupees("around 3.5k total")).toBe(3500);
+    // A k that isn't a thousands marker stays untouched.
+    expect(extractRupees("5 km away, budget 300")).toBe(300);
+  });
+
   it("ignores list numbers and returns null when there's no budget", () => {
     expect(extractRupees("1. tops 2. jeans 3. shoes")).toBeNull();
     expect(extractRupees("quiet place with a view")).toBeNull();

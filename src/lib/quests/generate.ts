@@ -23,6 +23,12 @@ export const QuestBriefSchema = z.object({
   hours: z.number().int().min(2).max(12).default(5),
   brief: z.string().trim().max(400).optional(),
   budget_max: z.number().int().min(1).max(4).optional(),
+  /**
+   * Neighbourhood to anchor the day in, when the user named one. Filters
+   * candidate retrieval (with searchCatalog's city-wide relax if it
+   * over-constrains) so "south delhi" stops being a hope buried in prose.
+   */
+  area: z.string().trim().max(60).optional(),
 });
 export type QuestBrief = z.infer<typeof QuestBriefSchema>;
 
@@ -123,6 +129,7 @@ export async function generateQuest(
     tasteEmbedding: personalize
       ? parseStoredEmbedding(taste?.embedding)
       : null,
+    area: brief.area ?? null,
     budgetMax: brief.budget_max ?? null,
     count: 30,
   });
@@ -204,5 +211,17 @@ export async function generateQuest(
     throw new Error(stopsError.message);
   }
 
-  return { questId: quest.id, title: generated.title, stops: stops.length };
+  return {
+    questId: quest.id,
+    title: generated.title,
+    stops: stops.length,
+    // The ordered stops with real names/areas, so callers (the chat agent
+    // above all) can describe the plan from what was actually built instead
+    // of narrating blind - which is how "Golden Hour in Khan Market" got
+    // re-explained as an evening in Greater Kailash.
+    stopList: stops.map((s) => {
+      const place = bySlug.get(s.place_slug)!;
+      return { name: place.name, area: place.area, note: s.note };
+    }),
+  };
 }

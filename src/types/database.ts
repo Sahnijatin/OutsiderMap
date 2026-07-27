@@ -698,6 +698,8 @@ export type Database = {
           content: string;
           degraded: boolean;
           picks: Json | null;
+          plan_id: string | null;
+          market_run_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -707,6 +709,8 @@ export type Database = {
           content: string;
           degraded?: boolean;
           picks?: Json | null;
+          plan_id?: string | null;
+          market_run_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -716,6 +720,8 @@ export type Database = {
           content?: string;
           degraded?: boolean;
           picks?: Json | null;
+          plan_id?: string | null;
+          market_run_id?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -724,6 +730,20 @@ export type Database = {
             columns: ["thread_id"];
             isOneToOne: false;
             referencedRelation: "chat_threads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_messages_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "quests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_messages_market_run_id_fkey";
+            columns: ["market_run_id"];
+            isOneToOne: false;
+            referencedRelation: "market_runs";
             referencedColumns: ["id"];
           },
         ];

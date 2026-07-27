@@ -304,6 +304,12 @@ export function buildChatTools(
       .describe(
         "The multi-stop / shopping / day-plan ask in the user's words (e.g. 'spicy dinner then dessert nearby', 'shopping run: tops, jeans, shoes').",
       ),
+    area: z
+      .string()
+      .nullish()
+      .describe(
+        "Neighbourhood/part of town to anchor the plan in, if the user named one - pass it so the stops actually land there.",
+      ),
     interests: z.array(z.string()).max(6).nullish(),
     hours: z.number().int().min(2).max(12).nullish(),
     budget_max: z.number().int().min(1).max(4).nullish(),
@@ -317,7 +323,7 @@ export function buildChatTools(
   const build_plan = defineTool({
     name: "build_plan",
     description:
-      "Build a trackable multi-stop plan via the Planner - for shopping runs, 'dinner then dessert', or day plans. Returns a plan id and title. Use this instead of listing places when the ask is a sequence or a run of errands.",
+      "Build a trackable multi-stop plan via the Planner - for shopping runs, 'dinner then dessert', or day plans. Returns the plan's title and its actual ordered stops (real places). Use this instead of listing places when the ask is a sequence or a run of errands.",
     inputSchema: BuildPlanInput,
     handler: async (input) => {
       try {
@@ -329,6 +335,7 @@ export function buildChatTools(
             effectiveTier(input.budget_max, input.budget_rupees) ?? undefined,
           city: ctx.city.slug,
           first_time: false,
+          area: input.area ?? undefined,
         });
         collector.planId = result.questId;
         collector.planTitle = result.title;
@@ -337,10 +344,9 @@ export function buildChatTools(
           summary: `"${result.title}" (${result.stops} stops)`,
         });
         return JSON.stringify({
-          plan_id: result.questId,
           title: result.title,
-          stops: result.stops,
-          note: "Plan built and saved. Tell the user its title and that it's trackable.",
+          stops: result.stopList,
+          note: "Plan saved - the user gets a 'View plan' button on your reply automatically. Describe it ONLY from the stops above: name each place in order with a short line on why. Never invent a stop, area, or price, and never mention a plan id.",
         });
       } catch (error) {
         collector.trace.push({
@@ -351,6 +357,49 @@ export function buildChatTools(
           error instanceof Error ? error.message : "unknown error"
         }. Be honest with the user rather than inventing a plan.`;
       }
+    },
+  });
+
+  const get_plan = defineTool({
+    name: "get_plan",
+    description:
+      "Fetch a plan built earlier (this thread's transcript notes its plan_id) with its real ordered stops. Use this whenever the user asks about an already-built plan - explaining from memory is how plans get misdescribed.",
+    inputSchema: z.object({
+      plan_id: z.string().uuid().describe("The plan_id noted in the transcript."),
+    }),
+    handler: async (input) => {
+      // RLS scopes quests to their owner, so someone else's id reads as absent.
+      const { data: quest } = await ctx.supabase
+        .from("quests")
+        .select("id, title, city")
+        .eq("id", input.plan_id)
+        .maybeSingle();
+      if (!quest) {
+        collector.trace.push({
+          tool: "get_plan",
+          summary: `${input.plan_id} (not found)`,
+        });
+        return "No such plan for this user. Say you can't find it rather than describing one from memory.";
+      }
+      const { data: stops } = await ctx.supabase
+        .from("quest_stops")
+        .select("position, note, places(name, area)")
+        .eq("quest_id", quest.id)
+        .order("position", { ascending: true });
+      collector.trace.push({
+        tool: "get_plan",
+        summary: `"${quest.title}" (${stops?.length ?? 0} stops)`,
+      });
+      return JSON.stringify({
+        title: quest.title,
+        stops: (stops ?? []).map((s) => ({
+          position: s.position,
+          name: s.places?.name ?? "unknown",
+          area: s.places?.area ?? null,
+          note: s.note,
+        })),
+        note: "Describe the plan from these stops only - names and order as given.",
+      });
     },
   });
 
@@ -674,6 +723,7 @@ export function buildChatTools(
     check_open_now,
     get_user_behavior,
     build_plan,
+    get_plan,
     get_market_intelligence,
     build_market_run,
     log_market_report,

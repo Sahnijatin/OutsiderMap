@@ -186,7 +186,7 @@ export async function runChatTurn(
   // stored assistant content is only the short lead-in line.
   const { data: historyRows } = await supabase
     .from("chat_messages")
-    .select("role, content, picks")
+    .select("role, content, picks, plan_id")
     .eq("thread_id", threadId)
     .order("created_at", { ascending: false })
     .limit(HISTORY_LIMIT);
@@ -196,14 +196,20 @@ export async function runChatTurn(
     .map((m) => {
       const picks = parseHistoryPicks(m.picks);
       for (const p of picks) shownEarlier.set(p.slug, p.name);
-      // Inline the cards the user actually saw with that message, so the
-      // transcript the model reads matches the conversation the user had.
+      // Inline what the user actually saw with that message - pick cards and
+      // any built plan - so the transcript the model reads matches the
+      // conversation the user had. The plan_id note is what lets a later
+      // "explain the plan" turn call get_plan instead of describing a plan
+      // it can no longer see.
+      const notes: string[] = [];
+      if (picks.length > 0) {
+        notes.push(
+          `[recommended: ${picks.map((p) => `${p.name} (${p.slug})`).join(", ")}]`,
+        );
+      }
+      if (m.plan_id) notes.push(`[built plan, plan_id: ${m.plan_id}]`);
       const content =
-        picks.length > 0
-          ? `${m.content}\n[recommended: ${picks
-              .map((p) => `${p.name} (${p.slug})`)
-              .join(", ")}]`
-          : m.content;
+        notes.length > 0 ? `${m.content}\n${notes.join("\n")}` : m.content;
       return { role: m.role, content };
     });
 
@@ -312,6 +318,7 @@ export async function runChatTurn(
         role: "assistant",
         content: reply,
         degraded,
+        market_run_id: collector.marketRunId,
       }),
       supabase
         .from("chat_threads")
@@ -390,6 +397,10 @@ export async function runChatTurn(
       content: leadIn,
       picks: picks as unknown as Json,
       degraded,
+      // Durable pointers: without them the "View plan" / shopping-run buttons
+      // exist only in the live stream and vanish on thread reload.
+      plan_id: collector.planId,
+      market_run_id: collector.marketRunId,
     }),
     supabase
       .from("chat_threads")

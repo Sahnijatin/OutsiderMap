@@ -16,6 +16,8 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   picks?: ChatPickCard[] | null;
+  /** Set when the turn built a trackable plan - links to it. */
+  planId?: string | null;
   /** Set when the turn built a trackable market shopping run - links to it. */
   marketRunId?: string | null;
   /** True when the concierge was down and this answer is a plain keyword fallback. */
@@ -181,6 +183,7 @@ export function ChatThread({
             patchBubble({
               content: body.text ?? acc,
               picks: body.picks,
+              planId: body.planId,
               marketRunId: body.marketRunId,
               degraded: body.degraded,
             });
@@ -328,6 +331,14 @@ export function ChatThread({
                     </Link>
                   </div>
                 )}
+                {m.planId && (
+                  <Link
+                    href={`/quests/${m.planId}`}
+                    className="self-start rounded-full border border-accent/50 px-4 py-1.5 text-xs text-accent transition-colors hover:bg-accent/10"
+                  >
+                    View plan →
+                  </Link>
+                )}
                 {m.marketRunId && (
                   <Link
                     href={`/market-run/${m.marketRunId}`}
@@ -409,6 +420,7 @@ type ChatResponse = {
   city?: string;
   text?: string;
   picks?: ChatPickCard[];
+  planId?: string;
   marketRunId?: string;
   degraded?: boolean;
   message?: string;

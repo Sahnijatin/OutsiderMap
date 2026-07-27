@@ -47,6 +47,28 @@ describe("agentSystem", () => {
     expect(prompt).toContain("the ask itself always outranks general taste");
   });
 
+  it("grounds plan replies in the stops the tool actually returned", () => {
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain("only ever describe what was actually built");
+    expect(prompt).toContain("name each place in order");
+    // The regression this pins: a plan narrated from memory drifted from
+    // Khan Market to Greater Kailash between two turns.
+    expect(prompt).toContain("never reconstruct a plan from memory");
+    expect(prompt).toContain("call get_plan");
+    // The app owns the affordance; the model must not talk about ids.
+    expect(prompt).toContain("Never mention plan ids");
+    expect(prompt).toContain("View plan button");
+    // Area must flow into the build, not just the prose.
+    expect(prompt).toContain("area to build_plan");
+  });
+
+  it("asks for encouragement through specifics, not cheerleading", () => {
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain("Encourage with specifics, not cheerleading");
+    expect(prompt).toContain("At most one exclamation mark");
+    expect(prompt).toContain("I've created a plan titled");
+  });
+
   it("bans assistant-ese so replies read human", () => {
     const prompt = agentSystem(BASE);
     for (const banned of ["hidden gem", "Great choice", "travel brochure"]) {
