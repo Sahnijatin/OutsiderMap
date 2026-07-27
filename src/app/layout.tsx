@@ -72,6 +72,13 @@ export default function RootLayout({
       // are outside our control and harmless - don't warn on them.
       suppressHydrationWarning
     >
+      <head>
+        {/* Member photos and catalog art come from Supabase storage; warm the
+            connection before the first image request. */}
+        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+          <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
+        )}
+      </head>
       <body>
         {children}
         <PwaRegister />

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowUp, History, Mic, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -457,10 +458,12 @@ function PickCard({ pick }: { pick: ChatPickCard }) {
       className="flex gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-accent/50"
     >
       {img ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={img}
           alt=""
+          width={64}
+          height={64}
+          sizes="64px"
           className="size-16 shrink-0 rounded-xl object-cover"
         />
       ) : (

@@ -13,8 +13,19 @@ export function Spinner({ className }: { className?: string }) {
   );
 }
 
+/**
+ * A shimmer placeholder block. Decorative by definition (the surface's
+ * loading.tsx announces itself), so it is aria-hidden; the pulse rests to a
+ * static block under prefers-reduced-motion.
+ */
 export function Skeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("animate-pulse rounded-xl bg-raise", className)} />
+    <div
+      aria-hidden
+      className={cn(
+        "animate-pulse rounded-xl bg-raise motion-reduce:animate-none",
+        className,
+      )}
+    />
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -129,10 +130,12 @@ export function ActivationReveal({
               className="group flex w-full flex-col overflow-hidden rounded-card border border-line bg-surface/80 text-left backdrop-blur transition-colors hover:border-accent/60"
             >
               {pick.image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={pick.image}
                   alt=""
+                  width={800}
+                  height={320}
+                  sizes="(max-width: 640px) 100vw, 640px"
                   className="h-40 w-full object-cover"
                 />
               )}

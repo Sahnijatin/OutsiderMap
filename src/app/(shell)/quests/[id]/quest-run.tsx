@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
@@ -579,10 +580,12 @@ function StopCard({
       {unlocked && (
         <div className="border-t border-line px-4 py-3">
           {img && stop.media.length === 0 && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={img}
               alt=""
+              width={800}
+              height={400}
+              sizes="(max-width: 640px) 100vw, 640px"
               className="mb-3 aspect-[2/1] w-full rounded-xl object-cover"
             />
           )}
@@ -616,11 +619,13 @@ function StopCard({
                       className="h-20 w-16 shrink-0 rounded-lg border border-line object-cover"
                     />
                   ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       key={m.id}
                       src={m.url}
                       alt=""
+                      width={64}
+                      height={80}
+                      sizes="64px"
                       className="h-20 w-16 shrink-0 rounded-lg border border-line object-cover"
                     />
                   )

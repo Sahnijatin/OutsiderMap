@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -189,22 +190,18 @@ export default async function PlacePage({
   return (
     <Screen>
       <BackLink fallbackHref="/map" label="Map" />
-      <Link
-        href={`/map?place=${place.slug}`}
-        className="voice inline-flex items-center gap-1 transition-colors hover:text-ink"
-      >
-        ← Map
-      </Link>
 
       {/* Hero */}
       <header className="relative mt-4 overflow-hidden rounded-card border border-line">
         <div className="relative aspect-[16/10] w-full sm:aspect-[2/1]">
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={cover}
               alt={place.name}
-              className="h-full w-full object-cover"
+              fill
+              priority
+              sizes="(max-width: 640px) 100vw, 1024px"
+              className="object-cover"
             />
           ) : (
             <div className="h-full w-full bg-gradient-to-br from-surface to-night" />
