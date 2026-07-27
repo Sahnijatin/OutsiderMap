@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowUp, History, Mic, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSpeechInput } from "@/lib/voice/use-speech-input";
+import { tap as hapticTap } from "@/lib/native/haptics";
+import { playSound } from "@/lib/sound/engine";
 import { publicMediaUrl } from "@/lib/media/url";
 import { cn } from "@/lib/utils";
 import type { ChatPickCard } from "@/lib/chat/engine";
@@ -70,6 +72,10 @@ export function ChatThread({
   async function send(text: string, isRetry = false) {
     const message = text.trim();
     if (!message || busy) return;
+    // The ask leaving your hands - a gentle upward two-note, and a tick you
+    // can feel in the native app. Both no-op when switched off, never throw.
+    playSound("send");
+    hapticTap();
     setInput("");
     setBusy(true);
     setFailedText(null);
@@ -135,6 +141,7 @@ export function ChatThread({
             "Lost my train of thought - that one didn't go through.",
           tone: "error",
         });
+        playSound("error");
         return;
       }
 
@@ -174,6 +181,7 @@ export function ChatThread({
               picks: body.picks,
               marketRunId: body.marketRunId,
             });
+            playSound("tap"); // The answer arrived - a soft warm tick.
             finished = true;
           } else if (event === "error") {
             setFailedText(message);
@@ -184,6 +192,7 @@ export function ChatThread({
                 "Lost my train of thought - say that again?",
               tone: "error",
             });
+            playSound("error"); // A low muted thud, nothing alarming.
             finished = true;
           }
         }
@@ -193,6 +202,7 @@ export function ChatThread({
       const fallback = "Lost my train of thought - that one didn't go through.";
       if (opened) patchBubble({ content: fallback, tone: "error" });
       else appendAssistant({ role: "assistant", content: fallback, tone: "error" });
+      playSound("error");
     } finally {
       setBusy(false);
     }

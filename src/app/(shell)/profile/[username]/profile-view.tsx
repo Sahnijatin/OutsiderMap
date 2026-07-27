@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { tap as hapticTap } from "@/lib/native/haptics";
+import { playSound } from "@/lib/sound/engine";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Screen } from "@/components/app/screen";
@@ -160,6 +162,11 @@ function ProfileActions({
     setBusy(true);
     const prev = following;
     setFollowing(!prev);
+    if (!prev) {
+      // Following someone is a deliberate moment; unfollowing stays quiet.
+      playSound("tap");
+      hapticTap();
+    }
     try {
       const res = await fetch(`/api/follows/${targetId}`, {
         method: prev ? "DELETE" : "POST",

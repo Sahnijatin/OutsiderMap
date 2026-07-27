@@ -17,7 +17,10 @@ import { googleMapsDirUrl } from "@/lib/map/directions";
 import { baseMapStyle } from "@/lib/map/style";
 import { publicMediaUrl } from "@/lib/media/url";
 import { shareOrCopy } from "@/lib/native/share";
+import { success as hapticSuccess } from "@/lib/native/haptics";
+import { playSound } from "@/lib/sound/engine";
 import { BackLink } from "@/components/app/back-link";
+import { Counter } from "@/components/motion/counter";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -228,7 +231,16 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
         message?: string;
       };
       if (!res.ok) throw new Error(body.message ?? "Couldn't complete that.");
-      if (body.questCompleted) setCelebrate(true);
+      // The moment that matters most in the app - a completion buzz, plus a
+      // warm arpeggio (or the brighter "points" run when the whole quest
+      // lands and the celebrate overlay takes over).
+      hapticSuccess();
+      if (body.questCompleted) {
+        playSound("points");
+        setCelebrate(true);
+      } else {
+        playSound("success");
+      }
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't complete that.");
@@ -296,8 +308,21 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-night/95 px-8 text-center backdrop-blur"
         >
           <div className="halo absolute inset-0" />
-          <CircleCheck className="relative size-12 text-accent" />
+          <span className="relative flex items-center justify-center">
+            {/* A brief amber bloom - CSS only, gone in a second. */}
+            <span
+              aria-hidden
+              className="om-glow-pulse absolute size-36 rounded-full bg-accent/30 blur-2xl"
+            />
+            <CircleCheck className="relative size-12 text-accent" />
+          </span>
           <p className="voice relative">quest complete</p>
+          <p className="relative font-mono text-2xl text-accent">
+            <Counter value={stops.length} />
+            <span className="ml-2 text-xs uppercase tracking-[0.3em] text-ink-dim">
+              stops cleared
+            </span>
+          </p>
           <h2 className="relative font-display text-3xl italic">
             You actually went.
           </h2>

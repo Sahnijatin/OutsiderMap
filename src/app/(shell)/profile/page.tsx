@@ -13,6 +13,7 @@ import { priceGlyph } from "@/lib/utils";
 import { resolveCity } from "@/lib/cities";
 import {
   DangerZone,
+  FeelCard,
   PersonalizationToggle,
   SignOutForm,
 } from "./settings-cards";
@@ -284,6 +285,8 @@ export default async function ProfilePage({
       </section>
       </div>
       </div>
+
+      <FeelCard />
 
       <PersonalizationToggle
         initial={profile.personalization_enabled !== false}

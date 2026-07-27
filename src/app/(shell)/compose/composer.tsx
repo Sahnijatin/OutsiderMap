@@ -5,6 +5,8 @@ import { Camera, ImagePlus, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { captureNativePhoto } from "@/lib/media/camera";
 import { useIsNativeApp } from "@/lib/capacitor/platform";
+import { success as hapticSuccess } from "@/lib/native/haptics";
+import { playSound } from "@/lib/sound/engine";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -235,6 +237,9 @@ export function Composer({ homeCity }: { homeCity: string }) {
         await uploadOne(json.post.id, item);
       }
       media.forEach((m) => URL.revokeObjectURL(m.url));
+      // Published - a warm arpeggio and a buzz. Both respect the Feel prefs.
+      playSound("success");
+      hapticSuccess();
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");

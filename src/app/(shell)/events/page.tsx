@@ -8,6 +8,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Reveal, RevealItem } from "@/components/motion/reveal";
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
+import { PullToRefresh } from "@/components/app/pull-to-refresh";
 import { Screen } from "@/components/app/screen";
 import { formatEventTime } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ export default async function EventsPage() {
   const visibleCount = events?.length ?? 0;
 
   return (
+    <PullToRefresh>
     <Screen className="flex flex-col gap-10">
       <PageHeader
         eyebrow={`Events · ${city.name}`}
@@ -88,5 +90,6 @@ export default async function EventsPage() {
         </Reveal>
       )}
     </Screen>
+    </PullToRefresh>
   );
 }

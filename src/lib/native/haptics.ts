@@ -1,6 +1,7 @@
 "use client";
 
 import { isNativeApp } from "@/lib/capacitor/platform";
+import { getSoundPrefs } from "@/lib/sound/prefs";
 
 /**
  * Haptic feedback (#143 plugins track) - the small physical confirmations that
@@ -19,6 +20,8 @@ async function withHaptics<T>(
   run: (m: typeof import("@capacitor/haptics")) => Promise<T>,
 ): Promise<void> {
   try {
+    // Respect the "Feel" setting - members can switch haptics off entirely.
+    if (!getSoundPrefs().haptics) return;
     if (!(await isNativeApp())) return;
     const mod = await import("@capacitor/haptics");
     await run(mod);

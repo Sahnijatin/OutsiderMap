@@ -5,6 +5,7 @@ import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/app/empty-state";
+import { PullToRefresh } from "@/components/app/pull-to-refresh";
 import { Screen } from "@/components/app/screen";
 import { fetchFeedPage } from "@/lib/feed/query";
 import type { FeedTab } from "@/lib/feed/read";
@@ -34,6 +35,7 @@ export default async function FeedPage({
   const { posts, nextCursor } = await fetchFeedPage(supabase, profile.id, tab);
 
   return (
+    <PullToRefresh>
     <Screen width="narrow">
       <h1 className="sr-only">Feed</h1>
       <FeedTabs active={tab} />
@@ -59,7 +61,7 @@ export default async function FeedPage({
           />
         )
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="om-stagger flex flex-col gap-4">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
@@ -85,5 +87,6 @@ export default async function FeedPage({
         <Plus className="size-6" />
       </Link>
     </Screen>
+    </PullToRefresh>
   );
 }

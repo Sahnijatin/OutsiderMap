@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion, useReducedMotion } from "motion/react";
 import { NAV_ITEMS } from "@/components/app/nav-items";
 import { tap } from "@/lib/native/haptics";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ import { cn } from "@/lib/utils";
  */
 export function BottomTabs({ signedIn = true }: { signedIn?: boolean }) {
   const pathname = usePathname();
+  const reduced = useReducedMotion() ?? false;
 
   const items = NAV_ITEMS.map((item) =>
     !signedIn && item.href === "/profile"
@@ -47,13 +49,19 @@ export function BottomTabs({ signedIn = true }: { signedIn?: boolean }) {
                 active ? "text-accent" : "text-ink-dim hover:text-ink",
               )}
             >
-              <Icon
-                className={cn(
-                  "size-5 transition-transform duration-200 ease-out",
-                  active && "motion-safe:scale-110",
-                )}
-                strokeWidth={active ? 2.2 : 1.8}
-              />
+              {/* The active icon lands with a small spring - transform only,
+                  and a plain snap under reduced motion. */}
+              <motion.span
+                className="flex"
+                animate={{ scale: active ? 1.12 : 1 }}
+                transition={
+                  reduced
+                    ? { duration: 0 }
+                    : { type: "spring", stiffness: 480, damping: 24 }
+                }
+              >
+                <Icon className="size-5" strokeWidth={active ? 2.2 : 1.8} />
+              </motion.span>
               {label}
             </Link>
           );

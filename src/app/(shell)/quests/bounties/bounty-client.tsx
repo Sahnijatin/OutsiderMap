@@ -7,6 +7,7 @@ import { getDevicePosition } from "@/lib/map/geolocation";
 import { captureNativePhoto } from "@/lib/media/camera";
 import { useIsNativeApp } from "@/lib/capacitor/platform";
 import { success, tap, warn } from "@/lib/native/haptics";
+import { playSound } from "@/lib/sound/engine";
 import {
   SCOUT_EVIDENCE_BUCKET,
   scoutEvidencePrefix,
@@ -49,6 +50,8 @@ export function SubmitSpotForm() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Couldn't submit.");
       setMsg("Submitted - other members will verify it on-site.");
+      playSound("success");
+      success();
       setName("");
       setArea("");
       router.refresh();
@@ -150,6 +153,7 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
       if (!res.ok) throw new Error(body.error ?? "Couldn't confirm.");
       setMsg("Verification submitted. Thank you for scouting.");
       setShot(null);
+      playSound("success");
       success();
       router.refresh();
     } catch (e) {

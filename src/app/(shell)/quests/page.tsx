@@ -7,6 +7,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Reveal, RevealItem } from "@/components/motion/reveal";
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
+import { PullToRefresh } from "@/components/app/pull-to-refresh";
 import { Screen } from "@/components/app/screen";
 
 export const metadata: Metadata = { title: "Quests" };
@@ -30,6 +31,7 @@ export default async function QuestsPage() {
   const list = quests ?? [];
 
   return (
+    <PullToRefresh>
     <Screen>
       <PageHeader
         eyebrow="quests"
@@ -145,5 +147,6 @@ export default async function QuestsPage() {
         )}
       </div>
     </Screen>
+    </PullToRefresh>
   );
 }
