@@ -60,6 +60,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 
+  // Any supplied placeId must be a real, published place (checked through the
+  // caller's RLS-scoped client) - otherwise arbitrary uuids would poison the
+  // learning loop with events for places that don't exist. Log-only signals
+  // without a place still pass straight through above.
+  if (placeId !== undefined) {
+    const { data: place } = await supabase
+      .from("places")
+      .select("id")
+      .eq("id", placeId)
+      .eq("is_published", true)
+      .maybeSingle();
+    if (!place) {
+      return NextResponse.json({ error: "unknown_place" }, { status: 400 });
+    }
+  }
+
   // Bucket-table side effects.
   if (action === "save" && placeId) {
     const { error } = await supabase

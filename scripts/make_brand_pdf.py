@@ -306,7 +306,7 @@ space(3)
 voice("Accent & signal")
 swatch_row("Accent — Sodium Amber", "#f0a431", ACCENT, "The default voice of the brand. Primary actions, focus, the 'one answer' point, the logo dot.")
 swatch_row("Ember", "#c87c1f", EMBER, "Deeper amber. Primary-button hover; secondary light in the hero field.")
-swatch_row("Under — Neon Violet", "#b48aed", UNDER, "Reserved exclusively for underground / premium. Never ordinary UI.")
+swatch_row("Under — Neon Violet", "#b48aed", UNDER, "Reserved exclusively for the underground. Never ordinary UI.")
 swatch_row("Danger", "#e0654f", DANGER, "Errors and destructive actions only.")
 
 space(4)
@@ -315,7 +315,7 @@ voice("The two-accent discipline")
 body(
     "OutsiderMap runs on two accents with strict, separate jobs. Amber is the "
     "everyday brand color — free product, primary CTAs, the recurring "
-    "sodium-lamp glow. Violet means underground / premium and nothing else. A "
+    "sodium-lamp glow. Violet means the underground and nothing else. A "
     "violet halo, badge, or border is a promise that something is exclusive; "
     "spending it on a generic button breaks that promise and dilutes the "
     "conversion signal. When in doubt, it's amber."
@@ -323,7 +323,7 @@ body(
 space(1)
 voice("Lighting motifs")
 bullet(".halo — a soft radial sodium-lamp glow in amber (~14% accent). The recurring lighting motif behind heroes and CTAs.")
-bullet(".halo-under — the same glow in violet (~12% under), only behind premium / underground sections.", UNDER)
+bullet(".halo-under — the same glow in violet (~12% under), only behind underground sections.", UNDER)
 bullet("::selection — text selection is amber at 30% opacity.")
 
 # ============================================================
@@ -370,7 +370,7 @@ need(40)
 voice("The display signature")
 body(
     "Headlines follow one rhythm: a statement in upright Fraunces, then the key "
-    "phrase in italic amber (or italic violet in premium contexts). This "
+    "phrase in italic amber (or italic violet in underground contexts). This "
     "'upright setup, italic payoff' is the most recognizable verbal pattern in "
     "the brand."
 )
@@ -462,7 +462,7 @@ body(
 )
 space(1)
 voice("Don't")
-bullet("Recolor the answer dot (always accent; violet only in an explicit premium lockup).", DANGER)
+bullet("Recolor the answer dot (always accent; violet only in an explicit underground lockup).", DANGER)
 bullet("Add more than a sparse handful of background lights.", DANGER)
 bullet("Set the wordmark upright/bold or in the body or mono faces — it is Fraunces italic.", DANGER)
 bullet("Place the mark on a light background. The brand is dark-only.", DANGER)
@@ -536,7 +536,7 @@ btns = [
     ("primary", ACCENT, NIGHT, "The main call to action. Amber on night; hover ember."),
     ("secondary", SURFACE, INK, "Transparent, line border. Secondary actions, 'Sign in'."),
     ("ghost", NIGHT, INK_DIM, "Tertiary / inline."),
-    ("under", UNDER, NIGHT, "Premium / underground actions only."),
+    ("under", UNDER, NIGHT, "Underground actions only."),
     ("danger", NIGHT, DANGER, "Destructive only."),
 ]
 y = pdf.get_y()
@@ -570,8 +570,8 @@ for label, _, _, role in btns:
 space(3)
 need(36)
 voice("Badges  ·  cards  ·  inputs")
-bullet("Badges — small rounded-full tags: default (raise/ink-dim), accent (amber tint, e.g. 'matched to your profile'), under (violet, 'Premium'), outline.")
-bullet("Cards — rounded-card, border line, bg surface, p-6. Premium cards switch the border to under/30.")
+bullet("Badges — small rounded-full tags: default (raise/ink-dim), accent (amber tint, e.g. 'matched to your profile'), under (violet, 'underground'), outline.")
+bullet("Cards — rounded-card, border line, bg surface, p-6. Underground cards switch the border to under/30.")
 bullet("Inputs — rounded-xl, bg surface, border line, placeholder ink-dim/60, and an amber focus border.")
 bullet("Focus — every focusable element gets a 2px amber focus-visible outline. Visible keyboard focus is a brand requirement.")
 bullet("Spinner — a line ring with an amber top; skeletons pulse in raise.")
@@ -599,7 +599,7 @@ bullet("Give one answer, then the reason. ('Greasy enough to fix the night. Open
 bullet("Write for real, late, human moods — lowercase, unfiltered in user-voice examples.")
 bullet("Use the upright -> italic-accent headline rhythm for big statements.")
 bullet("Keep system framing in the quiet mono .voice.")
-bullet("Lean nocturnal and a little secret for premium ('If it's on Google, it doesn't count').")
+bullet("Lean nocturnal and a little secret for the underground ('If it's on Google, it doesn't count').")
 space(2)
 voice("Don't")
 bullet("Present a menu of ten options or hedge ('you could try...').", DANGER)
@@ -647,7 +647,7 @@ tokens = [
         ("--color-ink-dim", "#9b9183", "muted text"),
         ("--color-accent", "#f0a431", "sodium amber — the brand"),
         ("--color-ember", "#c87c1f", "amber hover / depth"),
-        ("--color-under", "#b48aed", "neon violet — premium only"),
+        ("--color-under", "#b48aed", "neon violet — underground only"),
         ("--color-danger", "#e0654f", "errors only"),
     ]),
     ("Type", [

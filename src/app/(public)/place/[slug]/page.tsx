@@ -1,5 +1,5 @@
+import Image from "next/image";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { publicMediaUrl } from "@/lib/media/url";
 import { BackLink } from "@/components/app/back-link";
+import { Screen } from "@/components/app/screen";
 import {
   listMapCategories,
   buildCategoryIndex,
@@ -186,24 +187,20 @@ export default async function PlacePage({
     !Array.isArray(place.hours);
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pb-[calc(var(--tab-clearance)+2.5rem)] pt-[calc(var(--safe-top)+1.25rem)]">
+    <Screen>
       <BackLink fallbackHref="/map" label="Map" />
-      <Link
-        href={`/map?place=${place.slug}`}
-        className="voice inline-flex items-center gap-1 transition-colors hover:text-ink"
-      >
-        ← Map
-      </Link>
 
       {/* Hero */}
       <header className="relative mt-4 overflow-hidden rounded-card border border-line">
         <div className="relative aspect-[16/10] w-full sm:aspect-[2/1]">
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={cover}
               alt={place.name}
-              className="h-full w-full object-cover"
+              fill
+              priority
+              sizes="(max-width: 640px) 100vw, 1024px"
+              className="object-cover"
             />
           ) : (
             <div className="h-full w-full bg-gradient-to-br from-surface to-night" />
@@ -320,7 +317,7 @@ export default async function PlacePage({
               <div
                 key={d.key}
                 className={`flex items-center justify-between px-4 py-2.5 text-sm ${
-                  i > 0 ? "border-t border-line/60" : ""
+                  i > 0 ? "border-t border-line" : ""
                 }`}
               >
                 <dt className="text-ink-dim">{d.label}</dt>
@@ -345,6 +342,6 @@ export default async function PlacePage({
           </a>
         </div>
       )}
-    </main>
+    </Screen>
   );
 }

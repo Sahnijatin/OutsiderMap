@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
  * Device push-token registration. The app registers its Expo/native push token
@@ -19,6 +20,10 @@ export async function POST(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const allowed = await checkRateLimit(`notif-token:${ctx.user.id}`, 10, 3600);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const parsed = RegisterSchema.safeParse(
@@ -55,6 +60,14 @@ export async function DELETE(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const allowed = await checkRateLimit(
+    `notif-token-del:${ctx.user.id}`,
+    30,
+    3600,
+  );
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const parsed = UnregisterSchema.safeParse(

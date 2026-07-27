@@ -28,18 +28,11 @@ const serverEnvSchema = z.object({
         : v,
     z.string().url().optional(),
   ),
-  RAZORPAY_KEY_ID: z.string().min(1).optional(),
-  RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
-  RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
-  RAZORPAY_PREMIUM_PLAN_ID: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM: z.string().min(1).optional(),
   RESEND_ADMIN_EMAIL: z.string().email().optional(),
-  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
-  // Comma-separated emails allowed to re-submit the waitlist (for testing).
-  WAITLIST_TEST_EMAILS: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

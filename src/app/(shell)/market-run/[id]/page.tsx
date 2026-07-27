@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/app/page-header";
+import { Screen } from "@/components/app/screen";
 import type {
   BudgetVerdict,
   CategoryEstimate,
@@ -54,22 +56,20 @@ export default async function MarketRunPage({
   const verdict = VERDICT[plan?.budgetVerdict ?? "unknown"];
 
   return (
-    <main className="mx-auto min-h-dvh max-w-lg px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+1.5rem)] lg:max-w-2xl lg:px-8 lg:pt-12">
-      <header>
-        <p className="voice">shopping run</p>
-        <h1 className="mt-1 font-display text-3xl italic lg:text-4xl">
-          {plan?.marketName ?? "Shopping run"}
-        </h1>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-dim">
-          {run.budget_max ? <span>₹{run.budget_max}/head</span> : null}
-          {plan?.estimatedLow != null && plan?.estimatedHigh != null ? (
-            <span>
-              · est. ₹{plan.estimatedLow}-{plan.estimatedHigh}
-            </span>
-          ) : null}
-          <Badge variant={verdict.variant}>{verdict.label}</Badge>
-        </div>
-      </header>
+    <Screen width="narrow">
+      <PageHeader
+        eyebrow="shopping run"
+        title={plan?.marketName ?? "Shopping run"}
+      />
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-dim">
+        {run.budget_max ? <span>₹{run.budget_max}/head</span> : null}
+        {plan?.estimatedLow != null && plan?.estimatedHigh != null ? (
+          <span>
+            · est. ₹{plan.estimatedLow}-{plan.estimatedHigh}
+          </span>
+        ) : null}
+        <Badge variant={verdict.variant}>{verdict.label}</Badge>
+      </div>
 
       {stops.length === 0 ? (
         <p className="mt-8 text-sm leading-relaxed text-ink-dim">
@@ -95,7 +95,7 @@ export default async function MarketRunPage({
                 {stop.estimates.map((e) => {
                   const basis = BASIS[e.basis];
                   return (
-                    <li key={e.category} className="border-t border-line/60 pt-3 first:border-0 first:pt-0">
+                    <li key={e.category} className="border-t border-line pt-3 first:border-0 first:pt-0">
                       <div className="flex items-center justify-between gap-3">
                         <span className="capitalize">{e.category}</span>
                         <span className="flex items-center gap-2">
@@ -118,7 +118,7 @@ export default async function MarketRunPage({
       )}
 
       {plan?.notes && plan.notes.length > 0 ? (
-        <div className="mt-5 rounded-card border border-line/60 bg-raise/40 p-4">
+        <div className="mt-5 rounded-card border border-line bg-raise/40 p-4">
           <p className="voice mb-2">worth knowing</p>
           <ul className="flex flex-col gap-1.5 text-sm leading-relaxed text-ink-dim">
             {plan.notes.map((note, i) => (
@@ -133,6 +133,6 @@ export default async function MarketRunPage({
         well, and tell the chat what you paid so the next person&apos;s plan is
         sharper.
       </p>
-    </main>
+    </Screen>
   );
 }

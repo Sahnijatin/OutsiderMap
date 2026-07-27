@@ -16,6 +16,12 @@ export function MarketingFooter() {
           <Link href="/sign-in" className="transition-colors hover:text-ink">
             Sign up
           </Link>
+          <Link href="/privacy" className="transition-colors hover:text-ink">
+            Privacy
+          </Link>
+          <Link href="/terms" className="transition-colors hover:text-ink">
+            Terms
+          </Link>
         </div>
         <p className="font-mono text-xs text-ink-dim/60">
           © 2026 OutsiderMap

@@ -10,8 +10,8 @@ type SendArgs = {
 };
 
 /**
- * Sends a transactional email via the Resend REST API. No SDK - same
- * raw-fetch approach as the Razorpay integration. Returns false (rather than
+ * Sends a transactional email via the Resend REST API. No SDK - a raw fetch
+ * keeps the dependency surface small. Returns false (rather than
  * throwing) when Resend isn't configured, so callers can treat email as
  * best-effort and never block the primary action.
  */

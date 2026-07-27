@@ -3,7 +3,11 @@ import Link from "next/link";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Reveal, RevealItem } from "@/components/motion/reveal";
+import { EmptyState } from "@/components/app/empty-state";
+import { PageHeader } from "@/components/app/page-header";
+import { Screen } from "@/components/app/screen";
 import type { MarketRunPlan } from "@/lib/market/types";
 
 export const metadata: Metadata = { title: "Shopping runs" };
@@ -27,24 +31,28 @@ export default async function MarketRunsPage() {
   const list = runs ?? [];
 
   return (
-    <main className="mx-auto min-h-dvh max-w-lg px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+1.5rem)] lg:max-w-4xl lg:px-8 lg:pt-12">
-      <header>
-        <p className="voice">shopping runs</p>
-        <h1 className="mt-1 font-display text-3xl italic lg:text-4xl">
-          Your market game-plans.
-        </h1>
-      </header>
+    <Screen>
+      <PageHeader eyebrow="shopping runs" title="Your market game-plans." />
 
       <div className="mt-6 flex flex-col gap-3">
         {list.length === 0 ? (
-          <div className="relative mt-8 text-center">
-            <div className="halo absolute -inset-8" />
-            <p className="relative mx-auto max-w-md text-sm leading-relaxed text-ink-dim">
-              No shopping runs yet. Tell the chat where you&apos;re headed -
-              &ldquo;going Sarojini tomorrow for a jacket and cargos, ₹3k&rdquo; -
-              and it builds a lane-by-lane game-plan with honest price bands.
-            </p>
-          </div>
+          <EmptyState
+            className="mt-4"
+            title="No shopping runs yet."
+            body={
+              <>
+                Tell the chat where you&apos;re headed -
+                &ldquo;going Sarojini tomorrow for a jacket and cargos,
+                ₹3k&rdquo; - and it builds a lane-by-lane game-plan with honest
+                price bands.
+              </>
+            }
+            action={
+              <ButtonLink href="/chat" variant="secondary">
+                Ask the chat
+              </ButtonLink>
+            }
+          />
         ) : (
           <Reveal speed="fast">
             <ul className="mt-2 flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
@@ -57,7 +65,7 @@ export default async function MarketRunsPage() {
                     <RevealItem>
                       <Link
                         href={`/market-run/${run.id}`}
-                        className="flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
+                        className="flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
                       >
                         <div className="min-w-0">
                           <p className="truncate font-display text-lg italic">
@@ -92,6 +100,6 @@ export default async function MarketRunsPage() {
           </Reveal>
         )}
       </div>
-    </main>
+    </Screen>
   );
 }

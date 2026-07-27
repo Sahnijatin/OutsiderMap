@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatOutsiderNumber } from "@/lib/identity/username";
-import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = { title: "Members · Admin" };
 
@@ -14,7 +13,7 @@ function escapeQuery(q: string) {
 }
 
 /**
- * The member roster: outsider number, identity, city, tier, activity
+ * The member roster: outsider number, identity, city, activity
  * counts. Read-only v1 - layout-level requireAdmin gates this.
  */
 // future: ban/delete actions
@@ -44,29 +43,12 @@ export default async function AdminMembersPage({
   const { data: members, count } = await query;
 
   const ids = (members ?? []).map((m) => m.id);
-  const [quests, reels, subs] = ids.length
-    ? await Promise.all([
-        admin.from("quests").select("user_id").in("user_id", ids),
-        admin.from("reels").select("user_id").in("user_id", ids),
-        admin
-          .from("subscriptions")
-          .select("user_id, tier, status")
-          .in("user_id", ids),
-      ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
-  const premiumIds = new Set(
-    (subs.data ?? [])
-      .filter((s) => s.tier === "premium" && s.status === "active")
-      .map((s) => s.user_id),
-  );
+  const quests = ids.length
+    ? await admin.from("quests").select("user_id").in("user_id", ids)
+    : { data: [] };
   const questCounts = new Map<string, number>();
   for (const row of quests.data ?? []) {
     questCounts.set(row.user_id, (questCounts.get(row.user_id) ?? 0) + 1);
-  }
-  const reelCounts = new Map<string, number>();
-  for (const row of reels.data ?? []) {
-    if (!row.user_id) continue;
-    reelCounts.set(row.user_id, (reelCounts.get(row.user_id) ?? 0) + 1);
   }
 
   const total = count ?? 0;
@@ -111,18 +93,15 @@ export default async function AdminMembersPage({
               <th className="px-4 py-3 font-normal">Username</th>
               <th className="px-4 py-3 font-normal">Display name</th>
               <th className="px-4 py-3 font-normal">City</th>
-              <th className="px-4 py-3 font-normal">Tier</th>
               <th className="px-4 py-3 font-normal">Onboarded</th>
               <th className="px-4 py-3 font-normal">Quests</th>
-              <th className="px-4 py-3 font-normal">Reels</th>
               <th className="px-4 py-3 font-normal">Joined</th>
             </tr>
           </thead>
           <tbody>
             {(members ?? []).map((m) => {
-              const premium = premiumIds.has(m.id);
               return (
-                <tr key={m.id} className="border-b border-line/50">
+                <tr key={m.id} className="border-b border-line">
                   <td className="px-4 py-2.5 font-mono text-xs text-accent">
                     {formatOutsiderNumber(m.outsider_number)}
                   </td>
@@ -135,19 +114,11 @@ export default async function AdminMembersPage({
                   <td className="px-4 py-2.5 capitalize text-ink-dim">
                     {m.home_city ?? "-"}
                   </td>
-                  <td className="px-4 py-2.5">
-                    <Badge variant={premium ? "under" : "outline"}>
-                      {premium ? "premium" : "free"}
-                    </Badge>
-                  </td>
                   <td className="px-4 py-2.5 text-ink-dim">
                     {m.onboarding_completed_at ? "yes" : "no"}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs">
                     {questCounts.get(m.id) ?? 0}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-xs">
-                    {reelCounts.get(m.id) ?? 0}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-ink-dim">
                     {new Date(m.created_at).toLocaleDateString("en-IN", {
@@ -162,7 +133,7 @@ export default async function AdminMembersPage({
             })}
             {(members ?? []).length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-ink-dim">
+                <td colSpan={8} className="px-4 py-8 text-center text-ink-dim">
                   Nobody matches.
                 </td>
               </tr>

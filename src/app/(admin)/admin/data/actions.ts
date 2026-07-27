@@ -20,9 +20,18 @@ import { enrichDraftsBatch } from "@/lib/admin/enrich";
  * anything.
  */
 
-export type JobOutcome = BatchResult & { error?: string };
+export type JobOutcome = BatchResult & {
+  error?: string;
+  /**
+   * Scan-level progress for jobs where "wrote nothing" and "nothing left" are
+   * different outcomes (enrichment declines by design). When present, the
+   * runner keeps going while scanned > 0 and only says Done on a zero-scan
+   * round.
+   */
+  progress?: { scanned: number; enriched: number; declined: number };
+};
 
-async function run(job: () => Promise<BatchResult>): Promise<JobOutcome> {
+async function run(job: () => Promise<JobOutcome>): Promise<JobOutcome> {
   try {
     const result = await job();
     revalidatePath("/admin/data");
@@ -79,6 +88,11 @@ export async function enrichDraftsAction(): Promise<JobOutcome> {
       processed: out.enriched,
       remaining: out.remaining,
       notes: out.notes,
+      progress: {
+        scanned: out.scanned,
+        enriched: out.enriched,
+        declined: out.declined,
+      },
     };
   });
 }

@@ -18,6 +18,11 @@ const SURFACES: { name: string; path: string }[] = [
   { name: "events", path: "/events" },
   { name: "saved", path: "/saved" },
   { name: "profile", path: "/profile" },
+  { name: "feed", path: "/feed" },
+  { name: "quests", path: "/quests" },
+  { name: "compose", path: "/compose" },
+  { name: "activity", path: "/activity" },
+  { name: "market-run", path: "/market-run" },
 ];
 
 const SCREENSHOTS = path.join(__dirname, "screenshots");

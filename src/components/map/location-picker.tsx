@@ -1,10 +1,9 @@
 "use client";
 
-import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
+import "leaflet/dist/leaflet.css";
+import type { Map as LeafletMap, Marker } from "leaflet";
 import { useEffect, useRef, useState } from "react";
-
-// setOptions must run once before the first importLibrary; guard across mounts.
-let configured = false;
+import { MAP_ACCENT, MAP_NIGHT, baseTileLayer } from "@/lib/map/style";
 
 export type LocationValue = {
   lat: number;
@@ -19,261 +18,183 @@ const DELHI = { lat: 28.6315, lng: 77.2167 };
 type Suggestion = {
   id: string;
   text: string;
-  prediction: google.maps.places.PlacePrediction;
+  lat: number;
+  lng: number;
+  area?: string;
 };
 
-/** Dark, low-chrome map style (no Map ID / Cloud styling required). */
-const DARK_STYLE: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry", stylers: [{ color: "#16120e" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#9b9183" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#0c0a08" }] },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#2b241c" }],
-  },
-  {
-    featureType: "road",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#9b9183" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#0c0a08" }],
-  },
-  {
-    featureType: "poi",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#9b9183" }],
-  },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#1e1914" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-  {
-    featureType: "administrative",
-    elementType: "geometry",
-    stylers: [{ color: "#2b241c" }],
-  },
-];
+/** Fields we read off a Nominatim search hit. */
+type NominatimResult = {
+  place_id: number;
+  lat: string;
+  lon: string;
+  display_name: string;
+  address?: Record<string, string>;
+};
 
-function areaFromComponents(
-  components?: google.maps.places.AddressComponent[],
-): string | undefined {
-  const find = (t: string) =>
-    components?.find((c) => c.types.includes(t))?.longText ?? undefined;
+function areaFromAddress(address?: Record<string, string>): string | undefined {
   return (
-    find("sublocality_level_1") ?? find("neighborhood") ?? find("locality")
+    address?.suburb ??
+    address?.neighbourhood ??
+    address?.city_district ??
+    address?.city ??
+    address?.town ??
+    address?.village
   );
 }
 
-function areaFromGeocode(
-  components: google.maps.GeocoderAddressComponent[],
-): string | undefined {
-  const find = (t: string) =>
-    components.find((c) => c.types.includes(t))?.long_name;
-  return (
-    find("sublocality_level_1") ??
-    find("neighborhood") ??
-    find("locality") ??
-    find("administrative_area_level_2")
-  );
+/** The draggable amber pin - same dot language as the public map's markers. */
+function pinIcon(L: typeof import("leaflet")) {
+  const size = 20;
+  return L.divIcon({
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html:
+      `<span style="display:block;width:${size}px;height:${size}px;` +
+      "border-radius:9999px;" +
+      `background:${MAP_ACCENT};border:2px solid ${MAP_NIGHT};` +
+      'box-shadow:0 0 0 2px rgba(240,164,49,0.35);"></span>',
+  });
 }
 
 /**
- * Dark, brand-styled Google map with Places search and a draggable pin. Search
- * is a convenience (best venue/address coverage for India); the draggable pin
- * (drag or tap the map) is the fallback for unlisted spots. Reports the chosen
- * point up via onChange. Load this via next/dynamic ssr:false - it needs
- * window. `token` is the Google Maps API key.
+ * Dark, brand-styled Leaflet map (the same CARTO raster basemap as the public
+ * map - no API key) with a draggable pin, tap-to-place, and a debounced
+ * OpenStreetMap (Nominatim) place/address search. Reports the chosen point up
+ * via onChange. Load this via next/dynamic ssr:false - Leaflet needs window.
  */
 export function LocationPicker({
-  token,
   value,
   onChange,
 }: {
-  token: string;
   value: LocationValue | null;
   onChange: (next: LocationValue) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const placesRef = useRef<google.maps.PlacesLibrary | null>(null);
-  const sessionRef = useRef<google.maps.places.AutocompleteSessionToken | null>(
-    null,
-  );
+  const mapRef = useRef<LeafletMap | null>(null);
+  const markerRef = useRef<Marker | null>(null);
+  const LRef = useRef<typeof import("leaflet") | null>(null);
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
   });
 
   const [query, setQuery] = useState(value?.label ?? "");
+
+  const selectedTextRef = useRef<string | null>(null);
   const [results, setResults] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
 
+  // Drop (or move) the pin. Created lazily on the first placement.
   function placeMarker(lat: number, lng: number) {
+    const L = LRef.current;
     const map = mapRef.current;
-    const marker = markerRef.current;
-    if (!map || !marker) return;
-    marker.setPosition({ lat, lng });
-    marker.setMap(map);
-  }
-
-  async function reverseGeocode(lat: number, lng: number) {
-    onChangeRef.current({ lat, lng });
-    try {
-      const geocoder = geocoderRef.current;
-      if (!geocoder) return;
-      const { results: r } = await geocoder.geocode({ location: { lat, lng } });
-      const first = r[0];
-      if (first) {
-        onChangeRef.current({
-          lat,
-          lng,
-          label: first.formatted_address,
-          area: areaFromGeocode(first.address_components),
-        });
-      }
-    } catch {
-      // Keep the coordinates-only update.
+    if (!L || !map) return;
+    if (!markerRef.current) {
+      const marker = L.marker([lat, lng], {
+        icon: pinIcon(L),
+        draggable: true,
+      }).addTo(map);
+      marker.on("dragend", () => {
+        const pos = marker.getLatLng();
+        onChangeRef.current({ lat: pos.lat, lng: pos.lng });
+      });
+      markerRef.current = marker;
+      return;
     }
+    markerRef.current.setLatLng([lat, lng]);
   }
 
-  // Initialise the map + libraries once.
+  // Initialise the map once.
   useEffect(() => {
     let cancelled = false;
-    if (!configured) {
-      setOptions({ key: token, v: "weekly" });
-      configured = true;
-    }
+    let map: LeafletMap | null = null;
 
     void (async () => {
-      const [maps, markerLib, geocoding, places] = await Promise.all([
-        importLibrary("maps"),
-        importLibrary("marker"),
-        importLibrary("geocoding"),
-        importLibrary("places"),
-      ]);
+      if (!containerRef.current || mapRef.current) return;
+      const L = (await import("leaflet")).default;
       if (cancelled || !containerRef.current || mapRef.current) return;
-      const { Map } = maps;
-      const { Marker } = markerLib;
+      LRef.current = L;
 
-      placesRef.current = places;
-      geocoderRef.current = new geocoding.Geocoder();
       const start = value ? { lat: value.lat, lng: value.lng } : DELHI;
-
-      const map = new Map(containerRef.current, {
-        center: start,
+      map = L.map(containerRef.current, {
+        center: [start.lat, start.lng],
         zoom: value ? 15 : 11,
-        styles: DARK_STYLE,
-        clickableIcons: false,
-        disableDefaultUI: true,
         zoomControl: true,
-        gestureHandling: "greedy",
+        attributionControl: true,
       });
       mapRef.current = map;
+      map.attributionControl.setPrefix(false);
+      baseTileLayer(L).addTo(map);
 
-      const accent =
-        getComputedStyle(document.documentElement)
-          .getPropertyValue("--color-accent")
-          .trim() || "#f0a431";
-      const marker = new Marker({
-        draggable: true,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 9,
-          fillColor: accent,
-          fillOpacity: 1,
-          strokeColor: "#0c0a08",
-          strokeWeight: 2,
-        },
-      });
-      if (value) {
-        marker.setPosition(start);
-        marker.setMap(map);
-      }
-      markerRef.current = marker;
+      if (value) placeMarker(value.lat, value.lng);
 
-      marker.addListener("dragend", () => {
-        const pos = marker.getPosition();
-        if (pos) void reverseGeocode(pos.lat(), pos.lng());
+      map.on("click", (e) => {
+        placeMarker(e.latlng.lat, e.latlng.lng);
+        onChangeRef.current({ lat: e.latlng.lat, lng: e.latlng.lng });
       });
-      map.addListener("click", (e: google.maps.MapMouseEvent) => {
-        if (!e.latLng) return;
-        placeMarker(e.latLng.lat(), e.latLng.lng());
-        void reverseGeocode(e.latLng.lat(), e.latLng.lng());
-      });
+
+      // The admin form can lay out late; re-measure so tiles fill the box.
+      requestAnimationFrame(() => map?.invalidateSize());
     })();
 
     return () => {
       cancelled = true;
+      map?.remove();
       mapRef.current = null;
       markerRef.current = null;
     };
-    // value is only the initial position; we intentionally init once per token.
+    // value is only the initial position; we intentionally init once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, []);
 
-  // Debounced autocomplete. State is only set inside the async timeout.
+  // Debounced Nominatim search, biased to India like the catalog. State is
+  // only set inside the async timeout. A programmatic setQuery from select()
+  // must not re-run the search and pop the dropdown back open.
   useEffect(() => {
     if (query.trim().length < 3) return;
+    if (query === selectedTextRef.current) return;
+    const controller = new AbortController();
     const id = setTimeout(async () => {
-      const places = placesRef.current;
-      if (!places) return;
       try {
-        if (!sessionRef.current) {
-          sessionRef.current = new places.AutocompleteSessionToken();
-        }
-        const { suggestions } =
-          await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-            input: query,
-            sessionToken: sessionRef.current,
-            includedRegionCodes: ["in"],
-            locationBias: mapRef.current?.getBounds() ?? undefined,
-          });
-        const mapped: Suggestion[] = suggestions
-          .map((s) => s.placePrediction)
-          .filter((p): p is google.maps.places.PlacePrediction => p !== null)
-          .map((p) => ({
-            id: p.placeId,
-            text: p.text.text,
-            prediction: p,
-          }));
-        setResults(mapped);
+        const url =
+          "https://nominatim.openstreetmap.org/search?format=jsonv2" +
+          "&addressdetails=1&limit=6&countrycodes=in&q=" +
+          encodeURIComponent(query.trim());
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error();
+        const hits = (await res.json()) as NominatimResult[];
+        setResults(
+          hits.map((h) => ({
+            id: String(h.place_id),
+            text: h.display_name,
+            lat: Number(h.lat),
+            lng: Number(h.lon),
+            area: areaFromAddress(h.address),
+          })),
+        );
         setOpen(true);
       } catch {
-        setResults([]);
+        if (!controller.signal.aborted) setResults([]);
       }
-    }, 300);
-    return () => clearTimeout(id);
+    }, 350);
+    return () => {
+      clearTimeout(id);
+      controller.abort();
+    };
   }, [query]);
 
-  async function select(s: Suggestion) {
+  function select(s: Suggestion) {
+    selectedTextRef.current = s.text;
     setQuery(s.text);
     setOpen(false);
-    try {
-      const place = s.prediction.toPlace();
-      await place.fetchFields({
-        fields: ["location", "displayName", "formattedAddress", "addressComponents"],
-      });
-      const loc = place.location;
-      if (!loc) return;
-      const lat = loc.lat();
-      const lng = loc.lng();
-      placeMarker(lat, lng);
-      mapRef.current?.panTo({ lat, lng });
-      mapRef.current?.setZoom(16);
-      onChangeRef.current({
-        lat,
-        lng,
-        label: place.displayName ?? place.formattedAddress ?? s.text,
-        area: areaFromComponents(place.addressComponents ?? undefined),
-      });
-    } finally {
-      // A session ends when a place is selected; start a fresh one next time.
-      sessionRef.current = null;
-    }
+    placeMarker(s.lat, s.lng);
+    mapRef.current?.setView([s.lat, s.lng], 16);
+    onChangeRef.current({ lat: s.lat, lng: s.lng, label: s.text, area: s.area });
   }
 
   return (
@@ -286,10 +207,10 @@ export function LocationPicker({
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder="Search a place or address…"
           aria-label="Search for the spot's location"
-          className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink placeholder:text-ink-dim/60 transition-colors focus:border-accent focus:outline-none"
+          className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink placeholder:text-ink-dim/60 transition-colors focus:border-accent"
         />
         {open && query.trim().length >= 3 && results.length > 0 && (
-          <ul className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-xl border border-line bg-raise shadow-lg">
+          <ul className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-line bg-raise shadow-lg">
             {results.map((s) => (
               <li key={s.id}>
                 <button
@@ -306,12 +227,14 @@ export function LocationPicker({
         )}
       </div>
 
+      {/* `isolate` keeps Leaflet's panes from painting over the dropdown. */}
       <div
         ref={containerRef}
-        className="h-64 w-full overflow-hidden rounded-xl border border-line"
+        className="isolate h-64 w-full overflow-hidden rounded-xl border border-line"
       />
       <p className="text-xs text-ink-dim">
         Can&rsquo;t find it? Tap the map or drag the pin as close as you can.
+        Search by Nominatim &copy; OpenStreetMap contributors.
       </p>
     </div>
   );

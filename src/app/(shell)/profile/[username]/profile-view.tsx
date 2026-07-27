@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { tap as hapticTap } from "@/lib/native/haptics";
+import { playSound } from "@/lib/sound/engine";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Screen } from "@/components/app/screen";
 import type { FollowState } from "@/lib/feed/follows";
 import type { PostCard as PostCardData } from "@/lib/feed/read";
 import { PostCard } from "../../feed/post-card";
 import { SafetyMenu } from "./safety-menu";
-
-type FriendStatus = "self" | "none" | "pending_out" | "pending_in" | "accepted";
 
 type ProfilePayload = {
   profile: {
@@ -21,8 +22,6 @@ type ProfilePayload = {
     outsider_number: number | null;
   };
   follow: FollowState;
-  friendStatus: FriendStatus;
-  friendshipId: string | null;
   isSelf: boolean;
   posts: PostCardData[];
 };
@@ -60,20 +59,26 @@ export function ProfileView({ username }: { username: string }) {
   }
   if (status === "notfound") {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-2 px-5 text-center">
+      <Screen
+        width="narrow"
+        className="flex flex-col items-center justify-center gap-2 text-center"
+      >
         <p className="font-display text-lg text-ink">No outsider here</p>
         <p className="text-sm text-ink-dim">@{username} isn&apos;t someone we know.</p>
         <Link href="/feed" className="mt-2 text-sm text-accent hover:underline">
           Back to feed
         </Link>
-      </main>
+      </Screen>
     );
   }
   if (status === "error" || !data) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-xl items-center justify-center px-5">
+      <Screen
+        width="narrow"
+        className="flex items-center justify-center"
+      >
         <p className="text-sm text-danger">Couldn&apos;t load this profile.</p>
-      </main>
+      </Screen>
     );
   }
 
@@ -81,7 +86,7 @@ export function ProfileView({ username }: { username: string }) {
   const name = profile.display_name ?? (profile.username ? `@${profile.username}` : "An outsider");
 
   return (
-    <main className="mx-auto min-h-dvh max-w-xl px-4 pb-28 pt-4">
+    <Screen width="narrow">
       <Link
         href="/feed"
         className="mb-3 inline-flex items-center gap-1 text-sm text-ink-dim hover:text-ink"
@@ -136,7 +141,7 @@ export function ProfileView({ username }: { username: string }) {
           posts.map((post) => <PostCard key={post.id} post={post} />)
         )}
       </div>
-    </main>
+    </Screen>
   );
 }
 
@@ -150,8 +155,6 @@ function ProfileActions({
   initial: ProfilePayload;
 }) {
   const [following, setFollowing] = useState(initial.follow.isFollowing);
-  const [friend, setFriend] = useState<FriendStatus>(initial.friendStatus);
-  const [friendshipId, setFriendshipId] = useState(initial.friendshipId);
   const [busy, setBusy] = useState(false);
 
   async function toggleFollow() {
@@ -159,6 +162,11 @@ function ProfileActions({
     setBusy(true);
     const prev = following;
     setFollowing(!prev);
+    if (!prev) {
+      // Following someone is a deliberate moment; unfollowing stays quiet.
+      playSound("tap");
+      hapticTap();
+    }
     try {
       const res = await fetch(`/api/follows/${targetId}`, {
         method: prev ? "DELETE" : "POST",
@@ -166,43 +174,6 @@ function ProfileActions({
       if (!res.ok) throw new Error();
     } catch {
       setFollowing(prev);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function addFriend() {
-    if (busy || !username) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/friends", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
-      });
-      if (res.ok) setFriend("pending_out");
-    } catch {
-      // leave state; the button can be retried
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function acceptFriend() {
-    if (busy || !friendshipId) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/friends", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: friendshipId }),
-      });
-      if (res.ok) {
-        setFriend("accepted");
-        setFriendshipId(friendshipId);
-      }
-    } catch {
-      // retryable
     } finally {
       setBusy(false);
     }
@@ -218,27 +189,6 @@ function ProfileActions({
       >
         {following ? "Following" : "Follow"}
       </Button>
-
-      {friend === "none" && (
-        <Button variant="secondary" size="sm" onClick={addFriend} disabled={busy}>
-          Add friend
-        </Button>
-      )}
-      {friend === "pending_out" && (
-        <Button variant="ghost" size="sm" disabled>
-          Requested
-        </Button>
-      )}
-      {friend === "pending_in" && (
-        <Button variant="secondary" size="sm" onClick={acceptFriend} disabled={busy}>
-          Accept friend
-        </Button>
-      )}
-      {friend === "accepted" && (
-        <Button variant="ghost" size="sm" disabled>
-          Friends
-        </Button>
-      )}
 
       <div className="ml-auto">
         <SafetyMenu targetId={targetId} username={username} />

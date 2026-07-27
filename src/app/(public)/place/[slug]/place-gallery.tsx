@@ -74,7 +74,7 @@ export function PlaceGallery({
         {cards.map((card, i) => (
           <figure
             key={i}
-            className="relative w-[86%] shrink-0 snap-center overflow-hidden rounded-card border border-line/60 sm:w-[68%]"
+            className="relative w-[86%] shrink-0 snap-center overflow-hidden rounded-card border border-line sm:w-[68%]"
           >
             {card.type === "video" ? (
               <video

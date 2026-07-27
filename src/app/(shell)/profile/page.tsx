@@ -5,8 +5,6 @@ import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TasteDimensionsSchema } from "@/lib/taste/profile";
 import { retryTasteRead } from "@/app/setup/actions";
-import { cancelPremium } from "@/app/(marketing)/pricing/actions";
-import { revalidatePath } from "next/cache";
 import { signOut } from "./actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,13 +13,17 @@ import { priceGlyph } from "@/lib/utils";
 import { resolveCity } from "@/lib/cities";
 import {
   DangerZone,
+  FeelCard,
   PersonalizationToggle,
   SignOutForm,
 } from "./settings-cards";
 import { TasteCardShare } from "./taste-card-share";
 import { IdentityCard } from "./identity-card";
 import { StatsRow } from "./stats-row";
-import { FriendsPanel } from "./friends";
+import { EmptyState } from "@/components/app/empty-state";
+import { PageHeader } from "@/components/app/page-header";
+import { Screen } from "@/components/app/screen";
+import { ButtonLink } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Your taste profile",
@@ -49,22 +51,16 @@ export default async function ProfilePage({
 
   const [
     { data: taste },
-    { data: subscription },
     { data: bucket },
     { count: questCount },
-    { count: reelCount },
     { count: savedCount },
-    { count: friendCount },
+    { count: followerCount },
+    { count: followingCount },
     city,
   ] = await Promise.all([
     supabase
       .from("taste_profiles")
       .select("*")
-      .eq("user_id", profile.id)
-      .maybeSingle(),
-    supabase
-      .from("subscriptions")
-      .select("tier, status, current_period_end")
       .eq("user_id", profile.id)
       .maybeSingle(),
     supabase
@@ -78,30 +74,22 @@ export default async function ProfilePage({
       .select("id", { count: "exact", head: true })
       .eq("status", "completed"),
     supabase
-      .from("reels")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", profile.id),
-    supabase
       .from("saved_places")
       .select("place_id", { count: "exact", head: true })
       .eq("user_id", profile.id),
     supabase
-      .from("friendships")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "accepted"),
+      .from("follows")
+      .select("follower", { count: "exact", head: true })
+      .eq("followee", profile.id),
+    supabase
+      .from("follows")
+      .select("followee", { count: "exact", head: true })
+      .eq("follower", profile.id),
     resolveCity(supabase, profile.home_city),
   ]);
 
   const parsed = StoredAnswersSchema.safeParse(taste?.quiz_answers);
   const dimensions = parsed.success ? parsed.data.dimensions : undefined;
-  const premium =
-    subscription?.tier === "premium" && subscription.status === "active";
-
-  async function cancelPremiumAction() {
-    "use server";
-    await cancelPremium();
-    revalidatePath("/profile");
-  }
 
   const learnedSignals =
     taste?.learned_signals &&
@@ -109,20 +97,15 @@ export default async function ProfilePage({
     Object.keys(taste.learned_signals).length > 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+2rem)] lg:max-w-5xl lg:px-8 lg:pt-12">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl sm:text-4xl">
-            {welcome
-              ? "Here’s our first read."
-              : (profile.display_name ?? "You, mapped.")}
-          </h1>
-          <p className="voice">Your taste profile · v{taste?.version ?? 1}</p>
-        </div>
-        <Badge variant={premium ? "under" : "outline"}>
-          {premium ? "Premium" : "Free tier"}
-        </Badge>
-      </header>
+    <Screen width="wide" className="flex flex-col gap-10">
+      <PageHeader
+        eyebrow={`Your taste profile · v${taste?.version ?? 1}`}
+        title={
+          welcome
+            ? "Here’s our first read."
+            : (profile.display_name ?? "You, mapped.")
+        }
+      />
 
       <div className="flex flex-col gap-10 lg:grid lg:grid-cols-5 lg:items-start lg:gap-8">
       <div className="flex flex-col gap-5 lg:sticky lg:top-8 lg:col-span-2">
@@ -135,9 +118,9 @@ export default async function ProfilePage({
         />
         <StatsRow
           quests={questCount ?? 0}
-          reels={reelCount ?? 0}
           saved={savedCount ?? 0}
-          friends={friendCount ?? 0}
+          followers={followerCount ?? 0}
+          following={followingCount ?? 0}
         />
       </div>
 
@@ -254,7 +237,6 @@ export default async function ProfilePage({
         </p>
       </Card>
 
-      <FriendsPanel />
 
       <section className="flex flex-col gap-3">
         <h2 className="voice">Your bucket</h2>
@@ -264,7 +246,7 @@ export default async function ProfilePage({
               <li key={row.place_id}>
                 <Link
                   href={`/map?place=${encodeURIComponent(row.place?.slug ?? "")}`}
-                  className="flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface px-4 py-3 transition-colors hover:border-accent/50"
+                  className="flex items-center justify-between gap-3 rounded-card border border-line bg-surface px-4 py-3 transition-colors hover:border-accent/50"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm text-ink">
@@ -290,58 +272,25 @@ export default async function ProfilePage({
             ))}
           </ul>
         ) : (
-          <Card>
-            <p className="text-sm text-ink-dim">
-              Nothing saved yet. Tap a light on the map and save what calls
-              to you - it collects here.
-            </p>
-          </Card>
+          <EmptyState
+            title="Nothing saved yet."
+            body="Tap a light on the map and save what calls to you - it collects here."
+            action={
+              <ButtonLink href="/map" variant="secondary">
+                Open the map
+              </ButtonLink>
+            }
+          />
         )}
       </section>
       </div>
       </div>
 
+      <FeelCard />
+
       <PersonalizationToggle
         initial={profile.personalization_enabled !== false}
       />
-
-      <Card className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="voice">Membership</p>
-          <p className="text-sm text-ink-dim">
-            {premium
-              ? `Premium · renews ${
-                  subscription?.current_period_end
-                    ? new Date(
-                        subscription.current_period_end,
-                      ).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        timeZone: "Asia/Kolkata",
-                      })
-                    : "at the end of this period"
-                }`
-              : "Free tier - Right Now answers, unlimited."}
-          </p>
-        </div>
-        {premium ? (
-          <form action={cancelPremiumAction}>
-            <button
-              type="submit"
-              className="text-sm text-ink-dim transition-colors hover:text-danger"
-            >
-              Cancel premium
-            </button>
-          </form>
-        ) : (
-          <Link
-            href="/pricing"
-            className="text-sm text-under transition-colors hover:underline"
-          >
-            Go premium →
-          </Link>
-        )}
-      </Card>
 
       <DangerZone username={profile.username} />
 
@@ -355,6 +304,6 @@ export default async function ProfilePage({
         <span className="text-line">·</span>
         <SignOutForm action={signOut} />
       </footer>
-    </main>
+    </Screen>
   );
 }

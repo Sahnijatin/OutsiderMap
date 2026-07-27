@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 /**
  * Desktop navigation: a fixed left rail, hidden below lg. The bottom tabs
  * own phones; this owns laptops. Width comes from --rail-w so full-bleed
- * surfaces (map, reels) can offset themselves with the same variable.
+ * surfaces (the map) can offset themselves with the same variable.
  */
 export function SideRail({
   username,
@@ -30,7 +30,7 @@ export function SideRail({
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-y-0 left-0 z-40 hidden w-[var(--rail-w)] flex-col border-r border-line/60 bg-night/85 backdrop-blur-md lg:flex"
+      className="fixed inset-y-0 left-0 z-40 hidden w-[var(--rail-w)] flex-col border-r border-line bg-night/85 backdrop-blur-md lg:flex"
     >
       <Link href="/map" className="px-6 pb-2 pt-7">
         <span className="font-display text-xl italic">OutsiderMap</span>
@@ -70,7 +70,7 @@ export function SideRail({
       {signedIn ? (
         <Link
           href="/profile"
-          className="group mx-3 mb-5 flex flex-col gap-0.5 rounded-xl border border-line/60 bg-surface/70 px-4 py-3 transition-colors hover:border-accent/40"
+          className="group mx-3 mb-5 flex flex-col gap-0.5 rounded-xl border border-line bg-surface/70 px-4 py-3 transition-colors hover:border-accent/40"
         >
           <span className="voice text-accent">
             outsider {formatOutsiderNumber(outsiderNumber)}

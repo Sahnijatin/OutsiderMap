@@ -40,15 +40,27 @@ export function buildActivationQuery(
   return `${parts.join(" ")}.`;
 }
 
+export type FirstAnswer = {
+  /** The single best pick, or null when nothing could be produced at all. */
+  pick: Recommendation | null;
+  /**
+   * True when the AI pipeline was down and the pick is a keyword fallback -
+   * a real place, but NOT read from their taste. The reveal must not claim
+   * "we read you" over it.
+   */
+  degraded: boolean;
+};
+
 /**
  * Generate the member's very first answer from their taste alone. Returns the
- * single best pick, or null when the catalog/taste can't produce one (the beat
+ * single best pick (flagged when the pipeline degraded to a non-personalized
+ * fallback), or a null pick when the catalog can't produce one (the beat
  * degrades to a plain welcome).
  */
 export async function firstTasteAnswer(
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<Recommendation | null> {
+): Promise<FirstAnswer> {
   const { data } = await supabase
     .from("taste_profiles")
     .select("quiz_answers")
@@ -59,5 +71,5 @@ export async function firstTasteAnswer(
   const dimensions = parsed.success ? parsed.data.dimensions : undefined;
 
   const result = await recommend(userId, buildActivationQuery(dimensions), supabase);
-  return result.picks[0] ?? null;
+  return { pick: result.picks[0] ?? null, degraded: result.degraded };
 }

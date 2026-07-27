@@ -1,12 +1,32 @@
 import type { NextConfig } from "next";
 
+// Derive the Supabase storage host at config time so next/image can
+// optimize catalog and member photos. The wildcard fallback keeps envless
+// builds (CI, clean checkouts) compiling.
+const supabaseHost = (() => {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    return url ? new URL(url).hostname : null;
+  } catch {
+    return null;
+  }
+})();
+
 const nextConfig: NextConfig = {
   // Next.js 16 blocks cross-origin requests to dev-only assets by default.
   // Allow tunnels (ngrok) so the app renders when shared publicly in dev.
   allowedDevOrigins: ["*.ngrok-free.app", "*.ngrok.app"],
-  // The ffmpeg installer resolves its platform binary with a dynamic
-  // require - keep it external (runtime node_modules) instead of bundled.
-  serverExternalPackages: ["@ffmpeg-installer/ffmpeg"],
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**.supabase.co" },
+      ...(supabaseHost
+        ? [{ protocol: "https" as const, hostname: supabaseHost }]
+        : []),
+      // Local supabase in dev.
+      { protocol: "http", hostname: "localhost" },
+      { protocol: "http", hostname: "127.0.0.1" },
+    ],
+  },
   experimental: {
     serverActions: {
       // Server Actions default to a 1MB request body, and every photo taken on
@@ -16,19 +36,6 @@ const nextConfig: NextConfig = {
       // signed direct-to-Storage upload, which is why member photos already do.
       bodySizeLimit: "4mb",
     },
-  },
-  // The reel worker shells out to a real ffmpeg binary and draws the
-  // watermark with a repo-vendored font; both must ride into the traced
-  // serverless bundle for the job/cron routes.
-  outputFileTracingIncludes: {
-    "/api/jobs/reel": [
-      "./node_modules/@ffmpeg-installer/**",
-      "./assets/fonts/**",
-    ],
-    "/api/cron/reels": [
-      "./node_modules/@ffmpeg-installer/**",
-      "./assets/fonts/**",
-    ],
   },
 };
 

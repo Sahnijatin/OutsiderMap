@@ -1,7 +1,9 @@
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { BottomTabs } from "@/components/app/bottom-tabs";
+import { OfflineBanner } from "@/components/app/offline-banner";
 import { SideRail } from "@/components/app/side-rail";
+import { SoundBoot } from "@/components/app/sound-boot";
 import { AuthGateProvider } from "@/components/auth/auth-gate";
 import { MobileAuthGate } from "@/components/auth/mobile-auth-gate";
 import { PushRegistrar } from "@/components/push-registrar";
@@ -37,6 +39,8 @@ export default async function PublicLayout({
       <MobileAuthGate signedIn={signedIn} />
       {/* Native push registration once signed in; no-op on web (#143/#125). */}
       <PushRegistrar signedIn={signedIn} />
+      <OfflineBanner />
+      <SoundBoot />
       <div className="min-h-dvh lg:pl-[var(--rail-w)]">{children}</div>
       <SideRail
         signedIn={signedIn}

@@ -37,7 +37,7 @@ export async function GET(
 
   const { data: messages } = await ctx.supabase
     .from("chat_messages")
-    .select("id, role, content, picks, created_at")
+    .select("id, role, content, picks, degraded, created_at")
     .eq("thread_id", id)
     .order("created_at", { ascending: true })
     .limit(200);

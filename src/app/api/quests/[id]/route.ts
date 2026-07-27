@@ -43,7 +43,7 @@ export async function GET(
  *   active            -> abandoned (the protect_quest_columns trigger allows
  *                        exactly draft|active -> abandoned), since a run in
  *                        progress can't be deleted
- *   completed         -> refused; a finished quest is a record, and its reel
+ *   completed         -> refused; a finished quest is a record, and its media
  *                        hangs off it
  * The response says which happened so the UI can word itself honestly.
  */

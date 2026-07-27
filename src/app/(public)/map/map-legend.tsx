@@ -47,7 +47,7 @@ export function MapLegend({ categories }: { categories: MapCategory[] }) {
           )}
         >
           <li className="min-h-0 overflow-hidden">
-            <div className="flex flex-col gap-2 border-t border-line/60 px-3.5 pb-3 pt-2.5">
+            <div className="flex flex-col gap-2 border-t border-line px-3.5 pb-3 pt-2.5">
               {categories.map((category) => (
                 <div key={category.id} className="flex items-center gap-2.5">
                   <span

@@ -33,7 +33,7 @@ export function ColorInput({
         onChange={(e) => setValue(e.target.value)}
         pattern="#[0-9a-fA-F]{6}"
         required
-        className="w-32 rounded-xl border border-line bg-surface px-4 py-3 font-mono text-ink focus:border-accent focus:outline-none transition-colors"
+        className="w-32 rounded-xl border border-line bg-surface px-4 py-3 font-mono text-ink focus:border-accent transition-colors"
       />
     </div>
   );

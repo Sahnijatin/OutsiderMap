@@ -36,7 +36,7 @@ describe("CreatePostSchema", () => {
 describe("PostPatchSchema", () => {
   it("accepts a partial edit", () => {
     expect(PostPatchSchema.safeParse({ body: "edited" }).success).toBe(true);
-    expect(PostPatchSchema.safeParse({ visibility: "friends" }).success).toBe(true);
+    expect(PostPatchSchema.safeParse({ visibility: "followers" }).success).toBe(true);
   });
 
   it("rejects an empty patch", () => {

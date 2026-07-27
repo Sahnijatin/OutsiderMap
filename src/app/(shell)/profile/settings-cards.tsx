@@ -7,13 +7,114 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { unregisterPushNotifications } from "@/lib/native/push";
+import { useIsNativeApp } from "@/lib/capacitor/platform";
+import { tap as hapticTap } from "@/lib/native/haptics";
+import { playSound, startAmbient, stopAmbient } from "@/lib/sound/engine";
+import { setSoundPref, useSoundPrefs } from "@/lib/sound/prefs";
 
 /**
- * The settings that only needed a UI: the personalization consent switch
+ * The settings that only needed a UI: the "Feel" card (sound effects, the
+ * ambient night hum, haptics), the personalization consent switch
  * (PATCH /api/profile), the DPDP account delete (DELETE /api/account,
  * type-to-confirm), and the sign-out form (which also drops this device's push
  * token so a shared phone stops receiving the previous member's notifications).
  */
+
+/**
+ * How the app feels in the hand. Effects and haptics preview themselves when
+ * switched on; the music toggle starts/stops the ambient engine immediately
+ * (the click is the user gesture autoplay policies want).
+ */
+export function FeelCard() {
+  const prefs = useSoundPrefs();
+  const isNative = useIsNativeApp();
+
+  return (
+    <div className="rounded-card border border-line bg-surface p-4">
+      <p className="text-sm font-medium text-ink">Feel</p>
+      <p className="mt-0.5 text-xs leading-relaxed text-ink-dim">
+        The small textures. Everything here stays on this device.
+      </p>
+      <div className="mt-2 flex flex-col">
+        <ToggleRow
+          label="Sound effects"
+          hint="Soft ticks when you send, finish, or earn something."
+          checked={prefs.effects}
+          onChange={(next) => {
+            setSoundPref("effects", next);
+            if (next) playSound("tap");
+          }}
+        />
+        <ToggleRow
+          label="Background music"
+          hint="A very quiet Delhi night hum while you browse."
+          checked={prefs.music}
+          onChange={(next) => {
+            setSoundPref("music", next);
+            if (next) startAmbient();
+            else stopAmbient();
+          }}
+        />
+        {/* Haptics only exist in the native shell - no dead switch on web. */}
+        {isNative && (
+          <ToggleRow
+            label="Haptics"
+            hint="A tick you can feel on meaningful moments."
+            checked={prefs.haptics}
+            onChange={(next) => {
+              setSoundPref("haptics", next);
+              if (next) hapticTap();
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-t border-line/40 py-2 first:border-t-0">
+      <div>
+        <p className="text-sm text-ink">{label}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-ink-dim">{hint}</p>
+      </div>
+      {/* The visual track is 28x48; the button pads it to a 44px target. */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className="-mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-center p-2"
+      >
+        <span
+          className={cn(
+            "relative block h-7 w-12 rounded-full border transition-colors",
+            checked ? "border-accent bg-accent/30" : "border-line bg-raise",
+          )}
+        >
+          <span
+            className={cn(
+              "absolute top-0.5 block size-[22px] rounded-full transition-all",
+              checked ? "left-6 bg-accent" : "left-0.5 bg-ink-dim",
+            )}
+          />
+        </span>
+      </button>
+    </div>
+  );
+}
 
 export function SignOutForm({ action }: { action: () => Promise<void> }) {
   return (
@@ -125,7 +226,7 @@ export function DangerZone({ username }: { username: string | null }) {
       <p className="text-sm font-medium text-danger">Danger zone</p>
       <p className="mt-1 text-xs leading-relaxed text-ink-dim">
         Deleting your account erases everything - profile, taste data, quests,
-        captures, reels, your number. Gone means gone; numbers are never
+        captures, posts, your number. Gone means gone; numbers are never
         reissued.
       </p>
       {!open ? (

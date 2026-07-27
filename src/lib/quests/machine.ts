@@ -63,16 +63,8 @@ export type QuestStopDetail = Tables<"quest_stops"> & {
   media: QuestStopMedia[];
 };
 
-export type QuestReelState = {
-  /** rendering = job queued/processing; ready = MP4 exists; failed = gave up. */
-  status: "rendering" | "ready" | "failed";
-  videoPath: string | null;
-  posterPath: string | null;
-};
-
 export type QuestDetail = Tables<"quests"> & {
   stops: QuestStopDetail[];
-  reel: QuestReelState | null;
 };
 
 /**
@@ -127,42 +119,8 @@ export async function getQuestDetail(
     ? await signUrls(allPaths)
     : new Map<string, string>();
 
-  // Reel state, only meaningful once the quest is completed. RLS lets the
-  // owner read their own job and reel rows.
-  let reel: QuestReelState | null = null;
-  if (quest.status === "completed") {
-    const [{ data: reelRow }, { data: job }] = await Promise.all([
-      supabase
-        .from("reels")
-        .select("video_path, poster_path")
-        .eq("quest_id", questId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("reel_jobs")
-        .select("status")
-        .eq("quest_id", questId)
-        .maybeSingle(),
-    ]);
-    if (reelRow) {
-      reel = {
-        status: "ready",
-        videoPath: reelRow.video_path,
-        posterPath: reelRow.poster_path,
-      };
-    } else if (job) {
-      reel = {
-        status: job.status === "failed" ? "failed" : "rendering",
-        videoPath: null,
-        posterPath: null,
-      };
-    }
-  }
-
   return {
     ...quest,
-    reel,
     stops: (stops ?? []).map((s) => {
       const media = (mediaByStop.get(s.id) ?? []).map((m) => ({
         ...m,

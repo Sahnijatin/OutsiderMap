@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/app/page-header";
+import { PullToRefresh } from "@/components/app/pull-to-refresh";
+import { Screen } from "@/components/app/screen";
 
 type ActivityType = "follow" | "like" | "want_to_go" | "comment" | "quest_complete";
 
@@ -51,26 +54,29 @@ export function ActivityView() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const loaded = useRef(false);
 
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/activity");
+      if (!res.ok) throw new Error();
+      const body = (await res.json()) as { items: Item[] };
+      setItems(body.items);
+      setStatus("ready");
+      // Mark read after showing (best-effort).
+      void fetch("/api/activity", { method: "POST" });
+    } catch {
+      setStatus("error");
+    }
+  }, []);
+
   useEffect(() => {
     if (loaded.current) return;
     loaded.current = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/activity");
-        if (!res.ok) throw new Error();
-        const body = (await res.json()) as { items: Item[] };
-        setItems(body.items);
-        setStatus("ready");
-        // Mark read after showing (best-effort).
-        void fetch("/api/activity", { method: "POST" });
-      } catch {
-        setStatus("error");
-      }
-    })();
-  }, []);
+    void load();
+  }, [load]);
 
   return (
-    <main className="mx-auto min-h-dvh max-w-xl px-4 pb-28 pt-4">
+    <PullToRefresh onRefresh={load}>
+    <Screen width="narrow">
       <Link
         href="/feed"
         className="mb-3 inline-flex items-center gap-1 text-sm text-ink-dim hover:text-ink"
@@ -78,7 +84,7 @@ export function ActivityView() {
         <ChevronLeft className="size-4" />
         Feed
       </Link>
-      <h1 className="mb-4 font-display text-xl text-ink">Activity</h1>
+      <PageHeader className="mb-4" eyebrow="the network" title="Activity" />
 
       {status === "loading" ? (
         <div className="flex justify-center py-16">
@@ -93,7 +99,7 @@ export function ActivityView() {
           Nothing yet. Likes, follows and comments show up here.
         </p>
       ) : (
-        <ul className="flex flex-col">
+        <ul className="om-stagger flex flex-col">
           {items.map((it) => {
             const row = (
               <div
@@ -137,6 +143,7 @@ export function ActivityView() {
           })}
         </ul>
       )}
-    </main>
+    </Screen>
+    </PullToRefresh>
   );
 }

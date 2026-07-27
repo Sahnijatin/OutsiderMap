@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Heart, MapPin, MessageCircle, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PostCard as PostCardData } from "@/lib/feed/read";
@@ -98,12 +99,17 @@ export function PostCard({
       {first && (
         <Link href={`/feed/${post.id}`} className="relative block bg-night">
           {first.kind === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={first.url ?? undefined}
-              alt=""
-              className="max-h-[32rem] w-full object-cover"
-            />
+            first.url && (
+              <div className="relative aspect-[4/3] max-h-[32rem] w-full">
+                <Image
+                  src={first.url}
+                  alt=""
+                  fill
+                  sizes="(max-width: 768px) 100vw, 640px"
+                  className="object-cover"
+                />
+              </div>
+            )
           ) : (
             <video
               src={first.url ?? undefined}

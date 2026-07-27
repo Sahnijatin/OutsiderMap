@@ -23,7 +23,6 @@ export default async function NewPlacePage() {
       <h1 className="font-display text-3xl">New place</h1>
       <PlaceForm
         categories={categories}
-        googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null}
       />
     </main>
   );

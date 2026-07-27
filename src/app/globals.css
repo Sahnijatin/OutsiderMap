@@ -9,17 +9,26 @@
  *  - night/surface/line: warm asphalt darks with a brown undertone
  *  - ink: warm paper-white
  *  - accent: sodium-vapor amber - the default voice of the brand
- *  - under: neon violet - reserved exclusively for underground/premium
+ *  - under: neon violet - reserved exclusively for the underground
  *
  * Tokens are real CSS custom properties: usable as Tailwind utilities
  * (bg-night, text-ink, border-line) and readable from Motion variants and
  * R3F materials via getComputedStyle. Never hardcode colors in components.
  */
+/*
+ * Elevation ramp (measured, WCAG relative luminance vs night #0c0a08):
+ *   surface 1.11:1 · raise 1.24:1 · line 3.13:1.
+ * `line` carries the elevation story: it clears the 3:1 non-text contrast
+ * minimum against night, so every card edge is visible on a phone panel at
+ * low brightness. Because the ramp itself is calibrated, borders are always
+ * used at full strength - never diluted with /50-/70 opacity modifiers.
+ * Ink 12.9:1+, ink-dim 5.1:1+, accent 7.6:1+ on every surface (AA+).
+ */
 @theme {
   --color-night: #0c0a08;
-  --color-surface: #16120e;
-  --color-raise: #1e1914;
-  --color-line: #2b241c;
+  --color-surface: #1c1712;
+  --color-raise: #282119;
+  --color-line: #6e5d49;
   --color-ink: #ede7db;
   --color-ink-dim: #9b9183;
   --color-accent: #f0a431;
@@ -58,11 +67,38 @@
   }
 }
 
+html {
+  /* WebView app-feel: kill the grey tap flash Android/iOS WebViews paint on
+   * every touched element - our own active: states are the tap feedback. */
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background-color: var(--color-night);
   color: var(--color-ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+}
+
+/* WebView app-feel: manipulation drops the 300ms double-tap-to-zoom delay on
+ * every interactive element, so taps answer immediately without disabling
+ * pinch-zoom on the rest of the page. */
+a,
+button,
+[role="button"],
+input,
+label,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+/* WebView app-feel: scrollable sheets/drawers set this so hitting the end of
+ * their scroll never chains into the page behind (or triggers the browser's
+ * pull-to-refresh) - same name/behavior as the Tailwind utility, defined here
+ * so plain-CSS surfaces (Leaflet popups, portals) can use it too. */
+.overscroll-contain {
+  overscroll-behavior: contain;
 }
 
 ::selection {
@@ -174,5 +210,57 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .om-rise-in {
     animation: none;
+  }
+}
+
+/* Staggered list entrance.
+   Put .om-stagger on a list container and each direct child rises in with a
+   30ms offset - the same om-rise-in movement, cascaded. Pure CSS so feed
+   cards and activity rows stay server components. Runs once per mount; the
+   cap keeps long lists from feeling like a queue. */
+.om-stagger > * {
+  animation: om-rise-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.om-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.om-stagger > *:nth-child(2) { animation-delay: 30ms; }
+.om-stagger > *:nth-child(3) { animation-delay: 60ms; }
+.om-stagger > *:nth-child(4) { animation-delay: 90ms; }
+.om-stagger > *:nth-child(5) { animation-delay: 120ms; }
+.om-stagger > *:nth-child(6) { animation-delay: 150ms; }
+.om-stagger > *:nth-child(7) { animation-delay: 180ms; }
+.om-stagger > *:nth-child(n + 8) { animation-delay: 210ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .om-stagger > * {
+    animation: none;
+  }
+}
+
+/* Success bloom.
+   A brief amber glow pulse for celebration moments (quest complete) - no
+   particles, no canvas, just one soft light swelling and fading. Opacity and
+   transform only. Gone entirely under reduced motion. */
+@keyframes om-glow-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+.om-glow-pulse {
+  animation: om-glow-pulse 1100ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .om-glow-pulse {
+    animation: none;
+    opacity: 0;
   }
 }

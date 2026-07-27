@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { listNearbyBounties } from "@/lib/scout/bounties";
+import { PageHeader } from "@/components/app/page-header";
+import { Screen } from "@/components/app/screen";
 import { ConfirmFlow, SubmitSpotForm } from "./bounty-client";
 
 export const metadata: Metadata = { title: "Scout · Bounties" };
@@ -18,24 +20,25 @@ export default async function BountiesPage() {
   const bounties = await listNearbyBounties(supabase, { limit: 50 });
 
   return (
-    <main className="mx-auto min-h-dvh max-w-lg px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+1.5rem)] lg:max-w-3xl lg:px-8 lg:pt-12">
-      <header className="mb-6">
-        <p className="voice">scout economy</p>
-        <h1 className="mt-1 font-display text-3xl italic lg:text-4xl">
-          Verify the map. Earn your place on it.
-        </h1>
-        <p className="mt-2 text-sm text-ink-dim">
-          Go to a listed spot, prove it exists with a live photo, and both you
-          and the scout who found it earn points.{" "}
-          <Link href="/quests/leaderboard" className="underline">
-            See standings
-          </Link>{" "}
-          ·{" "}
-          <Link href="/quests" className="underline">
-            Back to your quests
-          </Link>
-        </p>
-      </header>
+    <Screen width="narrow">
+      <PageHeader
+        className="mb-6"
+        eyebrow="scout economy"
+        title="Verify the map. Earn your place on it."
+        lead={
+          <>
+            Go to a listed spot, prove it exists with a live photo, and both
+            you and the scout who found it earn points.{" "}
+            <Link href="/quests/leaderboard" className="underline">
+              See standings
+            </Link>{" "}
+            ·{" "}
+            <Link href="/quests" className="underline">
+              Back to your quests
+            </Link>
+          </>
+        }
+      />
 
       <SubmitSpotForm />
 
@@ -71,6 +74,6 @@ export default async function BountiesPage() {
           ))
         )}
       </section>
-    </main>
+    </Screen>
   );
 }

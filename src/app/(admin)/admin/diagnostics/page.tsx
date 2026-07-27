@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,10 @@ export const metadata: Metadata = { title: "Diagnostics · Admin" };
 type EnvCheck = { name: string; ok: boolean; breaks: string };
 
 export default async function DiagnosticsPage() {
+  // Defense in depth: the layout already gates rendering, but every admin
+  // page that touches the service role double-checks (house convention).
+  await requireAdmin();
+
   let env: ReturnType<typeof serverEnv> | null = null;
   let envError: string | null = null;
   try {
@@ -28,7 +33,7 @@ export default async function DiagnosticsPage() {
         {
           name: "SUPABASE_SERVICE_ROLE_KEY",
           ok: !!env.SUPABASE_SERVICE_ROLE_KEY,
-          breaks: "crons, reels, ingest, webhook, seeding",
+          breaks: "crons, ingest, seeding",
         },
         {
           name: "OPENAI_API_KEY",
@@ -43,22 +48,17 @@ export default async function DiagnosticsPage() {
         {
           name: "CRON_SECRET",
           ok: !!env.CRON_SECRET,
-          breaks: "reel renders, ingest sweeps, nightly recompute",
+          breaks: "ingest sweeps, nightly recompute",
         },
         {
           name: "NEXT_PUBLIC_APP_URL",
           ok: !!env.NEXT_PUBLIC_APP_URL,
-          breaks: "instant reel kickoff after quest completion",
+          breaks: "absolute links in email and share flows",
         },
         {
           name: "UPSTASH_REDIS_REST_URL",
           ok: !!env.UPSTASH_REDIS_REST_URL,
           breaks: "rate limiting (fails open without)",
-        },
-        {
-          name: "RAZORPAY_KEY_ID",
-          ok: !!env.RAZORPAY_KEY_ID,
-          breaks: "premium checkout",
         },
         {
           name: "RESEND_API_KEY",
@@ -76,8 +76,6 @@ export default async function DiagnosticsPage() {
     placesUnpublished,
     placesNoImage,
     events,
-    reelsByStatus,
-    stuckJobs,
     queuedIngest,
     members,
     quests,
@@ -100,11 +98,6 @@ export default async function DiagnosticsPage() {
       .from("events")
       .select("id", { count: "exact", head: true })
       .gte("starts_at", new Date().toISOString()),
-    admin.from("reels").select("status"),
-    admin
-      .from("reel_jobs")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["queued", "processing", "failed"]),
     admin
       .from("ingest_items")
       .select("id", { count: "exact", head: true })
@@ -116,10 +109,6 @@ export default async function DiagnosticsPage() {
   const placesPerCity = new Map<string, number>();
   for (const p of placesPublished.data ?? []) {
     placesPerCity.set(p.city, (placesPerCity.get(p.city) ?? 0) + 1);
-  }
-  const reelCounts = { pending: 0, approved: 0, rejected: 0 };
-  for (const r of reelsByStatus.data ?? []) {
-    reelCounts[r.status as keyof typeof reelCounts] += 1;
   }
   const questCounts = new Map<string, number>();
   for (const q of quests.data ?? []) {
@@ -189,15 +178,6 @@ export default async function DiagnosticsPage() {
           <Stat
             label="Quests (active / completed)"
             value={`${questCounts.get("active") ?? 0} / ${questCounts.get("completed") ?? 0}`}
-          />
-          <Stat
-            label="Reels (pending / approved)"
-            value={`${reelCounts.pending} / ${reelCounts.approved}`}
-          />
-          <Stat
-            label="Reel jobs not done"
-            value={String(stuckJobs.count ?? 0)}
-            alarm={(stuckJobs.count ?? 0) > 0}
           />
           <Stat
             label="Ingest in flight"

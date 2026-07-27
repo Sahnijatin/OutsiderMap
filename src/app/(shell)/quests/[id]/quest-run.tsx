@@ -1,7 +1,8 @@
 "use client";
 
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import Image from "next/image";
+import "leaflet/dist/leaflet.css";
+import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import {
   Camera,
   Check,
@@ -13,24 +14,50 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { googleMapsDirUrl } from "@/lib/map/directions";
-import { baseMapStyle } from "@/lib/map/style";
+import {
+  MAP_ACCENT as ACCENT,
+  MAP_INK as INK,
+  MAP_NIGHT as NIGHT,
+  baseTileLayer,
+} from "@/lib/map/style";
 import { publicMediaUrl } from "@/lib/media/url";
 import { shareOrCopy } from "@/lib/native/share";
+import { success as hapticSuccess } from "@/lib/native/haptics";
+import { playSound } from "@/lib/sound/engine";
 import { BackLink } from "@/components/app/back-link";
+import { Counter } from "@/components/motion/counter";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { QuestDetail, QuestStopDetail } from "@/lib/quests/machine";
-
-const ACCENT = "#f0a431";
-const NIGHT = "#0c0a08";
-const INK = "#ede7db";
 
 type CaptureGuide = {
   photos?: number;
   videos?: number;
   prompts?: string[];
 };
+
+/**
+ * A numbered stop light for the route map: done stops fill amber, pending
+ * stops stay night-dark inside an amber ring. Plain divIcon markup - the
+ * content is only the stop number we generate, never user text.
+ */
+function stopIcon(L: typeof import("leaflet"), n: number, done: boolean) {
+  const size = 22;
+  return L.divIcon({
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html:
+      `<span style="display:flex;width:${size}px;height:${size}px;` +
+      "align-items:center;justify-content:center;border-radius:9999px;" +
+      `border:1.5px solid ${ACCENT};` +
+      `background:${done ? ACCENT : NIGHT};` +
+      `color:${done ? NIGHT : INK};` +
+      'font-size:12px;line-height:1;font-family:var(--font-mono,ui-monospace,monospace);">' +
+      `${n}</span>`,
+  });
+}
 
 export function QuestRun({ initial }: { initial: QuestDetail }) {
   const router = useRouter();
@@ -40,7 +67,13 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
   const [celebrate, setCelebrate] = useState(false);
   const [confirmQuit, setConfirmQuit] = useState(false);
   const mapContainer = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  // The Leaflet module, loaded on the client only (it touches window at
+  // import, which would break SSR), plus the layer holding the stop markers
+  // so completions can repaint them.
+  const LRef = useRef<typeof import("leaflet") | null>(null);
+  const stopLayerRef = useRef<LayerGroup | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const stops = quest.stops;
   const withCoords = stops.filter(
@@ -56,138 +89,84 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
     }
   }
 
-  // While the reel is rendering, poll until it lands.
-  const rendering =
-    quest.status === "completed" && quest.reel?.status === "rendering";
-  useEffect(() => {
-    if (!rendering) return;
-    const t = setInterval(() => void refresh(), 20_000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rendering]);
-
   // The route map: stops as numbered lights, connected by a dashed path.
+  // Leaflet (raster tiles) like the main map - same basemap, no WebGL.
   useEffect(() => {
-    if (!mapContainer.current || mapRef.current || withCoords.length === 0) {
-      return;
-    }
-    const lats = withCoords.map((s) => s.place!.lat!);
-    const lngs = withCoords.map((s) => s.place!.lng!);
-    const bounds = new maplibregl.LngLatBounds(
-      [Math.min(...lngs), Math.min(...lats)],
-      [Math.max(...lngs), Math.max(...lats)],
-    );
+    let cancelled = false;
+    let map: LeafletMap | null = null;
 
-    const map = new maplibregl.Map({
-      container: mapContainer.current,
-      style: baseMapStyle(),
-      bounds,
-      fitBoundsOptions: { padding: 48, maxZoom: 14 },
-      attributionControl: false,
-      interactive: false,
-    });
-    mapRef.current = map;
-    map.addControl(
-      new maplibregl.AttributionControl({
-        compact: true,
-        customAttribution: "© OpenStreetMap",
-      }),
-      "bottom-left",
-    );
+    (async () => {
+      if (!mapContainer.current || mapRef.current || withCoords.length === 0) {
+        return;
+      }
+      const L = (await import("leaflet")).default;
+      if (cancelled || !mapContainer.current || mapRef.current) return;
+      LRef.current = L;
 
-    map.on("load", () => {
-      map.addSource("route", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: withCoords.map((s) => [s.place!.lng!, s.place!.lat!]),
-          },
-          properties: {},
-        },
+      const bounds = L.latLngBounds(
+        withCoords.map(
+          (s) => [s.place!.lat!, s.place!.lng!] as [number, number],
+        ),
+      );
+
+      // A route overview, not an explorable map: all interaction off.
+      map = L.map(mapContainer.current, {
+        zoomControl: false,
+        dragging: false,
+        touchZoom: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        attributionControl: true,
       });
-      map.addLayer({
-        id: "route-line",
-        type: "line",
-        source: "route",
-        paint: {
-          "line-color": ACCENT,
-          "line-width": 2,
-          "line-dasharray": [1.5, 2.5],
-          "line-opacity": 0.7,
+      mapRef.current = map;
+      map.attributionControl.setPrefix(false);
+      baseTileLayer(L).addTo(map);
+      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 });
+
+      L.polyline(
+        withCoords.map(
+          (s) => [s.place!.lat!, s.place!.lng!] as [number, number],
+        ),
+        {
+          color: ACCENT,
+          weight: 2,
+          opacity: 0.7,
+          dashArray: "6 10",
+          interactive: false,
         },
-      });
-      map.addSource("stops", {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: withCoords.map((s, i) => ({
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates: [s.place!.lng!, s.place!.lat!],
-            },
-            properties: { n: String(i + 1), done: s.status === "completed" },
-          })),
-        },
-      });
-      map.addLayer({
-        id: "stop-circles",
-        type: "circle",
-        source: "stops",
-        paint: {
-          "circle-color": [
-            "case",
-            ["get", "done"],
-            ACCENT,
-            NIGHT,
-          ],
-          "circle-stroke-color": ACCENT,
-          "circle-stroke-width": 1.5,
-          "circle-radius": 11,
-        },
-      });
-      map.addLayer({
-        id: "stop-numbers",
-        type: "symbol",
-        source: "stops",
-        layout: {
-          "text-field": ["get", "n"],
-          "text-font": ["Noto Sans Regular"],
-          "text-size": 12,
-        },
-        paint: {
-          "text-color": ["case", ["get", "done"], NIGHT, INK],
-        },
-      });
-    });
+      ).addTo(map);
+
+      stopLayerRef.current = L.layerGroup().addTo(map);
+      setMapReady(true);
+    })();
 
     return () => {
-      map.remove();
+      cancelled = true;
+      map?.remove();
       mapRef.current = null;
+      stopLayerRef.current = null;
+      setMapReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Repaint stop states after a completion.
+  // Draw the stop markers - and redraw after a completion flips a stop amber.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    const source = map.getSource("stops") as maplibregl.GeoJSONSource | undefined;
-    source?.setData({
-      type: "FeatureCollection",
-      features: withCoords.map((s, i) => ({
-        type: "Feature",
-        geometry: {
-          type: "Point",
-          coordinates: [s.place!.lng!, s.place!.lat!],
-        },
-        properties: { n: String(i + 1), done: s.status === "completed" },
-      })),
+    const L = LRef.current;
+    const layer = stopLayerRef.current;
+    if (!mapReady || !L || !layer) return;
+    layer.clearLayers();
+    withCoords.forEach((s, i) => {
+      L.marker([s.place!.lat!, s.place!.lng!], {
+        icon: stopIcon(L, i + 1, s.status === "completed"),
+        interactive: false,
+        keyboard: false,
+      }).addTo(layer);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quest]);
+  }, [quest, mapReady]);
 
   async function start() {
     setBusy("start");
@@ -237,7 +216,16 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
         message?: string;
       };
       if (!res.ok) throw new Error(body.message ?? "Couldn't complete that.");
-      if (body.questCompleted) setCelebrate(true);
+      // The moment that matters most in the app - a completion buzz, plus a
+      // warm arpeggio (or the brighter "points" run when the whole quest
+      // lands and the celebrate overlay takes over).
+      hapticSuccess();
+      if (body.questCompleted) {
+        playSound("points");
+        setCelebrate(true);
+      } else {
+        playSound("success");
+      }
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't complete that.");
@@ -249,7 +237,10 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
   return (
     <>
       {withCoords.length > 0 && (
-        <div ref={mapContainer} className="h-56 w-full" />
+        // `isolate` keeps Leaflet's internal panes (z-index up to 1000) inside
+        // their own stacking context so they never paint over the celebrate /
+        // quit overlays (see map-canvas.tsx for the long version).
+        <div ref={mapContainer} className="isolate h-56 w-full" />
       )}
 
       <div className="px-5 pt-4">
@@ -279,7 +270,7 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
             Start the quest
           </Button>
         )}
-        {quest.status === "completed" && <ReelPanel quest={quest} />}
+        {quest.status === "completed" && <CompletePanel quest={quest} />}
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       </div>
 
@@ -305,14 +296,27 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-night/95 px-8 text-center backdrop-blur"
         >
           <div className="halo absolute inset-0" />
-          <CircleCheck className="relative size-12 text-accent" />
+          <span className="relative flex items-center justify-center">
+            {/* A brief amber bloom - CSS only, gone in a second. */}
+            <span
+              aria-hidden
+              className="om-glow-pulse absolute size-36 rounded-full bg-accent/30 blur-2xl"
+            />
+            <CircleCheck className="relative size-12 text-accent" />
+          </span>
           <p className="voice relative">quest complete</p>
+          <p className="relative font-mono text-2xl text-accent">
+            <Counter value={stops.length} />
+            <span className="ml-2 text-xs uppercase tracking-[0.3em] text-ink-dim">
+              stops cleared
+            </span>
+          </p>
           <h2 className="relative font-display text-3xl italic">
             You actually went.
           </h2>
           <p className="relative max-w-xs text-sm text-ink-dim">
             That&rsquo;s the whole point of this app. Your taste profile just
-            got sharper, and your reel is being cut from what you shot.
+            got sharper, and every shot you took is saved to this run.
           </p>
           <span className="relative text-xs text-ink-dim">tap to close</span>
         </button>
@@ -368,131 +372,28 @@ export function QuestRun({ initial }: { initial: QuestDetail }) {
   );
 }
 
-function ReelPanel({ quest }: { quest: QuestDetail }) {
-  const reel = quest.reel;
-  const videoUrl = publicMediaUrl("reel-media", reel?.videoPath);
-  const posterUrl = publicMediaUrl("reel-media", reel?.posterPath);
-  const [exporting, setExporting] = useState<"share" | "download" | null>(null);
+function CompletePanel({ quest }: { quest: QuestDetail }) {
+  const shots = quest.stops.reduce((n, s) => n + s.media_count, 0);
 
-  function logShare() {
-    void fetch("/api/interactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "reel_share" }),
-    }).catch(() => {});
-  }
-
-  async function fetchReelFile(): Promise<File> {
-    const res = await fetch(videoUrl!);
-    if (!res.ok) throw new Error("reel fetch failed");
-    const blob = await res.blob();
-    return new File([blob], "outsider-reel.mp4", { type: "video/mp4" });
-  }
-
-  // Share the actual FILE - a cross-origin URL neither downloads nor posts
-  // to Instagram on iOS; the file opens the real share sheet.
   async function share() {
-    if (!videoUrl || exporting) return;
-    setExporting("share");
-    try {
-      const file = await fetchReelFile();
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: quest.title });
-        logShare();
-        return;
-      }
-      // Otherwise share the link: in the native app this opens the real OS
-      // share sheet (the WebView has no navigator.share, so without this it
-      // would silently degrade to the clipboard). Sharing the actual file on
-      // native would need the reel written to disk first (@capacitor/filesystem)
-      // - the link path is the honest fallback until then.
-      const outcome = await shareOrCopy({ title: quest.title, url: videoUrl });
-      if (outcome !== "dismissed" && outcome !== "failed") {
-        logShare(); // the clipboard path counts as a share too
-      }
-    } catch {
-      // Share sheet dismissed or unavailable - nothing to clean up.
-    } finally {
-      setExporting(null);
-    }
-  }
-
-  async function download() {
-    if (!videoUrl || exporting) return;
-    setExporting("download");
-    try {
-      const file = await fetchReelFile();
-      const url = URL.createObjectURL(file);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch {
-      window.open(videoUrl, "_blank", "noopener");
-    } finally {
-      setExporting(null);
-    }
-  }
-
-  if (reel?.status === "ready" && videoUrl) {
-    return (
-      <div className="mt-4 overflow-hidden rounded-card border border-accent/40 bg-surface">
-        <video
-          src={videoUrl}
-          poster={posterUrl ?? undefined}
-          controls
-          playsInline
-          className="aspect-[9/16] max-h-96 w-full bg-night object-contain"
-        />
-        <div className="flex gap-2 p-3">
-          <Button
-            className="h-10 flex-1"
-            disabled={exporting !== null}
-            onClick={share}
-          >
-            {exporting === "share" ? (
-              <Spinner className="border-night/30 border-t-night" />
-            ) : null}
-            Share reel
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-10"
-            disabled={exporting !== null}
-            onClick={download}
-          >
-            {exporting === "download" ? <Spinner className="size-4" /> : null}
-            Save
-          </Button>
-        </div>
-        <p className="px-3 pb-3 text-xs text-ink-dim">
-          Your shots, your number, no branding. Post it anywhere.
-        </p>
-      </div>
-    );
+    await shareOrCopy({
+      title: quest.title,
+      text: `Finished "${quest.title}" on OutsiderMap. ${quest.stops.length} stops, no chains, no tourist traps.`,
+      url: "https://www.outsidermap.com",
+    });
   }
 
   return (
     <div className="mt-4 rounded-card border border-accent/40 bg-accent/10 p-4">
-      <p className="font-display text-lg italic text-accent">
-        Quest complete.
+      <p className="font-display text-lg italic text-accent">Quest complete.</p>
+      <p className="mt-1 text-sm text-ink-dim">
+        {quest.stops.length} stops done
+        {shots > 0 ? `, ${shots} shots captured along the way.` : "."} Your
+        shots live on each stop below, ready to post anywhere.
       </p>
-      {reel?.status === "failed" ? (
-        <p className="mt-1 text-sm text-ink-dim">
-          The automatic edit hit a snag - the desk is crafting your reel by
-          hand. It&rsquo;ll appear here.
-        </p>
-      ) : (
-        <p className="mt-1 flex items-center gap-2 text-sm text-ink-dim">
-          <Spinner className="size-3.5" />
-          Cutting your reel from what you shot - a few minutes. It&rsquo;ll
-          appear right here.
-        </p>
-      )}
+      <Button variant="secondary" size="sm" className="mt-3 h-10" onClick={share}>
+        Share the run
+      </Button>
     </div>
   );
 }
@@ -653,7 +554,7 @@ function StopCard({
           ? "border-accent/40 bg-surface"
           : unlocked
             ? "border-accent bg-surface"
-            : "border-line/60 bg-surface/60",
+            : "border-line bg-surface/60",
       )}
     >
       <div className="flex items-start gap-3 p-4">
@@ -690,12 +591,14 @@ function StopCard({
       </div>
 
       {unlocked && (
-        <div className="border-t border-line/60 px-4 py-3">
+        <div className="border-t border-line px-4 py-3">
           {img && stop.media.length === 0 && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={img}
               alt=""
+              width={800}
+              height={400}
+              sizes="(max-width: 640px) 100vw, 640px"
               className="mb-3 aspect-[2/1] w-full rounded-xl object-cover"
             />
           )}
@@ -726,15 +629,17 @@ function StopCard({
                       src={m.url}
                       muted
                       playsInline
-                      className="h-20 w-16 shrink-0 rounded-lg border border-line/60 object-cover"
+                      className="h-20 w-16 shrink-0 rounded-lg border border-line object-cover"
                     />
                   ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       key={m.id}
                       src={m.url}
                       alt=""
-                      className="h-20 w-16 shrink-0 rounded-lg border border-line/60 object-cover"
+                      width={64}
+                      height={80}
+                      sizes="64px"
+                      className="h-20 w-16 shrink-0 rounded-lg border border-line object-cover"
                     />
                   )
                 ) : null,

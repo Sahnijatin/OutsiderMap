@@ -1,9 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowUp, History, Mic, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSpeechInput } from "@/lib/voice/use-speech-input";
+import { tap as hapticTap } from "@/lib/native/haptics";
+import { playSound } from "@/lib/sound/engine";
 import { publicMediaUrl } from "@/lib/media/url";
 import { cn } from "@/lib/utils";
 import type { ChatPickCard } from "@/lib/chat/engine";
@@ -15,6 +18,8 @@ export type Message = {
   picks?: ChatPickCard[] | null;
   /** Set when the turn built a trackable market shopping run - links to it. */
   marketRunId?: string | null;
+  /** True when the concierge was down and this answer is a plain keyword fallback. */
+  degraded?: boolean;
   /** UI-only decorations for failure/backoff bubbles. */
   tone?: "error" | "limit";
 };
@@ -69,6 +74,10 @@ export function ChatThread({
   async function send(text: string, isRetry = false) {
     const message = text.trim();
     if (!message || busy) return;
+    // The ask leaving your hands - a gentle upward two-note, and a tick you
+    // can feel in the native app. Both no-op when switched off, never throw.
+    playSound("send");
+    hapticTap();
     setInput("");
     setBusy(true);
     setFailedText(null);
@@ -134,6 +143,7 @@ export function ChatThread({
             "Lost my train of thought - that one didn't go through.",
           tone: "error",
         });
+        playSound("error");
         return;
       }
 
@@ -172,7 +182,9 @@ export function ChatThread({
               content: body.text ?? acc,
               picks: body.picks,
               marketRunId: body.marketRunId,
+              degraded: body.degraded,
             });
+            playSound("tap"); // The answer arrived - a soft warm tick.
             finished = true;
           } else if (event === "error") {
             setFailedText(message);
@@ -183,6 +195,7 @@ export function ChatThread({
                 "Lost my train of thought - say that again?",
               tone: "error",
             });
+            playSound("error"); // A low muted thud, nothing alarming.
             finished = true;
           }
         }
@@ -192,6 +205,7 @@ export function ChatThread({
       const fallback = "Lost my train of thought - that one didn't go through.";
       if (opened) patchBubble({ content: fallback, tone: "error" });
       else appendAssistant({ role: "assistant", content: fallback, tone: "error" });
+      playSound("error");
     } finally {
       setBusy(false);
     }
@@ -272,11 +286,16 @@ export function ChatThread({
                         ? "border border-danger/40 bg-danger/5 text-ink-dim"
                         : m.tone === "limit"
                           ? "border border-line/40 bg-transparent text-ink-dim italic"
-                          : "border border-line/70 bg-surface text-ink",
+                          : "border border-line bg-surface text-ink",
                   )}
                 >
                   {m.content}
                 </div>
+                {m.degraded && m.role === "assistant" && (
+                  <p className="text-xs italic text-ink-dim">
+                    Quick picks while the concierge is out - not personalized.
+                  </p>
+                )}
                 {m.tone === "error" && failedText && !busy && (
                   <button
                     type="button"
@@ -328,7 +347,7 @@ export function ChatThread({
       </div>
 
       <form
-        className="border-t border-line/60 bg-night/90 px-4 py-3 backdrop-blur"
+        className="border-t border-line bg-night/90 px-4 py-3 backdrop-blur"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input);
@@ -384,6 +403,7 @@ type ChatResponse = {
   text?: string;
   picks?: ChatPickCard[];
   marketRunId?: string;
+  degraded?: boolean;
   message?: string;
   error?: string;
   code?: string;
@@ -454,13 +474,15 @@ function PickCard({ pick }: { pick: ChatPickCard }) {
     <Link
       href={`/map?place=${encodeURIComponent(pick.slug)}`}
       onClick={logClick}
-      className="flex gap-3 rounded-card border border-line/70 bg-surface p-3 transition-colors hover:border-accent/50"
+      className="flex gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-accent/50"
     >
       {img ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={img}
           alt=""
+          width={64}
+          height={64}
+          sizes="64px"
           className="size-16 shrink-0 rounded-xl object-cover"
         />
       ) : (
@@ -471,9 +493,21 @@ function PickCard({ pick }: { pick: ChatPickCard }) {
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-ink">{pick.name}</p>
         {pick.area && <p className="text-xs text-ink-dim">{pick.area}</p>}
-        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-dim">
-          {pick.reason}
-        </p>
+        {pick.reason && (
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-dim">
+            {/* Only a reason the model wrote for this user reads as "why for
+                you"; an editor-note fallback is honestly labeled as the
+                house note (also covers picks saved before reasonSource). */}
+            {pick.reasonSource === "model" ? (
+              pick.reason
+            ) : (
+              <>
+                <span className="text-ink-dim/80">From our notes: </span>
+                {pick.reason}
+              </>
+            )}
+          </p>
+        )}
       </div>
     </Link>
   );

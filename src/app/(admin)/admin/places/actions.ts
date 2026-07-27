@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { embedPlace } from "@/lib/places/embedding";
+import {
+  EMBEDDABLE_COLUMNS,
+  embedPlaceRows,
+  type EmbeddableRow,
+} from "@/lib/admin/embed-sweep";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadExperienceMedia } from "@/lib/media/experience";
 import { serverEnv } from "@/lib/env";
@@ -199,6 +204,122 @@ export async function upsertPlace(formData: FormData) {
 
   revalidatePath("/admin/places");
   redirect("/admin/places");
+}
+
+// ---------------------------------------------------------------------------
+// Bulk triage actions. Both read the selected ids and the list page's current
+// query string (so the redirect lands back on the same filtered view) and
+// report what happened via a ?notice= message rather than an error page.
+// ---------------------------------------------------------------------------
+
+const BulkSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(50),
+});
+
+function bulkReturnPath(formData: FormData, notice: string) {
+  const raw = (formData.get("return_to") as string) ?? "";
+  // Only ever go back to the list page - a stray value must not turn the
+  // redirect into an open redirect.
+  const base = raw.startsWith("/admin/places?") || raw === "/admin/places"
+    ? raw
+    : "/admin/places";
+  const url = new URL(base, "http://localhost");
+  url.searchParams.set("notice", notice);
+  return `${url.pathname}?${url.searchParams.toString()}`;
+}
+
+function parseBulkIds(formData: FormData) {
+  return BulkSchema.parse({ ids: formData.getAll("ids") }).ids;
+}
+
+/**
+ * Publish the selected places, embedding first. A place is never published
+ * without an embedding: `match_places` filters `embedding is not null`, so a
+ * publish without one creates a row invisible to chat and search. Rows whose
+ * embedding fails stay drafts and are reported.
+ */
+export async function bulkPublishPlaces(formData: FormData) {
+  await requireAdmin();
+  const ids = parseBulkIds(formData);
+  const admin = createAdminClient();
+
+  if (!serverEnv().OPENAI_API_KEY) {
+    redirect(
+      bulkReturnPath(
+        formData,
+        "Nothing was published. Bulk publish embeds every place first and that needs OPENAI_API_KEY - set it in Vercel and redeploy.",
+      ),
+    );
+  }
+
+  // Which of the selected rows still need an embedding. Id-only on purpose -
+  // the vectors themselves never leave the database.
+  const { data: missing, error: missingError } = await admin
+    .from("places")
+    .select("id")
+    .in("id", ids)
+    .is("embedding", null);
+  if (missingError) throw new Error(missingError.message);
+  const needsEmbedding = new Set((missing ?? []).map((r) => r.id));
+
+  const failedIds = new Set<string>();
+  let firstError: string | null = null;
+
+  if (needsEmbedding.size > 0) {
+    const { data: rows, error } = await admin
+      .from("places")
+      .select(EMBEDDABLE_COLUMNS)
+      .in("id", [...needsEmbedding]);
+    if (error) throw new Error(error.message);
+
+    const result = await embedPlaceRows(admin, (rows ?? []) as EmbeddableRow[]);
+    for (const failure of result.failures) {
+      failedIds.add(failure.id);
+      firstError ??= failure.error;
+    }
+  }
+
+  const toPublish = ids.filter((id) => !failedIds.has(id));
+  let published = 0;
+  if (toPublish.length > 0) {
+    const { data, error } = await admin
+      .from("places")
+      .update({ is_published: true, updated_at: new Date().toISOString() })
+      .in("id", toPublish)
+      .select("id");
+    if (error) throw new Error(error.message);
+    published = data?.length ?? 0;
+  }
+
+  revalidatePath("/admin/places");
+  const notice =
+    failedIds.size > 0
+      ? `Published ${published}. ${failedIds.size} left as drafts because their embedding failed (${firstError ?? "unknown error"}).`
+      : `Published ${published} place${published === 1 ? "" : "s"}, embeddings included.`;
+  redirect(bulkReturnPath(formData, notice));
+}
+
+/** Pull the selected places back to draft. Embeddings are kept - republishing later is instant. */
+export async function bulkUnpublishPlaces(formData: FormData) {
+  await requireAdmin();
+  const ids = parseBulkIds(formData);
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("places")
+    .update({ is_published: false, updated_at: new Date().toISOString() })
+    .in("id", ids)
+    .select("id");
+  if (error) throw new Error(error.message);
+  const count = data?.length ?? 0;
+
+  revalidatePath("/admin/places");
+  redirect(
+    bulkReturnPath(
+      formData,
+      `Unpublished ${count} place${count === 1 ? "" : "s"}.`,
+    ),
+  );
 }
 
 export async function deletePlace(formData: FormData) {

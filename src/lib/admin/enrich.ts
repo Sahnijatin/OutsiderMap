@@ -63,8 +63,16 @@ price_level: 1-4, and only when the metadata shows actual prices. Otherwise null
 vibe_tags: short lowercase tags grounded in the evidence, e.g. "late-night", "rooftop", "vegetarian". Empty array if unsure.`;
 
 export type EnrichmentOutcome = {
+  /** Drafts examined this round. Zero means the pile is exhausted. */
+  scanned: number;
+  /** Drafts that got a description written. */
   enriched: number;
-  skipped: number;
+  /**
+   * Drafts examined and left blank on purpose - the model declined or the
+   * page was unreadable. The DESIGNED outcome for many venues, so a round of
+   * nothing but declines is progress, not completion.
+   */
+  declined: number;
   remaining: number;
   notes: string[];
 };
@@ -96,13 +104,16 @@ export async function enrichDraftsBatch(
   const sourced = [...links.keys()];
   if (sourced.length === 0) {
     return {
+      scanned: 0,
       enriched: 0,
-      skipped: 0,
+      declined: 0,
       remaining: 0,
       notes: ["No candidate in the data file has a website to read."],
     };
   }
-  const SLICE = 300;
+  // 150 names keeps the .in("name", ...) GET URL near 3.5KB - 300 pushed it
+  // to ~7KB, brushing proxy/header limits.
+  const SLICE = 150;
   const start = Math.floor(Math.random() * sourced.length);
   const names = [
     ...sourced.slice(start, start + SLICE),
@@ -203,8 +214,9 @@ export async function enrichDraftsBatch(
   }
 
   return {
+    scanned: attempted,
     enriched,
-    skipped: declined + unreadable + failed,
+    declined: declined + unreadable,
     // Remaining is the whole outstanding pile, not just this window, so the
     // runner keeps going instead of declaring victory after one batch.
     remaining: Math.max(0, (count ?? 0) - enriched),

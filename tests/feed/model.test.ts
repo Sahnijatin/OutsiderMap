@@ -47,15 +47,9 @@ describe("canViewPost", () => {
     expect(canViewPost(p, ctx({}))).toBe(false);
   });
 
-  it("gates friends posts on the friend set, not the follow set", () => {
-    const p = post({ visibility: "friends" });
-    expect(canViewPost(p, ctx({ friends: new Set([AUTHOR]) }))).toBe(true);
-    expect(canViewPost(p, ctx({ following: new Set([AUTHOR]) }))).toBe(false);
-  });
-
   it("never shows a private post to anyone but the author", () => {
     const p = post({ visibility: "private" });
-    expect(canViewPost(p, ctx({ friends: new Set([AUTHOR]), following: new Set([AUTHOR]) }))).toBe(false);
+    expect(canViewPost(p, ctx({ following: new Set([AUTHOR]) }))).toBe(false);
     expect(canViewPost({ ...p, author_id: ME }, ctx({ viewerId: ME }))).toBe(true);
   });
 });

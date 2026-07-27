@@ -226,7 +226,7 @@ export function QuestWizard({
                     <span
                       key={c.slug}
                       aria-disabled
-                      className="cursor-not-allowed rounded-full border border-line/50 bg-surface/50 px-4 py-2 text-sm text-ink-dim/50"
+                      className="cursor-not-allowed rounded-full border border-line bg-surface/50 px-4 py-2 text-sm text-ink-dim/50"
                     >
                       {c.name} <span className="voice !text-[0.55rem]">soon</span>
                     </span>
@@ -406,7 +406,7 @@ function answerLabel(step: Step, answers: Answers, cities: CityOption[]) {
 
 function BotBubble({ children }: { children: React.ReactNode }) {
   return (
-    <p className="max-w-[85%] self-start rounded-card border border-line/70 bg-surface px-4 py-2.5 text-sm leading-relaxed text-ink">
+    <p className="max-w-[85%] self-start rounded-card border border-line bg-surface px-4 py-2.5 text-sm leading-relaxed text-ink">
       {children}
     </p>
   );

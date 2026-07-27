@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import type { Map as LeafletMap, CircleMarker, LayerGroup } from "leaflet";
 import { LocateFixed } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MAP_ACCENT as ACCENT } from "@/lib/map/style";
+import { MAP_ACCENT as ACCENT, baseTileLayer } from "@/lib/map/style";
 import type { MapCategory } from "@/lib/map/categories";
 import { readCachedLocation, writeCachedLocation } from "@/lib/map/location";
 import {
@@ -28,11 +28,6 @@ import { PlaceSheet, type SelectedPlace } from "./place-sheet";
  * have as the home screen. Tiles are CARTO's dark, label-free basemap; the
  * only labels are our own amber place names.
  */
-
-const CARTO_TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
-const MAP_ATTRIBUTION =
-  '&copy; OpenStreetMap contributors &copy; CARTO';
 
 // Colored category dots: a crisp fill on a dark night-outline, growing to an
 // amber-ringed dot when selected. (Replaces the earlier 3D teardrop pins.)
@@ -243,12 +238,7 @@ export function MapCanvas({
       mapRef.current = map;
       map.attributionControl.setPrefix(false);
 
-      L.tileLayer(CARTO_TILE_URL, {
-        subdomains: "abcd",
-        detectRetina: true,
-        maxZoom: 20,
-        attribution: MAP_ATTRIBUTION,
-      })
+      baseTileLayer(L)
         .on("tileerror", () => {
           const now = Date.now();
           if (now - lastTileErrorAt.current < 30_000) return;

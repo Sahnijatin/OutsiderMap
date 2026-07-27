@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { getScoutLeaderboard, getMyReputation } from "@/lib/scout/reputation";
+import { PageHeader } from "@/components/app/page-header";
+import { Screen } from "@/components/app/screen";
 
 export const metadata: Metadata = { title: "Scout · Standings" };
 
@@ -23,19 +25,20 @@ export default async function LeaderboardPage() {
   ]);
 
   return (
-    <main className="mx-auto min-h-dvh max-w-lg px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+1.5rem)] lg:max-w-3xl lg:px-8 lg:pt-12">
-      <header className="mb-6">
-        <p className="voice">scout economy</p>
-        <h1 className="mt-1 font-display text-3xl italic lg:text-4xl">
-          Standings
-        </h1>
-        <p className="mt-2 text-sm text-ink-dim">
-          Points and badges for finding and verifying the map.{" "}
-          <Link href="/quests/bounties" className="underline">
-            Back to bounties
-          </Link>
-        </p>
-      </header>
+    <Screen width="narrow">
+      <PageHeader
+        className="mb-6"
+        eyebrow="scout economy"
+        title="Standings"
+        lead={
+          <>
+            Points and badges for finding and verifying the map.{" "}
+            <Link href="/quests/bounties" className="underline">
+              Back to bounties
+            </Link>
+          </>
+        }
+      />
 
       <section className="rounded-xl border border-line p-4">
         <h2 className="voice">your standing</h2>
@@ -110,7 +113,7 @@ export default async function LeaderboardPage() {
           </ol>
         )}
       </section>
-    </main>
+    </Screen>
   );
 }
 

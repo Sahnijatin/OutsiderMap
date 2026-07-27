@@ -18,7 +18,6 @@ const FormSchema = z.object({
   description: z.string().optional(),
   ticket_url: z.string().url().optional().or(z.literal("")),
   is_underground: z.coerce.boolean(),
-  required_tier: z.enum(["free", "premium"]),
   is_published: z.coerce.boolean(),
 });
 
@@ -42,7 +41,6 @@ export async function upsertEvent(formData: FormData) {
     description: (formData.get("description") as string) ?? "",
     ticket_url: (formData.get("ticket_url") as string) ?? "",
     is_underground: formData.get("is_underground") === "on",
-    required_tier: formData.get("required_tier"),
     is_published: formData.get("is_published") === "on",
   });
 
@@ -59,7 +57,6 @@ export async function upsertEvent(formData: FormData) {
     description: input.description?.trim() || null,
     ticket_url: input.ticket_url || null,
     is_underground: input.is_underground,
-    required_tier: input.required_tier,
     is_published: input.is_published,
     updated_at: new Date().toISOString(),
   };

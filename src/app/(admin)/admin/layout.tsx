@@ -2,6 +2,12 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { AdminTabs } from "./tabs";
 
+// No admin page is ever statically prerendered: every one of them reads live
+// data with the service role (and the auth gate below needs the request's
+// cookies). Without this, `next build` on a clean env tried to prerender e.g.
+// /admin/diagnostics and died on the missing Supabase vars (§1.6).
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {

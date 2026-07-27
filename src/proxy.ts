@@ -6,21 +6,29 @@ import { SESSION_COOKIE_MAX_AGE_SECONDS } from "@/lib/auth/session";
  * Route prefixes that require a signed-in user. The map, place pages, /about and
  * root are deliberately absent (#116): anyone can explore. Personalized surfaces
  * and every write stay walled here.
+ *
+ * This list MUST track the actual route tree (src/app + src/app/(shell)):
+ * a member surface missing here loses its `?next=` return path after sign-in,
+ * and a retired route left here walls off a dead prefix. When adding or
+ * removing an app route, update this list and the pinning test in
+ * tests/auth/protected-prefixes.test.ts.
  */
-const PROTECTED_PREFIXES = [
+export const PROTECTED_PREFIXES = [
   "/chat",
   "/quests",
-  "/reels",
   "/setup",
   "/now",
-  "/onboarding",
   "/profile",
   "/weekend",
   "/saved",
   "/events",
   "/account",
   "/admin",
-  "/submit",
+  "/feed",
+  "/activity",
+  "/compose",
+  "/market-run",
+  "/welcome",
 ];
 
 function isProtected(pathname: string) {

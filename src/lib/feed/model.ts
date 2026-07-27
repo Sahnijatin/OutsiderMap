@@ -12,7 +12,7 @@ import { z } from "zod";
  */
 
 export const POST_TYPES = ["status", "photo", "video", "review", "list"] as const;
-export const POST_VISIBILITIES = ["public", "followers", "friends", "private"] as const;
+export const POST_VISIBILITIES = ["public", "followers", "private"] as const;
 export const POST_STATUSES = ["pending", "approved", "rejected", "removed"] as const;
 export const LOCATION_PRECISIONS = ["exact", "area", "hidden"] as const;
 export const REACTION_KINDS = ["like", "want_to_go"] as const;
@@ -35,14 +35,13 @@ export type PostVisibilityRow = {
 
 /**
  * The viewer and the slice of the social graph relevant to them. `following`
- * is the set of author ids the viewer follows; `friends` is the set of author
- * ids with an accepted friendship. A null `viewerId` is a signed-out caller.
+ * is the set of author ids the viewer follows. A null `viewerId` is a
+ * signed-out caller.
  */
 export type ViewerContext = {
   viewerId: string | null;
   isAdmin?: boolean;
   following?: ReadonlySet<string>;
-  friends?: ReadonlySet<string>;
 };
 
 /**
@@ -61,8 +60,6 @@ export function canViewPost(post: PostVisibilityRow, ctx: ViewerContext): boolea
       return true;
     case "followers":
       return ctx.following?.has(post.author_id) ?? false;
-    case "friends":
-      return ctx.friends?.has(post.author_id) ?? false;
     case "private":
       return false;
     default:

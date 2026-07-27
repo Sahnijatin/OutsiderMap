@@ -1,64 +1,36 @@
 # Manual setup & follow-ups
 
-A living checklist of things that can't be done in code alone — infra, secrets,
-content decisions, and optional enhancements awaiting a go-ahead. Items are
-ticked off and removed as they're completed; when this list is empty the PR can
-be closed.
+A living checklist of things that can't be done in code alone - infra,
+secrets, accounts, and content decisions. See `README.md` for the go-live
+sequence, `MOBILE_PLAN.md` for the store checklist, and `REVIEW.md` for the
+audit these came from.
 
-> Most items below relate to the `/join` waitlist landing page and the broader
-> go-live. See `README.md` → "Going live, end to end" for the full sequence.
+## Founder-only (accounts and keys)
 
-## Required before `/join` accepts applications
+- [ ] Google Play Developer account + upload keystore; secrets
+      `ANDROID_KEYSTORE_BASE64/_PASSWORD`, `ANDROID_KEY_ALIAS/_PASSWORD`.
+      Back the keystore up; losing it is permanent.
+- [ ] Apple Developer Program; App ID `com.outsidermap.app` with Push +
+      Sign in with Apple; App Store Connect API key secrets
+      (`APP_STORE_CONNECT_API_KEY/_KEY_ID/_ISSUER_ID`, `APPLE_TEAM_ID`).
+- [ ] Firebase project -> `google-services.json` (Android push) and an APNs
+      key (iOS push); the in-app client half is already wired.
+- [ ] Google Cloud OAuth clients (iOS + Web) ->
+      `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` / `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`;
+      enable Google + Apple providers in Supabase.
+- [ ] Set the `CAP_SERVER_URL` repo variable to staging so native builds
+      stop defaulting to production.
+- [ ] CSAM scanning vendor (PhotoDNA/Thorn class) - the scanner interface
+      exists, the implementation is a documented no-op until credentials.
+- [ ] Image-moderation vendor for photo auto-approval - until then every
+      member photo waits in /admin/photos for a manual pass.
+- [ ] Counsel review of /privacy and /terms (drafted, marked as drafts);
+      appoint and name the DPDP grievance officer.
+- [ ] Store listing assets: screenshots, privacy nutrition labels / Play
+      data-safety form, pre-approved demo account for review.
 
-- [ ] **Apply the database migrations** to the live Supabase project:
-      `npx supabase db push`. The page depends on `0004_waitlist.sql` (the
-      `waitlist` table) and `0003_admin_curation.sql` (the `place-images`
-      storage bucket used for dropped-spot photos).
-- [ ] **Set production env vars** (Vercel → Project → Settings → Environment
-      Variables):
-      - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-        `SUPABASE_SERVICE_ROLE_KEY` — the submit action uses the service role,
-        so without these the form errors on submit.
-      - `RESEND_API_KEY`, `RESEND_FROM` (verified sender), and
-        `RESEND_ADMIN_EMAIL` — power the confirmation + admin-notification
-        emails. If unset, signup still works but no emails are sent.
-      - `NEXT_PUBLIC_APP_URL` — used to build absolute links in those emails
-        (referral share link, admin review link). Set it to the production
-        domain.
-      - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` — powers the map + location search on
-        the "drop a spot" form and the admin place editor. In Google Cloud:
-        enable **Maps JavaScript API**, **Places API (New)**, and **Geocoding
-        API**; create an API key and **restrict it** to HTTP referrers
-        (`https://outsidermap.com/*`, `http://localhost:3000/*`) and to those
-        three APIs (the key is exposed in the browser — referrer restriction
-        prevents quota theft); ensure billing is enabled. If unset, those
-        surfaces fall back to plain text/number inputs. Redeploy after setting
-        it (it's `NEXT_PUBLIC`, baked at build time).
+## Ops rhythm (until automated)
 
-## Content & decisions
-
-- [ ] **Confirm the Instagram handle.** The success screen and the
-      confirmation email link to `instagram.com/outsidermap` — update in
-      `src/app/join/join-flow.tsx` and `src/lib/email/templates.ts` if the real
-      handle differs.
-- [ ] **Launch date** is hardcoded as "We open July 10" in
-      `src/app/join/join-flow.tsx` — update when it changes.
-- [ ] **GA4 conversions.** The base Google tag (`G-SY3XQJ0R3S`) is installed
-      site-wide and the `/join` success now fires a `generate_lead` event. In
-      the GA4 dashboard, mark `generate_lead` as a conversion and (optionally)
-      import it into Google Ads so campaign spend can be attributed.
-
-## Security hardening (recommended before high-traffic campaigns)
-
-- [ ] **Rate limiting / bot protection** on the submit action — it runs with
-      the service role and is anonymous-reachable, so without a throttle a
-      script can mass-create `waitlist` rows, `places` submissions, and image
-      uploads. Needs shared state (e.g. Upstash/Vercel KV) or a CAPTCHA (e.g.
-      Cloudflare Turnstile); can't be done reliably with in-memory state on
-      serverless.
-
-## Optional enhancements (need your go-ahead)
-
-- [ ] **Campaign attribution:** capture UTM / referrer params onto the
-      `waitlist` row so you can tie signups back to specific ads. (Currently
-      only the in-app referral code is captured.)
+- [ ] Run the draft triage desk (/admin/places) daily; publish in bulk.
+- [ ] Re-run the Overture extract when a new release ships (manual DuckDB
+      ritual; a scheduled refresh is a known gap).

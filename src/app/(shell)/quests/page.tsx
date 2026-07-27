@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Reveal, RevealItem } from "@/components/motion/reveal";
+import { EmptyState } from "@/components/app/empty-state";
+import { PageHeader } from "@/components/app/page-header";
+import { PullToRefresh } from "@/components/app/pull-to-refresh";
+import { Screen } from "@/components/app/screen";
 
 export const metadata: Metadata = { title: "Quests" };
 
@@ -18,7 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
 export default async function QuestsPage() {
   await requireOnboarded();
   const supabase = await createClient();
-  const { data: quests } = await supabase
+  const { data: quests, error: questsError } = await supabase
     .from("quests")
     .select("id, title, city, status, created_at, completed_at")
     .order("created_at", { ascending: false })
@@ -27,22 +31,21 @@ export default async function QuestsPage() {
   const list = quests ?? [];
 
   return (
-    <main className="mx-auto min-h-dvh max-w-lg px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+1.5rem)] lg:max-w-4xl lg:px-8 lg:pt-12">
-      <header className="flex items-end justify-between gap-4">
-        <div>
-          <p className="voice">quests</p>
-          <h1 className="mt-1 font-display text-3xl italic lg:text-4xl">
-            Your city, as a quest line.
-          </h1>
-        </div>
-        <ButtonLink href="/quests/new" className="hidden lg:inline-flex">
-          Plan a new quest
-        </ButtonLink>
-      </header>
+    <PullToRefresh>
+    <Screen>
+      <PageHeader
+        eyebrow="quests"
+        title="Your city, as a quest line."
+        action={
+          <ButtonLink href="/quests/new" className="hidden lg:inline-flex">
+            Plan a new quest
+          </ButtonLink>
+        }
+      />
 
       <Link
         href="/market-run"
-        className="mt-4 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
+        className="mt-4 flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
       >
         <div className="min-w-0">
           <p className="font-display text-lg italic">Market shopping runs</p>
@@ -55,7 +58,7 @@ export default async function QuestsPage() {
 
       <Link
         href="/quests/bounties"
-        className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
+        className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
       >
         <div className="min-w-0">
           <p className="font-display text-lg italic">Scout bounties</p>
@@ -69,7 +72,7 @@ export default async function QuestsPage() {
 
       <Link
         href="/quests/leaderboard"
-        className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
+        className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
       >
         <div className="min-w-0">
           <p className="font-display text-lg italic">Scout standings</p>
@@ -85,14 +88,27 @@ export default async function QuestsPage() {
           Plan a new quest
         </ButtonLink>
 
-        {list.length === 0 ? (
-          <div className="relative mt-8 text-center">
-            <div className="halo absolute -inset-8" />
-            <p className="relative mx-auto max-w-md text-sm leading-relaxed text-ink-dim">
-              No quests yet. Answer three questions and get a day built
-              around your taste - stops unlock one at a time, like a game.
-            </p>
-          </div>
+        {questsError ? (
+          // A failed query is not an empty list - say so, and offer a retry.
+          <EmptyState
+            className="mt-4"
+            title="Your quests didn't load."
+            body="Something broke on our side. Give it a moment and try again."
+            action={
+              <ButtonLink href="/quests" variant="secondary">
+                Try again
+              </ButtonLink>
+            }
+          />
+        ) : list.length === 0 ? (
+          <EmptyState
+            className="mt-4"
+            title="No quests yet."
+            body="Answer three questions and get a day built around your taste - stops unlock one at a time, like a game."
+            action={
+              <ButtonLink href="/quests/new">Plan your first quest</ButtonLink>
+            }
+          />
         ) : (
           <Reveal speed="fast">
             <ul className="mt-2 flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
@@ -101,7 +117,7 @@ export default async function QuestsPage() {
                   <RevealItem>
                     <Link
                       href={`/quests/${q.id}`}
-                      className="flex items-center justify-between gap-3 rounded-card border border-line/70 bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
+                      className="flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 active:scale-[0.99] motion-reduce:active:scale-100"
                     >
                       <div className="min-w-0">
                         <p className="truncate font-display text-lg italic">
@@ -130,6 +146,7 @@ export default async function QuestsPage() {
           </Reveal>
         )}
       </div>
-    </main>
+    </Screen>
+    </PullToRefresh>
   );
 }

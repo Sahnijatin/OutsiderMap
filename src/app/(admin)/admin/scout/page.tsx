@@ -13,7 +13,11 @@ import {
   listResolvableBounties,
   recentVerificationAudit,
 } from "@/lib/scout/admin";
-import { resolveBountyAction, createDiscoverBountyAction } from "./actions";
+import {
+  resolveBountyAction,
+  createDiscoverBountyAction,
+  grantValidatorAction,
+} from "./actions";
 
 export const metadata: Metadata = { title: "Admin · Scout" };
 
@@ -219,6 +223,38 @@ export default async function ScoutAudit() {
             </Field>
             <Button type="submit" size="sm" className="h-11">
               Create
+            </Button>
+          </form>
+        </Card>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="voice">mint a validator</h2>
+        <p className="text-xs text-ink-dim">
+          Sets curator_score to at least 3, the can_validate threshold. The
+          first 200 onboarded members get this automatically (genesis grant);
+          use this to hand-mint one after that window closes.
+        </p>
+        <Card className="p-4">
+          <form
+            action={grantValidatorAction}
+            className="flex flex-col gap-4 sm:flex-row sm:items-end"
+          >
+            <Field
+              label="Username or profile id"
+              htmlFor="grant-member"
+              className="sm:flex-1"
+            >
+              <Input
+                id="grant-member"
+                name="member"
+                type="text"
+                placeholder="@username or uuid"
+                required
+              />
+            </Field>
+            <Button type="submit" size="sm" className="h-11">
+              Grant validator
             </Button>
           </form>
         </Card>

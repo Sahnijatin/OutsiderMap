@@ -82,6 +82,9 @@ jobs:
           # Inject the geolocation runtime permissions into the manifest (#143).
           node scripts/cap-native-permissions.mjs
 
+      - name: Generate app icons + splash screens
+        run: npx capacitor-assets generate --android
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug

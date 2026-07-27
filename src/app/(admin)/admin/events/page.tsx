@@ -15,7 +15,7 @@ export default async function AdminEventsPage() {
   const admin = createAdminClient();
   const { data: events } = await admin
     .from("events")
-    .select("id, title, venue_name, area, starts_at, is_underground, required_tier, is_published")
+    .select("id, title, venue_name, area, starts_at, is_underground, is_published")
     .order("starts_at", { ascending: false })
     .limit(200);
 
@@ -51,9 +51,6 @@ export default async function AdminEventsPage() {
               <span className="ml-auto flex items-center gap-2">
                 {event.is_underground && (
                   <Badge variant="under">underground</Badge>
-                )}
-                {event.required_tier === "premium" && (
-                  <Badge variant="under">premium</Badge>
                 )}
                 <Badge variant={event.is_published ? "accent" : "default"}>
                   {event.is_published ? "live" : "draft"}

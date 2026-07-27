@@ -2,10 +2,12 @@ import "server-only";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAI, getEmbeddings } from "@/lib/ai";
+import { describeError } from "@/lib/ai/retry";
 import { nowInIST } from "@/lib/places/hours";
 import { createClient } from "@/lib/supabase/server";
-import { resolveCity } from "@/lib/cities";
+import { resolveCity, type City } from "@/lib/cities";
 import {
+  keywordSearch,
   parseStoredEmbedding,
   preferOpen,
   searchCatalog,
@@ -42,10 +44,14 @@ export type TonightEvent = {
 export type RecommendResult = {
   picks: Recommendation[];
   intent: QueryIntent;
-  /** Events starting tonight that this user is allowed to see. */
+  /** Events starting tonight. */
   tonight: TonightEvent[];
-  /** Premium events tonight hidden from this (free) user - the tease. */
-  lockedTonightCount: number;
+  /**
+   * True when the AI pipeline (intent/embeddings/rerank) was unavailable and
+   * the picks are a keyword fallback - real places, but not personalized.
+   * Callers must surface this honestly instead of pretending.
+   */
+  degraded: boolean;
 };
 
 // Areas are city data now (cities.areas); these builders keep the prompts
@@ -86,7 +92,6 @@ export async function recommend(
   // The caller may pass a user-scoped client (e.g. a bearer-token client from
   // the mobile API); default to the cookie-based client for web callers.
   const supabase = client ?? (await createClient());
-  const ai = getAI();
 
   // The member's city decides the catalog slice and the prompt vocabulary.
   const { data: profileRow } = await supabase
@@ -95,6 +100,29 @@ export async function recommend(
     .eq("id", userId)
     .maybeSingle();
   const city = await resolveCity(supabase, profileRow?.home_city);
+
+  // The full AI pipeline can fail as a unit (no OPENAI_API_KEY, provider
+  // outage). That must never 500 /api/now or crash the activation reveal:
+  // degrade to the same honest keyword fallback chat uses, flagged as such.
+  try {
+    return await personalizedRecommend(supabase, userId, query, city, profileRow);
+  } catch (err) {
+    console.warn(
+      "[now] recommend degraded to keyword fallback",
+      JSON.stringify({ userId, ...describeError(err) }),
+    );
+    return degradedRecommend(supabase, query, city);
+  }
+}
+
+async function personalizedRecommend(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  query: string,
+  city: City,
+  profileRow: { personalization_enabled: boolean | null } | null,
+): Promise<RecommendResult> {
+  const ai = getAI();
 
   // Taste profile + intent extraction run in parallel (the intent feeds the
   // query embedding downstream).
@@ -131,7 +159,11 @@ export async function recommend(
     intentToEmbeddingText(query, intent),
   ]);
 
-  const tonightPromise = fetchTonight(supabase);
+  // Guarded so an orphaned rejection can't fire if the AI path throws below
+  // before this settles (recommend() then falls to the degraded path).
+  const tonightPromise = fetchTonight(supabase).catch(
+    () => [] as TonightEvent[],
+  );
   const enriched = await searchCatalog(supabase, {
     city,
     queryEmbedding,
@@ -141,8 +173,8 @@ export async function recommend(
     count: CANDIDATES,
   });
   if (enriched.length === 0) {
-    const { tonight, lockedTonightCount } = await tonightPromise;
-    return { picks: [], intent, tonight, lockedTonightCount };
+    const tonight = await tonightPromise;
+    return { picks: [], intent, tonight, degraded: false };
   }
 
   const pool = preferOpen(enriched);
@@ -202,49 +234,67 @@ export async function recommend(
     }
   }
 
-  const { tonight, lockedTonightCount } = await tonightPromise;
-  return { picks: picks.slice(0, 3), intent, tonight, lockedTonightCount };
+  const tonight = await tonightPromise;
+  return { picks: picks.slice(0, 3), intent, tonight, degraded: false };
+}
+
+/** An intent with nothing read into it - the shape for the degraded path. */
+function neutralIntent(): QueryIntent {
+  return {
+    mood: null,
+    craving: null,
+    energy: null,
+    budget_max: null,
+    area: null,
+    company: null,
+    wants: [],
+    avoid: [],
+  };
 }
 
 /**
- * "Happening tonight": events from now until 6am IST tomorrow. RLS scopes
- * the visible list to the viewer's tier; the locked count comes from the
- * teaser function and is shown to free users as the underground hook.
+ * The honest floor when the AI pipeline is down: keyword retrieval over the
+ * published catalog, editor notes as reasons, and `degraded: true` so every
+ * caller says so instead of passing generic picks off as personalized.
+ * Mirrors chat's fallbackSearch posture (engine.ts).
  */
+async function degradedRecommend(
+  supabase: SupabaseClient<Database>,
+  query: string,
+  city: City,
+): Promise<RecommendResult> {
+  let picks: Recommendation[] = [];
+  try {
+    const candidates = await keywordSearch(supabase, {
+      city,
+      terms: [query],
+    });
+    picks = preferOpen(candidates)
+      .slice(0, 3)
+      .map((c) => ({ place: c, reason: c.editor_note ?? "" }));
+  } catch {
+    // Even the keyword floor failed (DB down) - an empty, flagged answer
+    // still beats a 500.
+  }
+  const tonight = await fetchTonight(supabase).catch(() => []);
+  return { picks, intent: neutralIntent(), tonight, degraded: true };
+}
+
+/** "Happening tonight": events from now until 6am IST tomorrow. */
 async function fetchTonight(
   supabase: Awaited<ReturnType<typeof createClient>>,
-) {
+): Promise<TonightEvent[]> {
   const now = new Date();
   const cutoff = new Date(now.getTime() + 14 * 60 * 60 * 1000);
 
-  const [{ data: visible }, { data: teasers }, { data: premium }] = await Promise.all([
-    supabase
-      .from("events")
-      .select("id, title, venue_name, area, starts_at, is_underground")
-      .eq("is_published", true)
-      .gte("starts_at", new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString())
-      .lte("starts_at", cutoff.toISOString())
-      .order("starts_at", { ascending: true })
-      .limit(2),
-    supabase.rpc("event_teasers"),
-    supabase.rpc("is_premium"),
-  ]);
+  const { data: visible } = await supabase
+    .from("events")
+    .select("id, title, venue_name, area, starts_at, is_underground")
+    .eq("is_published", true)
+    .gte("starts_at", new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString())
+    .lte("starts_at", cutoff.toISOString())
+    .order("starts_at", { ascending: true })
+    .limit(2);
 
-  // Premium users already see everything - nothing is "locked" for them.
-  if (premium === true) {
-    return { tonight: visible ?? [], lockedTonightCount: 0 };
-  }
-
-  const visibleIds = new Set((visible ?? []).map((e) => e.id));
-  const lockedTonight = (teasers ?? []).filter(
-    (t) =>
-      !visibleIds.has(t.id) &&
-      new Date(t.starts_at) <= cutoff &&
-      new Date(t.starts_at) >= new Date(now.getTime() - 3 * 60 * 60 * 1000),
-  );
-
-  return {
-    tonight: visible ?? [],
-    lockedTonightCount: lockedTonight.length,
-  };
+  return visible ?? [];
 }

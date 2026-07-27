@@ -32,6 +32,14 @@ export type ChatPickCard = {
   lat: number | null;
   lng: number | null;
   reason: string;
+  /**
+   * Where `reason` came from: "model" means the agent wrote it for this user
+   * and this ask; "editor_note" marks the static-note fallback (the model
+   * omitted a reason, or the turn degraded). Optional because picks persisted
+   * before this field existed carry editor notes - treat missing as
+   * "editor_note".
+   */
+  reasonSource?: "model" | "editor_note";
   /** Ties a click on this pick back to the exact answer it was served in (#120). */
   answerId: string;
 };
@@ -44,6 +52,8 @@ export type ChatTurnResult =
       text: string;
       /** Set when the agent built a trackable market shopping run this turn. */
       marketRunId?: string;
+      /** True when the agent loop failed and this turn is not personalized. */
+      degraded?: boolean;
     }
   | {
       type: "picks";
@@ -55,6 +65,11 @@ export type ChatTurnResult =
       planId?: string;
       /** Set when the agent built a trackable market shopping run this turn. */
       marketRunId?: string;
+      /**
+       * True when the agent loop failed and the picks are a keyword fallback -
+       * real places, but not personalized. The UI must say so.
+       */
+      degraded?: boolean;
     };
 
 const IntentStateSchema = z
@@ -203,8 +218,10 @@ export async function runChatTurn(
   ];
 
   // Run the agent loop. If it fails outright (provider down), degrade to a
-  // keyword search so the turn still answers with real places.
+  // keyword search so the turn still answers with real places - but flag the
+  // result so the UI never passes those picks off as personalized.
   let text = "";
+  let degraded = false;
   try {
     const result = await ai.runTools({
       messages,
@@ -222,6 +239,7 @@ export async function runChatTurn(
     text = result.text.trim();
   } catch (err) {
     logStepDegraded("agent", err, { userId, threadId });
+    degraded = true;
     await fallbackSearch(supabase, collector, {
       city,
       message: input.message,
@@ -251,6 +269,7 @@ export async function runChatTurn(
         thread_id: threadId,
         role: "assistant",
         content: reply,
+        degraded,
       }),
       supabase
         .from("chat_threads")
@@ -264,6 +283,7 @@ export async function runChatTurn(
       text: reply,
     };
     if (collector.marketRunId) askResult.marketRunId = collector.marketRunId;
+    if (degraded) askResult.degraded = true;
     return askResult;
   }
 
@@ -285,6 +305,9 @@ export async function runChatTurn(
   const answerId = newAnswerId();
   const picks: ChatPickCard[] = shownForVariant.map((p) => {
     const detail = detailBySlug.get(p.slug);
+    // The model's own reason for this user wins; the static editor note is
+    // only the fallback, and the card is marked so the UI can say so.
+    const modelReason = collector.reasons.get(p.slug)?.trim();
     return {
       id: p.id,
       slug: p.slug,
@@ -293,7 +316,8 @@ export async function runChatTurn(
       image_path: p.image_path,
       lat: detail?.lat ?? null,
       lng: detail?.lng ?? null,
-      reason: detail?.editor_note ?? "",
+      reason: modelReason || (detail?.editor_note ?? ""),
+      reasonSource: modelReason ? "model" : "editor_note",
       answerId,
     };
   });
@@ -302,7 +326,9 @@ export async function runChatTurn(
     text ||
     (collector.planId
       ? `I put together "${collector.planTitle ?? "a plan"}" for you - it's saved and trackable.`
-      : "Here's what fits best right now:");
+      : degraded
+        ? "Here's what a quick search turns up:"
+        : "Here's what fits best right now:");
 
   const nextState: Json = {
     ...intentState,
@@ -314,6 +340,7 @@ export async function runChatTurn(
       role: "assistant",
       content: leadIn,
       picks: picks as unknown as Json,
+      degraded,
     }),
     supabase
       .from("chat_threads")
@@ -350,6 +377,7 @@ export async function runChatTurn(
   };
   if (collector.planId) result.planId = collector.planId;
   if (collector.marketRunId) result.marketRunId = collector.marketRunId;
+  if (degraded) result.degraded = true;
   return result;
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { Screen } from "@/components/app/screen";
 import { QuestWizard } from "./wizard";
 
 export const metadata: Metadata = { title: "New quest" };
@@ -26,7 +27,7 @@ export default async function NewQuestPage({
     .order("name");
 
   return (
-    <main className="relative mx-auto min-h-dvh max-w-lg px-5 pb-[calc(var(--tab-clearance)+2rem)] pt-[calc(var(--safe-top)+1.5rem)] lg:max-w-2xl lg:pt-12">
+    <Screen width="narrow" className="relative">
       <div className="halo absolute inset-x-0 top-0 h-72" />
       <QuestWizard
         cities={cities ?? []}
@@ -34,6 +35,6 @@ export default async function NewQuestPage({
         initialCity={city ?? null}
         initialBrief={brief ?? null}
       />
-    </main>
+    </Screen>
   );
 }

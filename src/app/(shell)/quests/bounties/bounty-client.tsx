@@ -7,6 +7,11 @@ import { getDevicePosition } from "@/lib/map/geolocation";
 import { captureNativePhoto } from "@/lib/media/camera";
 import { useIsNativeApp } from "@/lib/capacitor/platform";
 import { success, tap, warn } from "@/lib/native/haptics";
+import { playSound } from "@/lib/sound/engine";
+import {
+  SCOUT_EVIDENCE_BUCKET,
+  scoutEvidencePrefix,
+} from "@/lib/scout/capture";
 
 /**
  * Client surfaces for the Scout Economy. SubmitSpotForm lets a scout list a
@@ -16,7 +21,9 @@ import { success, tap, warn } from "@/lib/native/haptics";
  * GPS in the app and `navigator.geolocation` on the web.
  */
 
-const CAPTURE_BUCKET = "quest-media";
+// Bucket + owner-prefix come from the shared capture module so the client and
+// the server-side evidence checks can never drift apart.
+const CAPTURE_BUCKET = SCOUT_EVIDENCE_BUCKET;
 
 export function SubmitSpotForm() {
   const router = useRouter();
@@ -43,6 +50,8 @@ export function SubmitSpotForm() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Couldn't submit.");
       setMsg("Submitted - other members will verify it on-site.");
+      playSound("success");
+      success();
       setName("");
       setArea("");
       router.refresh();
@@ -123,7 +132,7 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
 
       // Keep the stored extension honest - native capture may hand back png/webp.
       const ext = (file.type.split("/")[1] ?? "jpg").replace("jpeg", "jpg");
-      const path = `scout/${user.id}/${bountyId}-${Date.now()}.${ext}`;
+      const path = `${scoutEvidencePrefix(user.id)}${bountyId}-${Date.now()}.${ext}`;
       const up = await supabase.storage
         .from(CAPTURE_BUCKET)
         .upload(path, file, { upsert: true, contentType: file.type });
@@ -144,6 +153,7 @@ export function ConfirmFlow({ bountyId }: { bountyId: string }) {
       if (!res.ok) throw new Error(body.error ?? "Couldn't confirm.");
       setMsg("Verification submitted. Thank you for scouting.");
       setShot(null);
+      playSound("success");
       success();
       router.refresh();
     } catch (e) {

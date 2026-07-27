@@ -79,7 +79,7 @@ materials via `getComputedStyle`.
 |---|---|---|---|
 | **Accent (Sodium Amber)** | `#f0a431` | `accent` | **The default voice of the brand.** Primary actions, focus rings, highlights, the "one answer" point, the logo dot. |
 | **Ember** | `#c87c1f` | `ember` | Deeper amber. Primary-button hover state; secondary light color in the hero field. |
-| **Under (Neon Violet)** | `#b48aed` | `under` | **Reserved exclusively for underground / premium.** Never use it for ordinary UI. |
+| **Under (Neon Violet)** | `#b48aed` | `under` | **Reserved exclusively for the underground.** Never use it for ordinary UI. |
 | **Danger** | `#e0654f` | `danger` | Errors and destructive actions only. |
 
 ### 3.3 The two-accent discipline (important)
@@ -88,7 +88,7 @@ OutsiderMap runs on **two accents with strict, separate jobs**:
 
 - **Amber (`accent`)** is the everyday brand color — free product, primary
   CTAs, the recurring sodium-lamp glow.
-- **Violet (`under`)** means *underground / premium and nothing else*. A violet
+- **Violet (`under`)** means *the underground and nothing else*. A violet
   halo, badge, or border is a promise that something is exclusive. Using violet
   for a generic button breaks that promise and dilutes the conversion signal.
 
@@ -101,14 +101,14 @@ These are brand textures built from the palette, defined as utility classes:
 - **`.halo`** — a soft radial sodium-lamp glow in amber (~14% accent → transparent).
   The recurring lighting motif behind heroes and CTAs.
 - **`.halo-under`** — the same glow in violet (~12% under → transparent),
-  used only behind premium/underground sections.
+  used only behind underground sections.
 - **`::selection`** — text selection is amber at 30% opacity.
 
 ### 3.5 Usage tints
 
 Accent and violet are routinely used at low opacity for soft signal surfaces:
 `bg-accent/15` + `text-accent` (accent badge), `bg-under/15` + `text-under`
-(premium badge), `border-under/30` (premium card border). Keep tints subtle —
+(underground badge), `border-under/30` (underground card border). Keep tints subtle —
 the palette's power comes from a near-black canvas with sparing, glowing light.
 
 ---
@@ -128,7 +128,7 @@ Three typefaces, each with a distinct job. They are wired as CSS variables in
 ### 4.1 The display signature
 
 Headlines follow a consistent rhythm: a statement in upright Fraunces, then the
-key phrase in **italic amber** (or italic violet in premium contexts).
+key phrase in **italic amber** (or italic violet in underground contexts).
 
 > Ten thousand places. *One answer.*
 > A profile that gets you, *then gets better.*
@@ -199,7 +199,7 @@ promotional art.
 
 - Give the mark clear space; let the night breathe around it.
 - **Don't** recolor the answer dot (it is always `accent`, except violet only
-  in an explicitly premium/underground lockup).
+  in an explicitly underground lockup).
 - **Don't** add more than a sparse handful of background lights.
 - **Don't** set the wordmark upright/bold or in the body or mono faces — it is
   Fraunces italic.
@@ -269,7 +269,7 @@ Pill-shaped (`rounded-full`), medium weight, 200ms color transitions.
 | `secondary` | transparent, `border-line`, hover `border-ink-dim` | Secondary actions, "Sign in". |
 | `ghost` | `text-ink-dim`, hover `text-ink` | Tertiary / inline. |
 | `danger` | `border-danger/40 text-danger`, hover `bg-danger/10` | Destructive only. |
-| `under` | `bg-under text-night`, hover `bg-under/80` | Premium/underground actions only. |
+| `under` | `bg-under text-night`, hover `bg-under/80` | Underground actions only. |
 
 Sizes: `sm` (h-8), `md` (h-11), `lg` (h-13). Primary buttons read in
 sentence-confident voice: "Get your taste profile", "See how it works".
@@ -277,12 +277,12 @@ sentence-confident voice: "Get your taste profile", "See how it works".
 ### 7.2 Badges (`badge.tsx`)
 
 Small rounded-full tags. `default` (raise/ink-dim), `accent` (amber tint —
-e.g. "matched to your profile"), `under` (violet tint — "Premium"), `outline`.
+e.g. "matched to your profile"), `under` (violet tint — "underground"), `outline`.
 
 ### 7.3 Cards (`card.tsx`)
 
 `rounded-card border border-line bg-surface p-6`. The default container.
-Premium cards may switch the border to `border-under/30`.
+Underground cards may switch the border to `border-under/30`.
 
 ### 7.4 Inputs (`input.tsx`)
 
@@ -316,7 +316,7 @@ profile" badge. Lead with the answer; justify it in two or three tight lines.
   examples ("im at GK, slightly heartbroken, want greasy food").
 - Use the upright→italic-accent headline rhythm for big statements.
 - Keep system framing in the quiet mono `.voice`.
-- Lean into the nocturnal, slightly secret tone for premium ("Parties without
+- Lean into the nocturnal, slightly secret tone for the underground ("Parties without
   posters", "If it's on Google, it doesn't count").
 
 **Don't**
@@ -347,7 +347,7 @@ profile" badge. Lead with the answer; justify it in two or three tight lines.
 --color-ink-dim:  #9b9183;  /* muted text */
 --color-accent:   #f0a431;  /* sodium amber — the brand */
 --color-ember:    #c87c1f;  /* amber hover / depth */
---color-under:    #b48aed;  /* neon violet — premium only */
+--color-under:    #b48aed;  /* neon violet — underground only */
 --color-danger:   #e0654f;  /* errors only */
 
 /* Type */

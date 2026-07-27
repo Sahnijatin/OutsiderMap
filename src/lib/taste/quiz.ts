@@ -1,8 +1,7 @@
 /**
  * The onboarding quiz. Eight questions, two minutes (version 2 added the
  * "anchors" question). Shared by the onboarding UI and the extraction
- * prompt - no server-only import here. Mirrored by hand in
- * mobile/src/lib/quiz.ts - keep the two in sync.
+ * prompt - no server-only import here.
  */
 
 export const QUIZ_VERSION = 2;

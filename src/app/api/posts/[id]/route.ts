@@ -107,6 +107,10 @@ export async function DELETE(
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const allowed = await checkRateLimit(`post-delete:${ctx.user.id}`, 30, 3600);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
   const { id } = await params;
   if (!idOk(id)) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });

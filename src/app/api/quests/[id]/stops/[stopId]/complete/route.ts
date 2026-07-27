@@ -4,9 +4,6 @@ import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { completeStop } from "@/lib/quests/machine";
 import { maybeRecomputeLearnedSignals } from "@/lib/taste/learn";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { enqueueReelJob } from "@/lib/reels/jobs";
-import { serverEnv } from "@/lib/env";
 
 /**
  * POST /api/quests/:id/stops/:stopId/complete - complete the unlocked stop,
@@ -33,30 +30,29 @@ export async function POST(
   }
 
   const { id, stopId } = await params;
-  if (!z.string().uuid().safeParse(stopId).success) {
+  if (
+    !z.string().uuid().safeParse(id).success ||
+    !z.string().uuid().safeParse(stopId).success
+  ) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
+  }
+
+  // The stop must belong to the quest in the URL, and the quest to the
+  // caller. RLS already scopes the row reads; this pins the route semantics.
+  const { data: stopRow } = await ctx.supabase
+    .from("quest_stops")
+    .select("id, quest_id, quests!inner(user_id)")
+    .eq("id", stopId)
+    .eq("quest_id", id)
+    .maybeSingle();
+  if (!stopRow || stopRow.quests.user_id !== ctx.user.id) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
   try {
     const result = await completeStop(ctx.supabase, stopId, REQUIRE_MEDIA);
     after(async () => {
       await maybeRecomputeLearnedSignals(ctx.user.id);
-      if (result.questCompleted) {
-        // Queue the reel and nudge the worker; the cron sweeper is the net.
-        try {
-          const admin = createAdminClient();
-          await enqueueReelJob(admin, id, ctx.user.id);
-          const env = serverEnv();
-          if (env.NEXT_PUBLIC_APP_URL && env.CRON_SECRET) {
-            void fetch(`${env.NEXT_PUBLIC_APP_URL}/api/jobs/reel`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${env.CRON_SECRET}` },
-            }).catch(() => {});
-          }
-        } catch (err) {
-          console.error("reel enqueue failed", err);
-        }
-      }
     });
     return NextResponse.json(result);
   } catch (err) {

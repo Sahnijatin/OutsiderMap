@@ -19,7 +19,7 @@ export default function robots(): MetadataRoute.Robots {
         "/chat",
         "/quests",
         "/feed",
-        "/reels",
+        
         "/now",
         "/setup",
         "/onboarding",

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+import type { City } from "@/lib/cities";
 import {
   combineEmbeddings,
+  keywordSearch,
   parseStoredEmbedding,
   preferOpen,
   type CatalogCandidate,
@@ -65,6 +69,46 @@ function candidate(open: boolean | null): CatalogCandidate {
     openLabel: null,
   };
 }
+
+describe("keywordSearch product law", () => {
+  it("filters is_published=true and is_chain=false like match_places does", async () => {
+    const eqCalls: Array<[string, unknown]> = [];
+    const row = {
+      id: "p1",
+      slug: "spot-1",
+      name: "Spot One",
+      area: null,
+      category: null,
+      price_level: null,
+      vibe_tags: [],
+      description: null,
+      editor_note: null,
+      hours: null,
+      image_path: null,
+    };
+    const builder = {
+      select: () => builder,
+      eq: (col: string, val: unknown) => {
+        eqCalls.push([col, val]);
+        return builder;
+      },
+      lte: () => builder,
+      or: () => builder,
+      limit: () => Promise.resolve({ data: [row], error: null }),
+    };
+    const supabase = {
+      from: () => builder,
+    } as unknown as SupabaseClient<Database>;
+    const city = { slug: "delhi", name: "Delhi", areas: [] } as unknown as City;
+
+    const results = await keywordSearch(supabase, { city, terms: ["momos"] });
+    expect(results.map((r) => r.slug)).toEqual(["spot-1"]);
+    // The law both brains share: drafts and chains never surface, even on the
+    // embedding-free fallback path.
+    expect(eqCalls).toContainEqual(["is_published", true]);
+    expect(eqCalls).toContainEqual(["is_chain", false]);
+  });
+});
 
 describe("preferOpen", () => {
   it("drops closed places when enough open ones remain", () => {

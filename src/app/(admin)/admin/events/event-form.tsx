@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import type { Tables } from "@/types/database";
 import { deleteEvent, upsertEvent } from "./actions";
 
@@ -62,20 +62,6 @@ export function EventForm({ event }: { event?: Tables<"events"> }) {
             type="url"
             defaultValue={event?.ticket_url ?? ""}
           />
-        </Field>
-        <Field
-          label="Access"
-          htmlFor="required_tier"
-          hint="Premium events are invisible to free users (teased only)"
-        >
-          <Select
-            id="required_tier"
-            name="required_tier"
-            defaultValue={event?.required_tier ?? "free"}
-          >
-            <option value="free">free - everyone</option>
-            <option value="premium">premium - members only</option>
-          </Select>
         </Field>
       </div>
 

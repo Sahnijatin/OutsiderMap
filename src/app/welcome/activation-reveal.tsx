@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -43,6 +44,7 @@ export function ActivationReveal({
   const [phase, setPhase] = useState<Phase>("reading");
   const [pick, setPick] = useState<ActivationPick | null>(null);
   const [answerId, setAnswerId] = useState<string | null>(null);
+  const [degraded, setDegraded] = useState(false);
   const started = useRef(false);
 
   useEffect(() => {
@@ -52,7 +54,11 @@ export function ActivationReveal({
     const minDwell = reduced ? 0 : 2600;
     const startedAt = Date.now();
     (async () => {
-      let data: { answerId?: string; pick?: ActivationPick | null } | null = null;
+      let data: {
+        answerId?: string;
+        pick?: ActivationPick | null;
+        degraded?: boolean;
+      } | null = null;
       try {
         const res = await fetch("/api/activation", { method: "POST" });
         if (res.ok) data = await res.json();
@@ -64,6 +70,7 @@ export function ActivationReveal({
         if (data?.pick) {
           setPick(data.pick);
           setAnswerId(data.answerId ?? null);
+          setDegraded(data.degraded === true);
           setPhase("reveal");
         } else {
           setPhase("empty");
@@ -119,20 +126,29 @@ export function ActivationReveal({
 
         {phase === "reveal" && pick && (
           <motion.div {...enter} className="flex flex-col items-center gap-5">
+            {/* "We read you" is only true when the taste pipeline actually ran;
+                the degraded fallback gets an honest, quieter framing. */}
             <p className="font-display text-2xl italic text-ink">
-              We read you. Start here.
+              {degraded ? "Start here." : "We read you. Start here."}
             </p>
+            {degraded && (
+              <p className="text-xs italic text-ink-dim">
+                A quick pick while the concierge is out - not personalized yet.
+              </p>
+            )}
 
             <Link
               href={`/map?place=${encodeURIComponent(pick.slug)}`}
               onClick={acceptFirstAnswer}
-              className="group flex w-full flex-col overflow-hidden rounded-card border border-line/70 bg-surface/80 text-left backdrop-blur transition-colors hover:border-accent/60"
+              className="group flex w-full flex-col overflow-hidden rounded-card border border-line bg-surface/80 text-left backdrop-blur transition-colors hover:border-accent/60"
             >
               {pick.image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={pick.image}
                   alt=""
+                  width={800}
+                  height={320}
+                  sizes="(max-width: 640px) 100vw, 640px"
                   className="h-40 w-full object-cover"
                 />
               )}
