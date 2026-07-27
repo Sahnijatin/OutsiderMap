@@ -61,9 +61,15 @@ function fakeSupabase(
     chatMessages?: unknown[];
     /** Out-param: records every chat_threads.update payload. */
     threadUpdates?: unknown[];
+    /** Every chat_messages query resolves with this error (schema drift). */
+    messageError?: string;
   } = {},
 ) {
-  const table = (rows: unknown, onUpdate?: (payload: unknown) => void) => {
+  const table = (
+    rows: unknown,
+    onUpdate?: (payload: unknown) => void,
+    error: { message: string } | null = null,
+  ) => {
     const chain: Record<string, unknown> = {};
     for (const m of ["select", "eq", "order", "limit", "in", "insert", "upsert"]) {
       chain[m] = () => chain;
@@ -75,7 +81,7 @@ function fakeSupabase(
     chain.maybeSingle = () => Promise.resolve({ data: rows, error: null });
     chain.single = () => Promise.resolve({ data: rows, error: null });
     chain.then = (resolve: (v: unknown) => unknown) =>
-      Promise.resolve({ data: rows, error: null }).then(resolve);
+      Promise.resolve({ data: error ? null : rows, error }).then(resolve);
     return chain;
   };
   return {
@@ -87,7 +93,11 @@ function fakeSupabase(
         return table({ id: "t-1" }, (p) => opts.threadUpdates?.push(p));
       }
       if (name === "chat_messages") {
-        return table(opts.chatMessages ?? null);
+        return table(
+          opts.chatMessages ?? null,
+          undefined,
+          opts.messageError ? { message: opts.messageError } : null,
+        );
       }
       if (name === "places") {
         // The pick-assembly detail query (lat/lng + the static editor note).
@@ -308,6 +318,34 @@ describe("clarify budget lifecycle", () => {
     const { runChatTurn } = await import("@/lib/chat/engine");
     await runChatTurn(fakeSupabase({ threadUpdates }), "u1", { message: "when does it open" });
     expect(threadUpdates[0]).toMatchObject({ intent_state: { questions_asked: 0 } });
+  });
+});
+
+describe("persistence failures are loud, not fatal", () => {
+  it("still serves the turn when message inserts fail, and logs the loss", async () => {
+    // The real incident: prod was missing the `degraded` column, every
+    // assistant-message insert failed silently, and threads reopened empty.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    runToolsImpl = async ({ tools }) => {
+      await find(tools, "search_places").handler({ query: "crispy" });
+      await find(tools, "show_on_map").handler({
+        picks: [{ slug: "spot-1", reason: "Crispy at this hour" }],
+      });
+      return { text: "Try Spot One.", usage: { inputTokens: 1, outputTokens: 1 }, steps: 2, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    const result = await runChatTurn(
+      fakeSupabase({ messageError: 'column "degraded" does not exist' }),
+      "u1",
+      { message: "crispy" },
+    );
+
+    // The live answer still reaches the user...
+    expect(result.type).toBe("picks");
+    // ...but the lost transcript is on the record, greppable.
+    const logged = errorSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("persist failed");
+    errorSpy.mockRestore();
   });
 });
 

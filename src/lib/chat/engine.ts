@@ -92,6 +92,24 @@ function logStepDegraded(
   );
 }
 
+/**
+ * Persistence failures must be loud. A turn that answers live but silently
+ * fails to save its messages reads later as "my conversation disappeared" -
+ * the thread title survives (chat_threads wrote fine) while the transcript
+ * never landed. That exact failure shipped once: a schema-drift insert error
+ * was swallowed here and only surfaced as users reopening empty threads.
+ */
+function logPersistFailure(
+  step: string,
+  error: { message: string },
+  meta: { userId: string; threadId: string | null },
+) {
+  console.error(
+    `[chat] ${step} persist failed`,
+    JSON.stringify({ step, ...meta, message: error.message }),
+  );
+}
+
 function timeLabel() {
   const { day, minutes } = nowInIST();
   return `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]} ${String(
@@ -189,11 +207,14 @@ export async function runChatTurn(
       return { role: m.role, content };
     });
 
-  await supabase.from("chat_messages").insert({
+  const { error: userMsgError } = await supabase.from("chat_messages").insert({
     thread_id: threadId,
     role: "user",
     content: input.message,
   });
+  if (userMsgError) {
+    logPersistFailure("user_message", userMsgError, { userId, threadId });
+  }
 
   // Taste + learned behaviour (consent-gated) for the behaviour tool.
   const { data: tasteRow } = personalize
@@ -285,7 +306,7 @@ export async function runChatTurn(
       ...intentState,
       questions_asked: isQuestion ? intentState.questions_asked + 1 : 0,
     };
-    await Promise.all([
+    const [{ error: replyError }] = await Promise.all([
       supabase.from("chat_messages").insert({
         thread_id: threadId,
         role: "assistant",
@@ -297,6 +318,9 @@ export async function runChatTurn(
         .update({ intent_state: nextState, updated_at: new Date().toISOString() })
         .eq("id", threadId),
     ]);
+    if (replyError) {
+      logPersistFailure("assistant_message", replyError, { userId, threadId });
+    }
     const askResult: ChatTurnResult = {
       type: "ask",
       threadId,
@@ -359,7 +383,7 @@ export async function runChatTurn(
     ...intentState,
     questions_asked: 0,
   };
-  await Promise.all([
+  const [{ error: picksMsgError }] = await Promise.all([
     supabase.from("chat_messages").insert({
       thread_id: threadId,
       role: "assistant",
@@ -392,6 +416,9 @@ export async function runChatTurn(
       }),
     }),
   ]);
+  if (picksMsgError) {
+    logPersistFailure("assistant_message", picksMsgError, { userId, threadId });
+  }
 
   const result: ChatTurnResult = {
     type: "picks",

@@ -35,12 +35,23 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const { data: messages } = await ctx.supabase
+  // A failed select must be an error, not an empty conversation: swallowing
+  // it here once made every thread open blank (schema drift - the deploy
+  // pipeline was down and this query referenced a column prod didn't have
+  // yet) while looking exactly like "my messages were never saved".
+  const { data: messages, error: messagesError } = await ctx.supabase
     .from("chat_messages")
     .select("id, role, content, picks, degraded, created_at")
     .eq("thread_id", id)
     .order("created_at", { ascending: true })
     .limit(200);
+  if (messagesError) {
+    console.error(
+      "[chat] thread messages load failed",
+      JSON.stringify({ threadId: id, message: messagesError.message }),
+    );
+    return NextResponse.json({ error: messagesError.message }, { status: 500 });
+  }
 
   return NextResponse.json({ thread, messages: messages ?? [] });
 }
