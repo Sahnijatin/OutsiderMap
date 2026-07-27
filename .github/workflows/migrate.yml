@@ -27,7 +27,15 @@ on:
     branches: [main]
     paths:
       - "supabase/migrations/**"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      repair_applied:
+        description: >-
+          Space-separated migration versions (e.g. "00000000000041") to mark
+          as already applied before pushing. Use when a migration was run by
+          hand (SQL editor) while this pipeline was down, so `db push` hits
+          "already exists" - see the baseline notes in the header.
+        required: false
 
 # Never run two migration deploys at once.
 concurrency:
@@ -47,5 +55,12 @@ jobs:
           version: latest
       - name: Link project
         run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+      # Baseline hand-applied migrations (workflow_dispatch input) so db push
+      # stops tripping on "already exists" for schema that is already live.
+      - name: Repair migration history
+        if: github.event.inputs.repair_applied != ''
+        run: |
+          # shellcheck disable=SC2086 - intentional word splitting on versions
+          supabase migration repair --status applied ${{ github.event.inputs.repair_applied }}
       - name: Apply migrations
         run: supabase db push --yes
