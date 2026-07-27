@@ -199,43 +199,54 @@ export function createOpenAIProvider(): AIProvider {
         async step() {
           if (onText) {
             // Stream: forward content deltas, assemble tool_calls by index.
-            const stream = await getClient().chat.completions.create({
-              model: mdl,
-              max_tokens: maxTokens,
-              messages,
-              tools,
-              tool_choice: "auto",
-              stream: true,
-              stream_options: { include_usage: true },
-            });
-            let content = "";
-            const acc = new Map<
-              number,
-              { id: string; name: string; arguments: string }
-            >();
-            let usage = { inputTokens: 0, outputTokens: 0 };
-            for await (const chunk of stream) {
-              const delta = chunk.choices[0]?.delta;
-              if (delta?.content) {
-                content += delta.content;
-                onText(delta.content);
-              }
-              for (const tc of delta?.tool_calls ?? []) {
-                const cur = acc.get(tc.index) ?? { id: "", name: "", arguments: "" };
-                if (tc.id) cur.id = tc.id;
-                if (tc.function?.name) cur.name = tc.function.name;
-                if (tc.function?.arguments) cur.arguments += tc.function.arguments;
-                acc.set(tc.index, cur);
-              }
-              if (chunk.usage) {
-                usage = {
-                  inputTokens: chunk.usage.prompt_tokens ?? 0,
-                  outputTokens: chunk.usage.completion_tokens ?? 0,
-                };
-              }
-            }
-            const fnCalls = [...acc.values()].filter((c) => c.name);
-            return buildTurn(content, fnCalls, usage);
+            // Transient failures are retried only while no delta has reached
+            // the client - most provider blips happen at connection time,
+            // before any text flows; once deltas are on the wire a replay
+            // would duplicate them, so `retryIf` shuts the retry door.
+            let emitted = false;
+            return await withRetry(
+              async () => {
+                const stream = await getClient().chat.completions.create({
+                  model: mdl,
+                  max_tokens: maxTokens,
+                  messages,
+                  tools,
+                  tool_choice: "auto",
+                  stream: true,
+                  stream_options: { include_usage: true },
+                });
+                let content = "";
+                const acc = new Map<
+                  number,
+                  { id: string; name: string; arguments: string }
+                >();
+                let usage = { inputTokens: 0, outputTokens: 0 };
+                for await (const chunk of stream) {
+                  const delta = chunk.choices[0]?.delta;
+                  if (delta?.content) {
+                    content += delta.content;
+                    emitted = true;
+                    onText(delta.content);
+                  }
+                  for (const tc of delta?.tool_calls ?? []) {
+                    const cur = acc.get(tc.index) ?? { id: "", name: "", arguments: "" };
+                    if (tc.id) cur.id = tc.id;
+                    if (tc.function?.name) cur.name = tc.function.name;
+                    if (tc.function?.arguments) cur.arguments += tc.function.arguments;
+                    acc.set(tc.index, cur);
+                  }
+                  if (chunk.usage) {
+                    usage = {
+                      inputTokens: chunk.usage.prompt_tokens ?? 0,
+                      outputTokens: chunk.usage.completion_tokens ?? 0,
+                    };
+                  }
+                }
+                const fnCalls = [...acc.values()].filter((c) => c.name);
+                return buildTurn(content, fnCalls, usage);
+              },
+              { label: "openai:runTools:stream", retryIf: () => !emitted },
+            );
           }
 
           const response = await withRetry(

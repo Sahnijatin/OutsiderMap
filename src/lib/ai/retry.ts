@@ -90,6 +90,12 @@ export type RetryOptions = {
   baseDelayMs?: number;
   maxDelayMs?: number;
   label?: string;
+  /**
+   * Extra gate consulted before each retry. Lets a caller stop retrying once a
+   * retry stopped being safe - e.g. a streamed call that already emitted text
+   * to the client, where a replay would duplicate what the user has seen.
+   */
+  retryIf?: () => boolean;
 };
 
 /**
@@ -112,6 +118,7 @@ export async function withRetry<T>(
       return await fn();
     } catch (err) {
       if (attempt >= retries || !isTransientError(err)) throw err;
+      if (opts.retryIf && !opts.retryIf()) throw err;
       const ceiling = Math.min(max, base * 2 ** attempt);
       // Full jitter over [ceiling/2, ceiling] avoids thundering-herd sync.
       const delayMs = ceiling * (0.5 + Math.random() * 0.5);

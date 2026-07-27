@@ -57,11 +57,27 @@ export async function POST(request: NextRequest) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        const send = (event: string, data: unknown) => {
-          controller.enqueue(
-            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
-          );
+        // Once the client disconnects (or the turn times out and we close),
+        // enqueue throws - mark closed and swallow, so a still-running turn
+        // writing late deltas can't crash the handler with an unhandled throw.
+        let closed = false;
+        const write = (payload: string) => {
+          if (closed) return;
+          try {
+            controller.enqueue(encoder.encode(payload));
+          } catch {
+            closed = true;
+          }
         };
+        const send = (event: string, data: unknown) => {
+          write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        };
+        // Tool-calling stretches (search, plan-building) can go many seconds
+        // with no bytes on the wire; proxies and mobile networks kill "idle"
+        // connections, which the user sees as the chat just stopping. A
+        // comment frame every 15s keeps the pipe visibly alive (SSE clients
+        // ignore comment lines).
+        const heartbeat = setInterval(() => write(`: ping\n\n`), 15_000);
         try {
           const result = await withTimeout(
             runChatTurn(ctx.supabase, ctx.user.id, parsed.data, {
@@ -92,7 +108,13 @@ export async function POST(request: NextRequest) {
               : "Lost my train of thought - say that again?",
           });
         } finally {
-          controller.close();
+          clearInterval(heartbeat);
+          closed = true;
+          try {
+            controller.close();
+          } catch {
+            // Already closed/errored by the client going away - nothing to do.
+          }
         }
       },
     });

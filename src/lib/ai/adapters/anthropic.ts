@@ -184,20 +184,33 @@ export function createAnthropicProvider(): AIProvider {
       const onText = req.onText;
       const driver: ToolLoopDriver = {
         async step() {
-          // Stream when a text sink is provided (skip withRetry - a mid-stream
-          // retry would replay deltas to the client); otherwise a plain call.
+          // Stream when a text sink is provided. Transient failures are retried
+          // only while no delta has reached the client - most provider blips
+          // (429/5xx/socket resets) happen at connection time, before any text
+          // flows; once deltas are on the wire a replay would duplicate them,
+          // so `retryIf` shuts the retry door the moment the first one lands.
+          let emitted = false;
           const response = onText
-            ? await (() => {
-                const stream = getClient().messages.stream({
-                  model: mdl,
-                  max_tokens: maxTokens,
-                  system,
-                  messages,
-                  tools,
-                });
-                stream.on("text", (delta) => onText(delta));
-                return stream.finalMessage();
-              })()
+            ? await withRetry(
+                () => {
+                  const stream = getClient().messages.stream({
+                    model: mdl,
+                    max_tokens: maxTokens,
+                    system,
+                    messages,
+                    tools,
+                  });
+                  stream.on("text", (delta) => {
+                    emitted = true;
+                    onText(delta);
+                  });
+                  return stream.finalMessage();
+                },
+                {
+                  label: "anthropic:runTools:stream",
+                  retryIf: () => !emitted,
+                },
+              )
             : await withRetry(
                 () =>
                   getClient().messages.create({

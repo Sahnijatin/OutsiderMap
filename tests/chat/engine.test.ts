@@ -55,12 +55,23 @@ vi.mock("@/lib/cities", () => ({
     }),
 }));
 
-function fakeSupabase() {
-  const table = (rows: unknown) => {
+function fakeSupabase(
+  opts: {
+    /** Prior thread messages the history query returns (newest-first). */
+    chatMessages?: unknown[];
+    /** Out-param: records every chat_threads.update payload. */
+    threadUpdates?: unknown[];
+  } = {},
+) {
+  const table = (rows: unknown, onUpdate?: (payload: unknown) => void) => {
     const chain: Record<string, unknown> = {};
-    for (const m of ["select", "eq", "order", "limit", "in", "update", "insert", "upsert"]) {
+    for (const m of ["select", "eq", "order", "limit", "in", "insert", "upsert"]) {
       chain[m] = () => chain;
     }
+    chain.update = (payload: unknown) => {
+      onUpdate?.(payload);
+      return chain;
+    };
     chain.maybeSingle = () => Promise.resolve({ data: rows, error: null });
     chain.single = () => Promise.resolve({ data: rows, error: null });
     chain.then = (resolve: (v: unknown) => unknown) =>
@@ -72,7 +83,12 @@ function fakeSupabase() {
       if (name === "profiles") {
         return table({ personalization_enabled: true, home_city: "delhi" });
       }
-      if (name === "chat_threads") return table({ id: "t-1" });
+      if (name === "chat_threads") {
+        return table({ id: "t-1" }, (p) => opts.threadUpdates?.push(p));
+      }
+      if (name === "chat_messages") {
+        return table(opts.chatMessages ?? null);
+      }
       if (name === "places") {
         // The pick-assembly detail query (lat/lng + the static editor note).
         return table([
@@ -188,6 +204,110 @@ describe("honest pick reasons", () => {
     if (result.type !== "picks") throw new Error("expected picks");
     expect(result.picks[0].reason).toBe("A classic editor blurb");
     expect(result.picks[0].reasonSource).toBe("editor_note");
+  });
+});
+
+describe("repeat suppression (thread memory)", () => {
+  // Newest-first, as the history query returns them.
+  const priorMessages = [
+    {
+      role: "assistant",
+      content: "Try Spot One.",
+      picks: [{ slug: "spot-1", name: "Spot One" }],
+    },
+    { role: "user", content: "crispy please", picks: null },
+  ];
+
+  it("tells the model what it already recommended in this thread", async () => {
+    let systemPrompt = "";
+    let historyContents: string[] = [];
+    runToolsImpl = async ({ messages }) => {
+      systemPrompt = messages.find((m) => m.role === "system")?.content ?? "";
+      historyContents = messages
+        .filter((m) => m.role === "assistant")
+        .map((m) => m.content);
+      return { text: "Something new then.", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(fakeSupabase({ chatMessages: priorMessages }), "u1", {
+      threadId: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      message: "something else",
+    });
+
+    // The system prompt names prior picks; the transcript inlines the cards
+    // the user actually saw, so the model can stop re-serving them.
+    expect(systemPrompt).toContain("Already recommended in this thread: Spot One");
+    expect(historyContents.join("\n")).toContain("[recommended: Spot One (spot-1)]");
+  });
+
+  it("marks already-shown places in search results", async () => {
+    let searchOut = "";
+    runToolsImpl = async ({ tools }) => {
+      searchOut = String(await find(tools, "search_places").handler({ query: "crispy" }));
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(fakeSupabase({ chatMessages: priorMessages }), "u1", {
+      threadId: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      message: "more crispy",
+    });
+    expect(searchOut).toContain('"already_shown":true');
+  });
+
+  it("does not flag anything on a fresh thread", async () => {
+    let searchOut = "";
+    runToolsImpl = async ({ tools, messages }) => {
+      searchOut = String(await find(tools, "search_places").handler({ query: "crispy" }));
+      expect(messages.find((m) => m.role === "system")?.content).not.toContain(
+        "Already recommended",
+      );
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(fakeSupabase(), "u1", { message: "crispy" });
+    expect(searchOut).not.toContain("already_shown");
+  });
+});
+
+describe("clarify budget lifecycle", () => {
+  it("resets questions_asked once picks are served (ask cycle over)", async () => {
+    const threadUpdates: unknown[] = [];
+    runToolsImpl = async ({ tools }) => {
+      await find(tools, "search_places").handler({ query: "crispy" });
+      await find(tools, "show_on_map").handler({
+        picks: [{ slug: "spot-1", reason: "Crispy at this hour" }],
+      });
+      return { text: "Spot One.", usage: { inputTokens: 1, outputTokens: 1 }, steps: 2, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(fakeSupabase({ threadUpdates }), "u1", { message: "crispy" });
+    expect(threadUpdates[0]).toMatchObject({ intent_state: { questions_asked: 0 } });
+  });
+
+  it("counts a clarifying question against the budget", async () => {
+    const threadUpdates: unknown[] = [];
+    runToolsImpl = async () => ({
+      text: "How long do you have, and which side of town?",
+      usage: { inputTokens: 1, outputTokens: 1 },
+      steps: 1,
+      stoppedAtStepCap: false,
+    });
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(fakeSupabase({ threadUpdates }), "u1", { message: "plan my day" });
+    expect(threadUpdates[0]).toMatchObject({ intent_state: { questions_asked: 1 } });
+  });
+
+  it("resets the budget when a plain answer closes the ask", async () => {
+    const threadUpdates: unknown[] = [];
+    runToolsImpl = async () => ({
+      text: "It opens at nine.",
+      usage: { inputTokens: 1, outputTokens: 1 },
+      steps: 1,
+      stoppedAtStepCap: false,
+    });
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(fakeSupabase({ threadUpdates }), "u1", { message: "when does it open" });
+    expect(threadUpdates[0]).toMatchObject({ intent_state: { questions_asked: 0 } });
   });
 });
 
