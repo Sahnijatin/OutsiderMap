@@ -65,12 +65,22 @@ export function ChatThread({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [failedText, setFailedText] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * Stick-to-bottom: true while the user is at (or near) the bottom, so the
+   * pane follows streaming replies on its own - but scrolling up to reread
+   * unpins it, and a growing answer stops yanking them back down.
+   */
+  const pinnedRef = useRef(true);
   const streamSeq = useRef(0);
   const voice = useSpeechInput();
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const el = scrollRef.current;
+    if (!el || !pinnedRef.current) return;
+    // Direct scrollTop, not smooth scrollIntoView: a smooth scroll restarted
+    // on every streamed delta never finishes, which read as "doesn't follow".
+    el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
   async function send(text: string, isRetry = false) {
@@ -80,6 +90,9 @@ export function ChatThread({
     // can feel in the native app. Both no-op when switched off, never throw.
     playSound("send");
     hapticTap();
+    // Sending is an explicit "take me to the newest" - repin even if they
+    // were reading somewhere up the thread.
+    pinnedRef.current = true;
     setInput("");
     setBusy(true);
     setFailedText(null);
@@ -250,7 +263,18 @@ export function ChatThread({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-5">
+      <div
+        ref={scrollRef}
+        onScroll={() => {
+          const el = scrollRef.current;
+          if (!el) return;
+          pinnedRef.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+        // min-h-0 lets this flex child actually shrink to the pane, so IT
+        // scrolls instead of growing the page (flex min-height:auto default).
+        className="min-h-0 flex-1 overflow-y-auto px-5"
+      >
         {empty ? (
           <div className="flex h-full flex-col justify-center gap-6">
             <div className="relative">
@@ -359,7 +383,6 @@ export function ChatThread({
                 thinking about it
               </div>
             )}
-            <div ref={bottomRef} />
           </div>
         )}
       </div>

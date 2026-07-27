@@ -203,14 +203,18 @@ export function ChatShell({ displayName }: { displayName: string | null }) {
     // geometry (composer pinned to the keyboard, history sidebar).
     <Screen
       inset={false}
-      className="h-dvh pb-[var(--tab-clearance)] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]"
+      // overflow-hidden makes this pane the hard viewport edge: without it a
+      // long conversation grows the flex/grid children (min-height:auto) past
+      // h-dvh and the PAGE becomes the scroller - the history sidebar rides
+      // along and the messages pane's own scrollbar never engages.
+      className="h-dvh overflow-hidden pb-[var(--tab-clearance)] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]"
     >
-      {/* Desktop: persistent history sidebar. */}
-      <aside className="hidden h-full flex-col overflow-hidden border-r border-line bg-surface/30 lg:flex">
+      {/* Desktop: persistent history sidebar - static; only messages scroll. */}
+      <aside className="hidden h-full min-h-0 flex-col overflow-hidden border-r border-line bg-surface/30 lg:flex">
         {list}
       </aside>
 
-      <div className="mx-auto flex h-full w-full max-w-lg flex-col lg:max-w-2xl">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-lg flex-col overflow-hidden lg:max-w-2xl">
         <ChatThread
           key={chatKey}
           displayName={displayName}
