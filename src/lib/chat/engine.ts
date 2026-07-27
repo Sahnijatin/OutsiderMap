@@ -92,6 +92,24 @@ function logStepDegraded(
   );
 }
 
+/**
+ * Persistence failures must be loud. A turn that answers live but silently
+ * fails to save its messages reads later as "my conversation disappeared" -
+ * the thread title survives (chat_threads wrote fine) while the transcript
+ * never landed. That exact failure shipped once: a schema-drift insert error
+ * was swallowed here and only surfaced as users reopening empty threads.
+ */
+function logPersistFailure(
+  step: string,
+  error: { message: string },
+  meta: { userId: string; threadId: string | null },
+) {
+  console.error(
+    `[chat] ${step} persist failed`,
+    JSON.stringify({ step, ...meta, message: error.message }),
+  );
+}
+
 function timeLabel() {
   const { day, minutes } = nowInIST();
   return `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]} ${String(
@@ -162,22 +180,41 @@ export async function runChatTurn(
     threadId = created.id;
   }
 
-  // History (before this message) for the agent's context.
+  // History (before this message) for the agent's context. Picks ride along:
+  // without them the model has no memory of what it already recommended and
+  // keeps re-serving the same places (the "same answers again" complaint) -
+  // stored assistant content is only the short lead-in line.
   const { data: historyRows } = await supabase
     .from("chat_messages")
-    .select("role, content")
+    .select("role, content, picks")
     .eq("thread_id", threadId)
     .order("created_at", { ascending: false })
     .limit(HISTORY_LIMIT);
+  const shownEarlier = new Map<string, string>(); // slug -> name
   const history: AIMessage[] = (historyRows ?? [])
     .reverse()
-    .map((m) => ({ role: m.role, content: m.content }));
+    .map((m) => {
+      const picks = parseHistoryPicks(m.picks);
+      for (const p of picks) shownEarlier.set(p.slug, p.name);
+      // Inline the cards the user actually saw with that message, so the
+      // transcript the model reads matches the conversation the user had.
+      const content =
+        picks.length > 0
+          ? `${m.content}\n[recommended: ${picks
+              .map((p) => `${p.name} (${p.slug})`)
+              .join(", ")}]`
+          : m.content;
+      return { role: m.role, content };
+    });
 
-  await supabase.from("chat_messages").insert({
+  const { error: userMsgError } = await supabase.from("chat_messages").insert({
     thread_id: threadId,
     role: "user",
     content: input.message,
   });
+  if (userMsgError) {
+    logPersistFailure("user_message", userMsgError, { userId, threadId });
+  }
 
   // Taste + learned behaviour (consent-gated) for the behaviour tool.
   const { data: tasteRow } = personalize
@@ -197,6 +234,7 @@ export async function runChatTurn(
     tasteEmbedding: personalize ? parseStoredEmbedding(tasteRow?.embedding) : null,
     tasteSummary: tasteRow?.taste_summary ?? null,
     learnedSignals: tasteRow?.learned_signals ?? null,
+    shownEarlier: new Set(shownEarlier.keys()),
   };
   const tools = buildChatTools(toolCtx, collector);
 
@@ -211,6 +249,7 @@ export async function runChatTurn(
         personalize,
         replyHint: detectRegister(input.message).replyHint,
         budgetRupees: extractRupees(input.message),
+        shownEarlier: [...shownEarlier.values()],
       }),
     },
     ...history,
@@ -260,11 +299,14 @@ export async function runChatTurn(
       text ||
       "Tell me a bit more - what are you in the mood for, and roughly where?";
     const isQuestion = reply.trimEnd().endsWith("?");
+    // A question spends clarify budget; a plain answer closes the ask cycle
+    // and resets it (mirrors the picks path below), so the cap governs one
+    // ask's back-and-forth rather than the whole thread forever.
     const nextState: Json = {
       ...intentState,
-      questions_asked: intentState.questions_asked + (isQuestion ? 1 : 0),
+      questions_asked: isQuestion ? intentState.questions_asked + 1 : 0,
     };
-    await Promise.all([
+    const [{ error: replyError }] = await Promise.all([
       supabase.from("chat_messages").insert({
         thread_id: threadId,
         role: "assistant",
@@ -276,6 +318,9 @@ export async function runChatTurn(
         .update({ intent_state: nextState, updated_at: new Date().toISOString() })
         .eq("id", threadId),
     ]);
+    if (replyError) {
+      logPersistFailure("assistant_message", replyError, { userId, threadId });
+    }
     const askResult: ChatTurnResult = {
       type: "ask",
       threadId,
@@ -330,11 +375,15 @@ export async function runChatTurn(
         ? "Here's what a quick search turns up:"
         : "Here's what fits best right now:");
 
+  // An answer was served, so this ask cycle is over - reset the clarify
+  // budget. Left uncapped-and-unreset, two early questions would jam the
+  // guard for the life of the thread and the agent could never clarify a
+  // later plan-shaped ask.
   const nextState: Json = {
     ...intentState,
-    questions_asked: intentState.questions_asked,
+    questions_asked: 0,
   };
-  await Promise.all([
+  const [{ error: picksMsgError }] = await Promise.all([
     supabase.from("chat_messages").insert({
       thread_id: threadId,
       role: "assistant",
@@ -367,6 +416,9 @@ export async function runChatTurn(
       }),
     }),
   ]);
+  if (picksMsgError) {
+    logPersistFailure("assistant_message", picksMsgError, { userId, threadId });
+  }
 
   const result: ChatTurnResult = {
     type: "picks",
@@ -379,6 +431,23 @@ export async function runChatTurn(
   if (collector.marketRunId) result.marketRunId = collector.marketRunId;
   if (degraded) result.degraded = true;
   return result;
+}
+
+const HistoryPickSchema = z.object({ slug: z.string(), name: z.string() });
+
+/**
+ * Picks persisted on a past assistant message, parsed defensively: the column
+ * is plain Json and rows predate several shape changes, so anything malformed
+ * degrades to "no picks" rather than sinking the turn.
+ */
+function parseHistoryPicks(raw: Json | null): Array<{ slug: string; name: string }> {
+  if (!Array.isArray(raw)) return [];
+  const picks: Array<{ slug: string; name: string }> = [];
+  for (const entry of raw) {
+    const parsed = HistoryPickSchema.safeParse(entry);
+    if (parsed.success) picks.push(parsed.data);
+  }
+  return picks;
 }
 
 /**

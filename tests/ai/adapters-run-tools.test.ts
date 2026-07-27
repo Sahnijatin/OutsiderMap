@@ -255,6 +255,80 @@ describe("runTools streaming (onText / onStep)", () => {
     expect(anthropicCreate).not.toHaveBeenCalled(); // streamed, not the create path
   });
 
+  it("anthropic retries a transient stream failure that happens before any delta", async () => {
+    // Attempt 1 dies at connection time (overloaded, nothing streamed);
+    // attempt 2 succeeds. The user sees one clean answer instead of a dead turn.
+    anthropicStream
+      .mockReturnValueOnce({
+        on() {},
+        finalMessage: () => Promise.reject({ status: 529, message: "overloaded" }),
+      })
+      .mockReturnValueOnce(
+        fakeAnthropicStream(["Try ", "Ippudo."], {
+          content: [{ type: "text", text: "Try Ippudo." }],
+          usage: { input_tokens: 6, output_tokens: 3 },
+          stop_reason: "end_turn",
+        }),
+      );
+
+    const deltas: string[] = [];
+    const provider = createAnthropicProvider();
+    const result = await provider.runTools({
+      messages: [{ role: "user", content: "ramen?" }],
+      tools: [searchTool(() => "r")],
+      onText: (d) => deltas.push(d),
+    });
+
+    expect(result.text).toBe("Try Ippudo.");
+    expect(deltas).toEqual(["Try ", "Ippudo."]); // no duplicated text
+    expect(anthropicStream).toHaveBeenCalledTimes(2);
+  });
+
+  it("anthropic does NOT retry once deltas have reached the client", async () => {
+    // A replay after text is on the wire would duplicate what the user read.
+    anthropicStream.mockReturnValue(
+      {
+        on(event: string, cb: (delta: string) => void) {
+          if (event === "text") cb("Try ");
+        },
+        finalMessage: () => Promise.reject({ status: 529, message: "overloaded" }),
+      },
+    );
+
+    const provider = createAnthropicProvider();
+    await expect(
+      provider.runTools({
+        messages: [{ role: "user", content: "ramen?" }],
+        tools: [searchTool(() => "r")],
+        onText: () => {},
+      }),
+    ).rejects.toMatchObject({ status: 529 });
+    expect(anthropicStream).toHaveBeenCalledTimes(1);
+  });
+
+  it("openai retries a transient stream failure that happens before any delta", async () => {
+    openaiCreate
+      .mockRejectedValueOnce({ status: 503, message: "service unavailable" })
+      .mockReturnValueOnce(
+        asChunks([
+          { choices: [{ delta: { content: "Try Ippudo." } }] },
+          { choices: [{ delta: {} }], usage: { prompt_tokens: 6, completion_tokens: 3 } },
+        ]),
+      );
+
+    const deltas: string[] = [];
+    const provider = createOpenAIProvider();
+    const result = await provider.runTools({
+      messages: [{ role: "user", content: "ramen?" }],
+      tools: [searchTool(() => "r")],
+      onText: (d) => deltas.push(d),
+    });
+
+    expect(result.text).toBe("Try Ippudo.");
+    expect(deltas).toEqual(["Try Ippudo."]);
+    expect(openaiCreate).toHaveBeenCalledTimes(2);
+  });
+
   it("openai streams content deltas and assembles streamed tool calls", async () => {
     openaiCreate
       .mockReturnValueOnce(

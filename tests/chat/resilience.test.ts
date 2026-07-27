@@ -63,6 +63,38 @@ describe("withRetry", () => {
     expect(calls).toBe(1);
   });
 
+  it("stops retrying once retryIf says a retry is no longer safe", async () => {
+    // Models the streamed-call case: after the first delta reaches the client
+    // a replay would duplicate text, so the caller closes the retry door.
+    let calls = 0;
+    let emitted = false;
+    await expect(
+      withRetry(
+        async () => {
+          calls += 1;
+          emitted = true; // "a delta reached the client" during this attempt
+          throw { status: 529 };
+        },
+        { baseDelayMs: 1, maxDelayMs: 2, retryIf: () => !emitted },
+      ),
+    ).rejects.toMatchObject({ status: 529 });
+    expect(calls).toBe(1);
+  });
+
+  it("keeps retrying while retryIf allows it", async () => {
+    let calls = 0;
+    const result = await withRetry(
+      async () => {
+        calls += 1;
+        if (calls < 2) throw { status: 503 };
+        return "ok";
+      },
+      { baseDelayMs: 1, maxDelayMs: 2, retryIf: () => true },
+    );
+    expect(result).toBe("ok");
+    expect(calls).toBe(2);
+  });
+
   it("gives up after exhausting the retry budget", async () => {
     let calls = 0;
     await expect(

@@ -200,6 +200,13 @@ export function ChatThread({
           }
         }
       }
+      if (!finished) {
+        // The stream ended without a `done`/`error` frame - the connection
+        // dropped mid-turn. Without this, the half-written bubble just sits
+        // there looking frozen; treat it like any other failure so the user
+        // gets the retry button.
+        throw new Error("stream ended before completion");
+      }
     } catch {
       setFailedText(message);
       const fallback = "Lost my train of thought - that one didn't go through.";

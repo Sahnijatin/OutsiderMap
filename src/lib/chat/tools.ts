@@ -47,6 +47,13 @@ export interface ChatToolContext {
   tasteEmbedding: number[] | null;
   tasteSummary: string | null;
   learnedSignals: Json | null;
+  /**
+   * Slugs already recommended earlier in this thread. Search results carry an
+   * `already_shown` flag for these so the agent stops re-serving the same
+   * places. Optional so existing call sites/tests keep working; missing means
+   * "nothing shown yet".
+   */
+  shownEarlier?: Set<string>;
 }
 
 /** A place a search surfaced, kept for grounding and final rendering. */
@@ -94,7 +101,7 @@ export class ChatToolCollector {
   }
 }
 
-function compactCandidate(c: CatalogCandidate) {
+function compactCandidate(c: CatalogCandidate, shownEarlier?: Set<string>) {
   return {
     slug: c.slug,
     name: c.name,
@@ -105,6 +112,13 @@ function compactCandidate(c: CatalogCandidate) {
     about: c.description,
     editor_note: c.editor_note,
     open: c.open === null ? "unknown" : c.open,
+    // Blended relevance (the ask + this user's taste profile) from retrieval,
+    // 0-1. Zero means keyword fallback ran and there is no semantic signal -
+    // omit rather than imply "no fit".
+    ...(c.similarity > 0 ? { fit: Math.round(c.similarity * 100) / 100 } : {}),
+    // Flag repeats instead of hiding them: the user may be asking about a
+    // known place again, and only the agent can tell that apart from a rut.
+    ...(shownEarlier?.has(c.slug) ? { already_shown: true } : {}),
   };
 }
 
@@ -189,7 +203,9 @@ export function buildChatTools(
       if (pool.length === 0) {
         return "No catalog places match that. Tell the user honestly; do not invent places.";
       }
-      return JSON.stringify(pool.map(compactCandidate));
+      return JSON.stringify(
+        pool.map((c) => compactCandidate(c, ctx.shownEarlier)),
+      );
     },
   });
 

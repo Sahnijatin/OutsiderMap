@@ -1,0 +1,64 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
+import { agentSystem } from "@/lib/chat/prompts";
+
+const BASE = {
+  cityName: "Delhi",
+  areas: ["GK", "Hauz Khas"],
+  timeLabel: "Fri 21:30 IST",
+  questionsAsked: 0,
+  personalize: true,
+};
+
+describe("agentSystem", () => {
+  it("requires understanding before building a plan or market run", () => {
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain("understand first, plan second");
+    expect(prompt).toContain("do NOT build a plan on guesses");
+    // ...but never interrogates: one round max, and "just plan it" short-circuits.
+    expect(prompt).toContain("Never ask a second round for the same plan");
+    expect(prompt).toContain("surprise me");
+  });
+
+  it("lists prior recommendations so the model stops repeating itself", () => {
+    const prompt = agentSystem({
+      ...BASE,
+      shownEarlier: ["Cafe Lota", "Spot One"],
+    });
+    expect(prompt).toContain(
+      "Already recommended in this thread: Cafe Lota, Spot One",
+    );
+    expect(prompt).toContain("already_shown");
+  });
+
+  it("omits the repeat roster on a fresh thread but keeps the rule", () => {
+    const prompt = agentSystem(BASE);
+    expect(prompt).not.toContain("Already recommended in this thread");
+    expect(prompt).toContain("No repeats");
+  });
+
+  it("asks for best-first ordering weighted by fit + taste + the ask", () => {
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain("best-first");
+    expect(prompt).toContain("fit score");
+    // The ask must outrank the standing taste profile.
+    expect(prompt).toContain("the ask itself always outranks general taste");
+  });
+
+  it("bans assistant-ese so replies read human", () => {
+    const prompt = agentSystem(BASE);
+    for (const banned of ["hidden gem", "Great choice", "travel brochure"]) {
+      expect(prompt).toContain(banned);
+    }
+    expect(prompt).toContain("Don't reuse the same opener");
+  });
+
+  it("hard-stops questions at the cap but invites one good one under it", () => {
+    expect(agentSystem({ ...BASE, questionsAsked: 2 })).toContain("Do NOT ask another");
+    expect(agentSystem({ ...BASE, questionsAsked: 0 })).toContain(
+      "One good question beats a wrong guess",
+    );
+  });
+});

@@ -90,7 +90,20 @@ export function ChatShell({ displayName }: { displayName: string | null }) {
       setChatKey((k) => k + 1);
       setHistoryOpen(false);
     } catch {
-      // Leave the current pane alone; the row simply stops spinning.
+      // Say so in the pane rather than silently doing nothing - an
+      // unexplained empty pane reads as "my conversation was never saved".
+      setActiveId(id);
+      setInitialMessages([
+        {
+          id: "load-error",
+          role: "assistant",
+          content:
+            "Couldn't load this conversation just now - give it another tap.",
+          tone: "error",
+        },
+      ]);
+      setChatKey((k) => k + 1);
+      setHistoryOpen(false);
     } finally {
       setLoadingId(null);
     }
