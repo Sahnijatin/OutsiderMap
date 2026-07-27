@@ -41,6 +41,17 @@ export function memoryRateLimit(
   nowMs: number = Date.now(),
 ): boolean {
   const cutoff = nowMs - windowSeconds * 1000;
+  // Opportunistic sweep: every call prunes a handful of other keys whose
+  // windows fully drained, so idle keys can't accumulate on long-lived hosts.
+  let swept = 0;
+  for (const [k, hits] of memoryHits) {
+    if (swept >= 8) break;
+    swept += 1;
+    if (k === key) continue;
+    if (hits.length === 0 || hits[hits.length - 1] <= cutoff) {
+      memoryHits.delete(k);
+    }
+  }
   const live = (memoryHits.get(key) ?? []).filter((t) => t > cutoff);
   if (live.length >= limit) {
     memoryHits.set(key, live);

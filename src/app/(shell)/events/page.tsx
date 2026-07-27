@@ -38,7 +38,7 @@ export default async function EventsPage() {
     <Screen className="flex flex-col gap-10">
       <PageHeader
         eyebrow={`Events · ${city.name}`}
-        title="What&rsquo;s actually on."
+        title={"What\u2019s actually on."}
       />
 
       {visibleCount === 0 && (

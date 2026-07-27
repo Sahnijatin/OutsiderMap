@@ -696,6 +696,7 @@ export type Database = {
           thread_id: string;
           role: "user" | "assistant";
           content: string;
+          degraded: boolean;
           picks: Json | null;
           created_at: string;
         };
@@ -704,6 +705,7 @@ export type Database = {
           thread_id: string;
           role: "user" | "assistant";
           content: string;
+          degraded?: boolean;
           picks?: Json | null;
           created_at?: string;
         };
@@ -712,6 +714,7 @@ export type Database = {
           thread_id?: string;
           role?: "user" | "assistant";
           content?: string;
+          degraded?: boolean;
           picks?: Json | null;
           created_at?: string;
         };

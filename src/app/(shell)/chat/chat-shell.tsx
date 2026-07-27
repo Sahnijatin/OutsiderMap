@@ -74,6 +74,7 @@ export function ChatShell({ displayName }: { displayName: string | null }) {
           role: "user" | "assistant";
           content: string;
           picks: Message["picks"];
+          degraded?: boolean;
         }>;
       };
       setActiveId(id);
@@ -83,6 +84,7 @@ export function ChatShell({ displayName }: { displayName: string | null }) {
           role: m.role,
           content: m.content,
           picks: m.picks,
+          degraded: m.degraded,
         })),
       );
       setChatKey((k) => k + 1);

@@ -81,6 +81,8 @@ export function LocationPicker({
   });
 
   const [query, setQuery] = useState(value?.label ?? "");
+
+  const selectedTextRef = useRef<string | null>(null);
   const [results, setResults] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
 
@@ -148,9 +150,11 @@ export function LocationPicker({
   }, []);
 
   // Debounced Nominatim search, biased to India like the catalog. State is
-  // only set inside the async timeout.
+  // only set inside the async timeout. A programmatic setQuery from select()
+  // must not re-run the search and pop the dropdown back open.
   useEffect(() => {
     if (query.trim().length < 3) return;
+    if (query === selectedTextRef.current) return;
     const controller = new AbortController();
     const id = setTimeout(async () => {
       try {
@@ -185,6 +189,7 @@ export function LocationPicker({
   }, [query]);
 
   function select(s: Suggestion) {
+    selectedTextRef.current = s.text;
     setQuery(s.text);
     setOpen(false);
     placeMarker(s.lat, s.lng);

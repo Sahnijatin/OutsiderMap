@@ -13,14 +13,13 @@ Set in Vercel → Project → Settings → Environment Variables (Production).
 | Variable | Without it |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Nothing works. Required. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Crons, reel renders, ingest, account deletion all fail. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Crons, ingest, account deletion all fail. |
 | `OPENAI_API_KEY` | Embeddings die: chat, quest generation, Right Now, seeding. Needed even with `AI_PROVIDER=anthropic`. |
 | `ANTHROPIC_API_KEY` | Chat + quest generation fail (default provider). |
-| `CRON_SECRET` | Reels never render, ingest never processes, nightly learning recompute never runs. Any long random string; must match nothing else. |
-| `NEXT_PUBLIC_APP_URL` | Instant reel kickoff after quest completion is skipped (daily cron still catches up). Set to `https://www.outsidermap.com`. |
+| `CRON_SECRET` | Ingest never processes, the embed sweep and nightly learning recompute never run. Any long random string; must match nothing else. |
+| `NEXT_PUBLIC_APP_URL` | Absolute links in email and share flows break. Set to `https://www.outsidermap.com`. |
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Rate limiting silently off (fails open). |
 | `RESEND_API_KEY` / `RESEND_FROM` / `RESEND_ADMIN_EMAIL` | Transactional email silently skipped. |
-| `TURNSTILE_SECRET_KEY` + `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | /join captcha off (flow is dormant anyway). |
 | `AI_MODEL` / `AI_FAST_MODEL` | Optional overrides; sensible defaults per provider. |
 
 After changing env vars, **redeploy** (Vercel → Deployments → Redeploy) -
@@ -68,7 +67,7 @@ Notes:
 ## 4. Storage buckets
 
 Created by migrations (not by the seeder): `place-images` (public),
-`experience-media` (public), `quest-media` (private), `reel-media` (public),
+`experience-media` (public), `quest-media` (private), `reel-media` (public, legacy renders only),
 `member-vetting` (private, dormant). A fresh Supabase project gets them by
 running the migrations; nothing manual needed. If media 404s, check
 Storage → the bucket exists and is public/private as listed.
@@ -79,15 +78,15 @@ No seed file exists. Events enter through **/admin/events/new**: title,
 venue, area, start time (IST), underground flag, publish. Published events
 are visible to every member.
 
-## 6. Reels feed content (cold start)
+## 6. Feed content (cold start)
 
-Until members complete quests: **/admin/reels → Upload curated reel**
-(added in the content-ops PR) or complete a quest yourself and approve the
-result in the same desk.
+Until members post: seed the feed by completing a quest or two on the
+founder account and posting the captures via /compose. The reel render
+pipeline was retired; video posts upload like any other post media.
 
 ## 7. Routine checks
 
-- **/admin/diagnostics**: env all "set", places > 0, reel jobs not stuck.
+- **/admin/diagnostics**: env all "set", places > 0, ingest not stuck.
 - `curl https://www.outsidermap.com/api/health` → `{status, commit}` -
   confirms which build is live.
 - Vercel → Crons: two entries, both green on last run.

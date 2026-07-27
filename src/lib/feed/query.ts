@@ -15,7 +15,7 @@ import {
  * RLS-scoped Supabase client, so visibility (can_view_post) is enforced the
  * same way on every path.
  *
- *  - home: reverse-chronological posts from people you follow + friends (+ you)
+ *  - home: reverse-chronological posts from people you follow (+ you)
  *  - discover: public approved posts, re-ranked by a light Discover score
  *
  * Keyset-paginated by created_at. The cursor is derived from DB order (the

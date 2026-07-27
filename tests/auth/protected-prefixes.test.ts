@@ -18,11 +18,15 @@ const MEMBER_SURFACES = [
   "/compose",
   "/market-run",
   "/welcome",
-  "/card",
   "/admin",
 ];
 
 const RETIRED = ["/onboarding", "/submit", "/reels", "/join", "/thank-you"];
+
+// Anon-viewable by design: the shared taste card is the invite loop's landing
+// page and its opengraph-image is fetched by link scrapers - it must never
+// sit behind the auth wall.
+const PUBLIC_SURFACES = ["/card", "/place", "/privacy", "/terms"];
 
 describe("PROTECTED_PREFIXES", () => {
   it("covers every member surface", () => {
@@ -36,6 +40,14 @@ describe("PROTECTED_PREFIXES", () => {
   it("contains no retired routes", () => {
     for (const prefix of RETIRED) {
       expect(PROTECTED_PREFIXES, `${prefix} is retired`).not.toContain(prefix);
+    }
+  });
+
+  it("never walls off the public share surfaces", () => {
+    for (const prefix of PUBLIC_SURFACES) {
+      expect(PROTECTED_PREFIXES, `${prefix} must stay public`).not.toContain(
+        prefix,
+      );
     }
   });
 

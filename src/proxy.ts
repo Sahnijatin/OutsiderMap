@@ -29,7 +29,6 @@ export const PROTECTED_PREFIXES = [
   "/compose",
   "/market-run",
   "/welcome",
-  "/card",
 ];
 
 function isProtected(pathname: string) {

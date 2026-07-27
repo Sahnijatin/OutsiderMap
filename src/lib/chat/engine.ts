@@ -269,6 +269,7 @@ export async function runChatTurn(
         thread_id: threadId,
         role: "assistant",
         content: reply,
+        degraded,
       }),
       supabase
         .from("chat_threads")
@@ -339,6 +340,7 @@ export async function runChatTurn(
       role: "assistant",
       content: leadIn,
       picks: picks as unknown as Json,
+      degraded,
     }),
     supabase
       .from("chat_threads")
