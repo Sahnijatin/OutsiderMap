@@ -7,8 +7,8 @@
 > **Vision:** `OutsiderMap_Vision.docx` (curated *experiences*, proactive
 > suggestion, no chains, invite-only, in-app companion).
 >
-> _Last updated: 2026-07-02 · PRs #5/#17/#18/#20/#21/#22 merged; migrations
-> 0006/0007 live (migrate action green on the #17 merge)._
+> _Last updated: 2026-07-27 · launch-readiness pass landed (PR #173): see the
+> decision log and REVIEW.md._
 
 ---
 
@@ -96,11 +96,9 @@ an **ingestion + curation pipeline**. This is the single biggest gap between ide
 and product, and the gating constraint on retention.
 
 > **The shipped pipeline lives in the admin console** (`/admin/data` jobs +
-> `/admin/ingest` link inbox; `src/lib/admin/jobs.ts`). The original
-> DATA_PIPELINE.md design doc was superseded by that build and deleted —
-> schema (`source_records`, `ingest_candidates`), the connector contract, entity
-> resolution, the AI curation classifier, the publish gate, the crowdsource loop,
-> and a phased build plan.
+> `/admin/ingest` link inbox; `src/lib/admin/jobs.ts`, `enrich.ts`,
+> `embed-sweep.ts`). The original DATA_PIPELINE.md design doc described a
+> different, never-built schema and was deleted; git history has it.
 
 **Decision: we go all-in on coverage.** Aggregate from District, BookMyShow /
 Insider, Google, venue Instagrams, and everywhere else. Treat aggregated data as
@@ -260,10 +258,10 @@ exposed it over HTTP and built the app on top.
 | DB schema (migrations 0006/0007) | ✅ **applied to live DB** (migrate action ran green on the PR #17 merge); 0008 (push tables) merged — confirm the action ran |
 | Mobile app | ✅ Capacitor hybrid shell + native plugin seams (see `MOBILE_PLAN.md`); the old Expo app was deleted, ⏳ not run on a device |
 | Social auth (Apple + Google) | ✅ coded, ⏳ needs credentials + dev build |
-| Admin authoring + vetting UI | ✅ built (A1–A3, B1–B4); buckets exist (0006/0007 live), ⏳ untested at runtime |
+| Admin console | ✅ 14 desks incl. places triage (search/filters/pagination/bulk publish), scout desk with validator minting, data jobs, diagnostics; the vetting/waitlist desk was deleted with its funnel |
 | Catalog content (experiences + stories) | ✅ dataset ready (`data/experiences.delhi.json`, 12 + kinds/stories on all 110 places), ⏳ `npm run seed` not yet run against live DB |
 | CI (typecheck/lint/test/build) | ✅ `.github/workflows/ci.yml` + native build workflows (`android-build`, `android-release`, `ios-build-check`, `ios-testflight`) |
-| **Data-ingestion pipeline** | ❌ not built (Section 4) |
+| **Data-ingestion pipeline** | ✅ v1 shipped: Overture importer + link-inbox ingest, admin triage desk with bulk publish-with-embedding, daily embed sweep, scout submission loop with bootstrap; ⏳ scheduled re-extract still manual |
 | **Adventurousness dial / bandit** | ❌ not built (Section 5.3) |
 | **People & belonging ring** | ❌ not built (Section 2, ring 3) |
 | Store readiness | ⏳ in progress — icons/splash, entitlements, versionCode and privacy/terms handled in-repo; accounts + signing secrets still needed (MOBILE_PLAN.md §3) |
@@ -345,6 +343,7 @@ brand art. Baselines green: web `tsc`/`lint`/`build`, `mobile tsc`.
 | 2026-06-28 | **AI/ML sequencing:** LLM-as-ranker now; behavior-aware LTR/CF only after interaction volume; add a contextual bandit for the adventurousness/novelty dial; people-matching reuses the place embedding. |
 | 2026-06-28 | **North-star metric = Confident Answer Accept Rate + Stretch Success Rate**, not DAU. |
 | 2026-06-28 | **Invite-only is a growth mechanic** — N invites/member, referral/taste-lineage graph from day one. |
+| 2026-07-27 | **Launch-readiness pass** (PR #173): premium tier removed (monetize the transaction, never the answer); reel pipeline, waitlist funnel, and friends graph deleted; security hardening (IDOR, evidence paths, fail-open limits); supply last mile (triage desk, embed-on-publish, scout genesis grant); UI foundation (elevation palette, Screen/Sheet primitives, skeletons, server feed, next/image); sound + feel settings; one honest recommendation brain; one map library (Leaflet). See REVIEW.md for the audit that drove it. |
 | 2026-07-02 | **Merge train:** production pass (#22), seed dataset (#18), admin authoring + vetting + autonomous steps (#20), brand book (#5), vendored skills (#21), this plan (#19). Expo SDK 52→57 upgrade deliberately deferred until device testing. |
 
 ---

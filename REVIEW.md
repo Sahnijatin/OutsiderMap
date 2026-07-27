@@ -1,5 +1,23 @@
 # OutsiderMap — Full Project Review (2026-07-26)
 
+> **Execution status (2026-07-27).** The engineering plan below was executed
+> on this branch in ten commits following this document:
+> §1 security items 1-8 fixed (1.1/1.3 by validation + deletion; 1.2's
+> publishing side is fail-closed via the hold-everything image moderator —
+> the CSAM *scanner* still needs a vendor account); §2.1 premium removal
+> complete (migration 0044); §2.2 deletions complete (reels, waitlist,
+> Expo app, dead scripts/docs, friends→follows; migration 0045); §2.3
+> recommend-into-chat and Leaflet-only landed; quests↔market-runs and
+> events→places merges deliberately deferred (live-data refactors, low
+> urgency); §3 supply engine items 1-5, 8 (runner honesty) landed
+> (migration 0046) — scheduled Overture refresh (§3.7) and photo-vendor
+> unblock (§3.8) still open; §5 UI items all landed plus a sound/feel
+> layer; §6 mobile code gaps 1-6 landed — accounts, keys, and store
+> assets remain the founder's list (§6.7). §4 (merchant side, payout
+> rail, verified visits) remains the Month-2 build. Grievances stay
+> separate from reports for now (IT Act SLA machinery; fold later with
+> counsel input).
+
 > Line-by-line review of the working tree at `ffcb65a` on
 > `claude/travel-app-review-h4w49o` (~170 commits ahead of stale `main`).
 > Five parallel deep audits: data/supply side, monetization, web core + all 53
@@ -443,3 +461,47 @@ config, plugin seams, all 7 workflows, store checklists); frontend (contrast
 math on the token palette, container/typography drift counts, a11y,
 bundle/perf). Plus clean-checkout `npm install → tsc → eslint → vitest →
 next build` (all green except the build failure in §1.6).
+
+---
+
+## Appendix B — Strategy addendum (what the codebase cannot fix)
+
+Recorded from the post-review strategy discussion; none of this is code.
+
+1. **"Travelers earn money" needs a funder.** Before merchants fund rewards,
+   every rupee paid to scouts is venture money buying data - fine if
+   deliberate, with a budget and a fraud ceiling. Sequence: status first
+   (badges, leaderboard, IRL perks at partner spots), cash last, and the
+   first *transaction* primitive should be a **booking** for a limited-seat
+   experience - it creates the verified visit, the merchant ROI proof, and a
+   take-rate in one stroke. Points-first also defers TDS/KYC/entity work.
+2. **Demand is the bigger blind spot than supply.** No acquisition loop
+   exists. Cheapest four: the catalog itself as weekly Instagram content
+   ("7 places in Hauz Khas that aren't on Google"); public, OG-rich place
+   pages as SEO surface; QR table-tents at the first 50 hidden spots (zero
+   CAC, opens the merchant conversation); and WhatsApp - a bot that answers
+   "it's 11pm, I'm in GK2, surprise me" may onboard more of Delhi than any
+   app-store listing. The weekly one-place drop belongs on WhatsApp, not push.
+3. **The 3am promise is a physical-world liability.** One wrong answer at
+   3am (closed shutter, dark lane) costs the user and the story they tell.
+   Opening-hours freshness needs to be a first-class concept ("verified this
+   week" - a perfect scout bounty type), and a **safety lens** (lighting,
+   crowd type, women-recommended signal from scouts, share-my-plan) should
+   sit *inside the ranking*, not in a settings toggle. Incumbents
+   structurally will not do this at this granularity.
+4. **An AI product needs evals.** Build a ~50-case golden set (persona ×
+   ask × time → acceptable places) and run it in CI like unit tests, so a
+   prompt tweak or model swap cannot silently change the core product.
+   Hinglish asks ("koi sasta jagah chill karne ke liye") belong in that set.
+5. **Close the loop nobody closes.** A next-morning "did you go? how was
+   it?" nudge is simultaneously the north-star metric (Confident Answer
+   Accept Rate - defined in the docs, measured nowhere), the training
+   signal, the retention touchpoint, and verified-visits v0.
+6. **Ring 3 needs no software.** One curated table of six at a hidden spot,
+   hosted by the founder, is: an experience sold, a merchant relationship,
+   six loyal users, and the week's content. Timeleft proves the demand with
+   zero taste-matching; the taste graph is the better matcher later.
+7. **Do things that don't scale, in this order:** debug APK on the
+   founder's phone this week; twenty personally-onboarded users this month;
+   the admin desks used daily from a phone in the field; one neighborhood
+   made dense before 68 areas made wide.
