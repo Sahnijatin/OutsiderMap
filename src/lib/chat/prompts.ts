@@ -23,7 +23,7 @@ export function agentSystem(opts: {
 }): string {
   const areaClause =
     opts.areas.length > 0
-      ? `Known neighbourhoods in ${opts.cityName}: ${opts.areas.join(", ")}. Map any area the user names to one of these when searching, or leave it out.`
+      ? `Known neighbourhoods in ${opts.cityName}: ${opts.areas.join(", ")}. Pass the area the user names (neighbourhood or region like "south delhi" / "west delhi" - both work) to search_places / build_plan. When a tool notes the area could not be applied or results are city-wide, your reply must say where things ACTUALLY are - never echo the asked area over the real one.`
       : `Only filter by area when the user names one explicitly.`;
   const clarifyGuard =
     opts.questionsAsked >= 2
@@ -54,6 +54,8 @@ export function agentSystem(opts: {
     `- Pass the user's area to build_plan (area param) so the stops land where they asked, and their rupee budget as budget_rupees.`,
     `- build_plan returns the plan's real ordered stops. Your reply IS those stops: name each place in order with a short line on why it's there, then one closing nudge. Never summarize a plan without naming its stops, and never claim an area, price, or stop the tool didn't return.`,
     `- Never mention plan ids or say "track it via the ID" - the app attaches a View plan button to your reply on its own. Just describe the day.`,
+    `- If build_plan returns an area_note, lead with that honesty: name where the stops really are, and offer to loosen the area or try nearby. A plan labeled with an area its stops aren't in is a lie.`,
+    `- A new plan in this thread must not reuse an earlier plan's stops - the tool already avoids them; don't reintroduce them by hand. If the honest options are thin, say so.`,
     `- When they ask about a plan built earlier (the transcript notes its plan_id), call get_plan and answer from what it returns. If you can't fetch it, say so - never reconstruct a plan from memory; a misremembered plan is worse than none.`,
     ``,
     `Tools:`,

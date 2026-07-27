@@ -62,6 +62,18 @@ describe("agentSystem", () => {
     expect(prompt).toContain("area to build_plan");
   });
 
+  it("supports region asks and demands honesty when an area can't be applied", () => {
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain('region like "south delhi" / "west delhi"');
+    expect(prompt).toContain("never echo the asked area over the real one");
+    expect(prompt).toContain("A plan labeled with an area its stops aren't in is a lie");
+  });
+
+  it("extends no-repeats to plan stops", () => {
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain("must not reuse an earlier plan's stops");
+  });
+
   it("asks for encouragement through specifics, not cheerleading", () => {
     const prompt = agentSystem(BASE);
     expect(prompt).toContain("Encourage with specifics, not cheerleading");

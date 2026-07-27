@@ -89,16 +89,20 @@ describe("buildChatTools", () => {
 });
 
 describe("build_plan grounding", () => {
+  const planResult = (over: Record<string, unknown> = {}) => ({
+    questId: "q-1",
+    title: "Slow Evening in GK",
+    stops: 2,
+    stopList: [
+      { slug: "pizza-place", name: "Pizza Place", area: "GK", note: "Wood-fired base" },
+      { slug: "dolce-bar", name: "Dolce Bar", area: "GK", note: "Tiramisu to finish" },
+    ],
+    areaOutcome: { requested: "GK", applied: "area", relaxed: false },
+    ...over,
+  });
+
   it("returns the plan's real stops and forbids id-talk, and passes the area through", async () => {
-    generateQuestMock.mockResolvedValueOnce({
-      questId: "q-1",
-      title: "Slow Evening in GK",
-      stops: 2,
-      stopList: [
-        { name: "Pizza Place", area: "GK", note: "Wood-fired base" },
-        { name: "Dolce Bar", area: "GK", note: "Tiramisu to finish" },
-      ],
-    });
+    generateQuestMock.mockResolvedValueOnce(planResult());
     const collector = new ChatToolCollector();
     const tools = buildChatTools(makeCtx(), collector);
     const out = String(
@@ -115,9 +119,48 @@ describe("build_plan grounding", () => {
     // ...but never the id; the app owns the View plan affordance.
     expect(out).not.toContain("q-1");
     expect(out).toContain("never mention a plan id");
+    // Honored area -> no honesty note needed.
+    expect(out).not.toContain("area_note");
     expect(collector.planId).toBe("q-1");
     // The stated area reached the planner instead of dying in prose.
     expect(generateQuestMock.mock.calls[0][2]).toMatchObject({ area: "GK" });
+  });
+
+  it("keeps this conversation's earlier places out of the next plan", async () => {
+    generateQuestMock.mockResolvedValueOnce(planResult());
+    const tools = buildChatTools(
+      makeCtx({ shownEarlier: new Set(["olive-bar", "cafe-turtle"]) }),
+      new ChatToolCollector(),
+    );
+    await byName(tools, "build_plan").handler({ brief: "pizza again" });
+    expect(generateQuestMock.mock.calls.at(-1)![2]).toMatchObject({
+      avoid_slugs: expect.arrayContaining(["olive-bar", "cafe-turtle"]),
+    });
+  });
+
+  it("forces honesty when the asked area could not be honored", async () => {
+    // The regression this pins: a "west delhi" ask filtered nothing, and the
+    // reply confidently sold Khan Market stops as a West Delhi evening.
+    generateQuestMock.mockResolvedValueOnce(
+      planResult({
+        areaOutcome: { requested: "west delhi", applied: "none", relaxed: false },
+        stopList: [
+          { slug: "cafe-turtle", name: "Cafe Turtle", area: "Khan Market", note: "n" },
+          { slug: "khan-chacha", name: "Khan Chacha", area: "Khan Market", note: "n" },
+        ],
+      }),
+    );
+    const tools = buildChatTools(makeCtx(), new ChatToolCollector());
+    const out = String(
+      await byName(tools, "build_plan").handler({
+        brief: "pizza and tiramisu",
+        area: "west delhi",
+      }),
+    );
+    expect(out).toContain("area_note");
+    expect(out).toContain('couldn\'t fill this plan in \\"west delhi\\"');
+    expect(out).toContain("Khan Market");
+    expect(out).toContain('never label the plan with \\"west delhi\\"');
   });
 
   it("degrades honestly when the planner fails", async () => {

@@ -63,6 +63,8 @@ function fakeSupabase(
     threadUpdates?: unknown[];
     /** Every chat_messages query resolves with this error (schema drift). */
     messageError?: string;
+    /** Rows the quest_stops lookup (prior plans' stops) returns. */
+    questStops?: unknown[];
   } = {},
 ) {
   const table = (
@@ -98,6 +100,9 @@ function fakeSupabase(
           undefined,
           opts.messageError ? { message: opts.messageError } : null,
         );
+      }
+      if (name === "quest_stops") {
+        return table(opts.questStops ?? null);
       }
       if (name === "places") {
         // The pick-assembly detail query (lat/lng + the static editor note).
@@ -262,6 +267,42 @@ describe("repeat suppression (thread memory)", () => {
       message: "more crispy",
     });
     expect(searchOut).toContain('"already_shown":true');
+  });
+
+  it("treats an earlier plan's stops as already recommended", async () => {
+    let systemPrompt = "";
+    let searchOut = "";
+    runToolsImpl = async ({ tools, messages }) => {
+      systemPrompt = messages.find((m) => m.role === "system")?.content ?? "";
+      searchOut = String(await find(tools, "search_places").handler({ query: "pizza" }));
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(
+      fakeSupabase({
+        chatMessages: [
+          { role: "assistant", content: "Plan built.", picks: null, plan_id: "q-77" },
+        ],
+        // The prior plan used spot-1 - the next turn must know that.
+        questStops: [{ places: { slug: "spot-1", name: "Spot One" } }],
+      }),
+      "u1",
+      { threadId: "3fa85f64-5717-4562-b3fc-2c963f66afa6", message: "another plan" },
+    );
+    expect(systemPrompt).toContain("Already recommended in this thread: Spot One");
+    expect(searchOut).toContain('"already_shown":true');
+  });
+
+  it("sanitizes markdown and em dashes out of the reply", async () => {
+    runToolsImpl = async () => ({
+      text: "Start at **Olive Bar**—the courtyard is the draw.",
+      usage: { inputTokens: 1, outputTokens: 1 },
+      steps: 1,
+      stoppedAtStepCap: false,
+    });
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    const result = await runChatTurn(fakeSupabase(), "u1", { message: "pizza" });
+    expect(result.text).toBe("Start at Olive Bar - the courtyard is the draw.");
   });
 
   it("notes a built plan's id in the transcript so later turns can get_plan it", async () => {
