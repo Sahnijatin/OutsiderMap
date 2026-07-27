@@ -162,8 +162,9 @@ export async function keywordSearch(
       .from("places")
       .select(KEYWORD_COLUMNS)
       .eq("city", opts.city.slug)
-      // Product law: chains never surface - including on this degraded
-      // fallback path (match_places applies the same filter).
+      // Product law: only published, non-chain places surface - including on
+      // this degraded fallback path (match_places applies the same filters).
+      .eq("is_published", true)
       .eq("is_chain", false);
     if (opts.budgetMax != null) q = q.lte("price_level", opts.budgetMax);
     return q;

@@ -95,7 +95,9 @@ describe("runMapSearch", () => {
     runToolsImpl = async ({ tools }: RunToolsRequest) => {
       const find = (n: string) => tools.find((t: AITool) => t.name === n)!;
       await find("search_places").handler({ query: "rooftop" });
-      await find("show_on_map").handler({ slugs: ["spot-1"] });
+      await find("show_on_map").handler({
+        picks: [{ slug: "spot-1", reason: "Open-air, right hour" }],
+      });
       return { text: "Rooftops.", usage: { inputTokens: 1, outputTokens: 1 }, steps: 2, stoppedAtStepCap: false };
     };
     const { runMapSearch } = await import("@/lib/chat/map-search");

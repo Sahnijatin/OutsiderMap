@@ -27,7 +27,7 @@ vi.mock("@/lib/catalog/search", async (importOriginal) => {
     price_level: null,
     vibe_tags: [],
     description: null,
-    editor_note: null,
+    editor_note: "A classic editor blurb",
     similarity: 0.9,
     hours: null,
     image_path: null,
@@ -73,6 +73,12 @@ function fakeSupabase() {
         return table({ personalization_enabled: true, home_city: "delhi" });
       }
       if (name === "chat_threads") return table({ id: "t-1" });
+      if (name === "places") {
+        // The pick-assembly detail query (lat/lng + the static editor note).
+        return table([
+          { slug: "spot-1", lat: 28.5, lng: 77.1, editor_note: "A classic editor blurb" },
+        ]);
+      }
       return table(null);
     },
     // No active experiments in tests → serve path uses default behavior.
@@ -91,7 +97,9 @@ describe("runChatTurn agent loop", () => {
   it("renders the places the agent chose to show_on_map", async () => {
     runToolsImpl = async ({ tools }) => {
       await find(tools, "search_places").handler({ query: "crispy" });
-      await find(tools, "show_on_map").handler({ slugs: ["spot-1"] });
+      await find(tools, "show_on_map").handler({
+        picks: [{ slug: "spot-1", reason: "Crispy at this hour" }],
+      });
       return { text: "Try Spot One.", usage: { inputTokens: 1, outputTokens: 1 }, steps: 2, stoppedAtStepCap: false };
     };
     const { runChatTurn } = await import("@/lib/chat/engine");
@@ -106,7 +114,9 @@ describe("runChatTurn agent loop", () => {
   it("does not render places the agent never surfaced (grounding)", async () => {
     runToolsImpl = async ({ tools }) => {
       // Skip search; try to show a place that was never surfaced.
-      await find(tools, "show_on_map").handler({ slugs: ["hallucinated"] });
+      await find(tools, "show_on_map").handler({
+        picks: [{ slug: "hallucinated", reason: "made up" }],
+      });
       return { text: "Here.", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
     };
     const { runChatTurn } = await import("@/lib/chat/engine");
@@ -135,5 +145,77 @@ describe("runChatTurn agent loop", () => {
     expect(result.type).toBe("picks");
     if (result.type !== "picks") throw new Error("expected picks");
     expect(result.picks.map((p) => p.slug)).toEqual(["spot-1"]);
+  });
+});
+
+describe("honest pick reasons", () => {
+  it("uses the model's per-pick reason, not the editor note", async () => {
+    runToolsImpl = async ({ tools }) => {
+      await find(tools, "search_places").handler({ query: "quiet" });
+      await find(tools, "show_on_map").handler({
+        picks: [
+          {
+            slug: "spot-1",
+            reason: "You asked for quiet - the back room stays empty past nine",
+          },
+        ],
+      });
+      return { text: "Spot One.", usage: { inputTokens: 1, outputTokens: 1 }, steps: 2, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    const result = await runChatTurn(fakeSupabase(), "u1", { message: "quiet please" });
+
+    expect(result.type).toBe("picks");
+    if (result.type !== "picks") throw new Error("expected picks");
+    expect(result.picks[0].reason).toBe(
+      "You asked for quiet - the back room stays empty past nine",
+    );
+    expect(result.picks[0].reason).not.toBe("A classic editor blurb");
+    expect(result.picks[0].reasonSource).toBe("model");
+    expect(result.degraded).toBeUndefined();
+  });
+
+  it("falls back to the editor note ONLY when the model omits a reason, and marks it", async () => {
+    runToolsImpl = async ({ tools }) => {
+      await find(tools, "search_places").handler({ query: "quiet" });
+      await find(tools, "show_on_map").handler({ picks: [{ slug: "spot-1" }] });
+      return { text: "Spot One.", usage: { inputTokens: 1, outputTokens: 1 }, steps: 2, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    const result = await runChatTurn(fakeSupabase(), "u1", { message: "quiet please" });
+
+    expect(result.type).toBe("picks");
+    if (result.type !== "picks") throw new Error("expected picks");
+    expect(result.picks[0].reason).toBe("A classic editor blurb");
+    expect(result.picks[0].reasonSource).toBe("editor_note");
+  });
+});
+
+describe("honest degradation", () => {
+  it("flags the keyword fallback as degraded and never fakes personalization", async () => {
+    runToolsImpl = () => Promise.reject(new Error("provider down"));
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    const result = await runChatTurn(fakeSupabase(), "u1", { message: "anything good" });
+
+    expect(result.type).toBe("picks");
+    if (result.type !== "picks") throw new Error("expected picks");
+    expect(result.degraded).toBe(true);
+    // Fallback picks carry the static note, marked as such - no fake "for you".
+    expect(result.picks[0].reasonSource).toBe("editor_note");
+    // The lead-in must not claim a personalized fit.
+    expect(result.text).not.toBe("Here's what fits best right now:");
+  });
+
+  it("does not flag a healthy turn as degraded", async () => {
+    runToolsImpl = async ({ tools }) => {
+      await find(tools, "search_places").handler({ query: "crispy" });
+      await find(tools, "show_on_map").handler({
+        picks: [{ slug: "spot-1", reason: "Crispy at this hour" }],
+      });
+      return { text: "Try Spot One.", usage: { inputTokens: 1, outputTokens: 1 }, steps: 2, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    const result = await runChatTurn(fakeSupabase(), "u1", { message: "crispy" });
+    expect(result.degraded).toBeUndefined();
   });
 });

@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const pick = await firstTasteAnswer(ctx.supabase, ctx.user.id);
+  const { pick, degraded } = await firstTasteAnswer(ctx.supabase, ctx.user.id);
   const answerId = newAnswerId();
 
   after(async () => {
@@ -49,6 +49,9 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     answerId,
+    // Honesty flag: the AI pipeline was down and this pick is a keyword
+    // fallback, not read from their taste - the reveal must not claim it was.
+    degraded,
     pick: pick
       ? {
           id: pick.place.id,

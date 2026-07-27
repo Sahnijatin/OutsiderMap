@@ -87,7 +87,13 @@ describe("show_on_map grounding", () => {
     const tools = buildChatTools(makeCtx(), collector);
     const show = byName(tools, "show_on_map");
 
-    const out = await show.handler({ slugs: ["cafe-lota", "made-up", "cafe-lota"] });
+    const out = await show.handler({
+      picks: [
+        { slug: "cafe-lota", reason: "Quiet enough to read in" },
+        { slug: "made-up", reason: "Invented" },
+        { slug: "cafe-lota", reason: "Quiet enough to read in" },
+      ],
+    });
     expect(collector.shown).toEqual(["cafe-lota"]);
     expect(String(out)).toContain("made-up");
     expect(collector.shownPlaces()).toEqual([PLACE]);
@@ -97,9 +103,55 @@ describe("show_on_map grounding", () => {
     const collector = new ChatToolCollector();
     const tools = buildChatTools(makeCtx(), collector);
     const show = byName(tools, "show_on_map");
-    const out = await show.handler({ slugs: ["ghost"] });
+    const out = await show.handler({ picks: [{ slug: "ghost", reason: "x" }] });
     expect(collector.shown).toHaveLength(0);
     expect(String(out)).toContain("search_places");
+  });
+
+  it("records the model's per-pick reason for grounded slugs only", async () => {
+    const collector = new ChatToolCollector();
+    seed(collector, PLACE);
+    const tools = buildChatTools(makeCtx(), collector);
+    const show = byName(tools, "show_on_map");
+
+    await show.handler({
+      picks: [
+        { slug: "cafe-lota", reason: "You wanted quiet - the back room stays hushed till noon" },
+        { slug: "made-up", reason: "Should never land anywhere" },
+      ],
+    });
+    expect(collector.reasons.get("cafe-lota")).toBe(
+      "You wanted quiet - the back room stays hushed till noon",
+    );
+    // A hallucinated slug never gets a reason slot, let alone a card.
+    expect(collector.reasons.has("made-up")).toBe(false);
+  });
+
+  it("leaves the reason slot empty when the model omits one, and says so", async () => {
+    const collector = new ChatToolCollector();
+    seed(collector, PLACE);
+    const tools = buildChatTools(makeCtx(), collector);
+    const show = byName(tools, "show_on_map");
+
+    const out = await show.handler({ picks: [{ slug: "cafe-lota" }] });
+    expect(collector.shown).toEqual(["cafe-lota"]);
+    expect(collector.reasons.has("cafe-lota")).toBe(false);
+    // The tool nudges the model that a missing reason means generic copy.
+    expect(String(out)).toContain("Missing a reason");
+  });
+
+  it("normalizes em and en dashes in reasons to plain hyphens", async () => {
+    const collector = new ChatToolCollector();
+    seed(collector, PLACE);
+    const tools = buildChatTools(makeCtx(), collector);
+    const show = byName(tools, "show_on_map");
+
+    await show.handler({
+      picks: [{ slug: "cafe-lota", reason: "Late hours—quiet corners–good chai" }],
+    });
+    expect(collector.reasons.get("cafe-lota")).toBe(
+      "Late hours - quiet corners - good chai",
+    );
   });
 });
 

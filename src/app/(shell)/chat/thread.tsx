@@ -18,6 +18,8 @@ export type Message = {
   picks?: ChatPickCard[] | null;
   /** Set when the turn built a trackable market shopping run - links to it. */
   marketRunId?: string | null;
+  /** True when the concierge was down and this answer is a plain keyword fallback. */
+  degraded?: boolean;
   /** UI-only decorations for failure/backoff bubbles. */
   tone?: "error" | "limit";
 };
@@ -180,6 +182,7 @@ export function ChatThread({
               content: body.text ?? acc,
               picks: body.picks,
               marketRunId: body.marketRunId,
+              degraded: body.degraded,
             });
             playSound("tap"); // The answer arrived - a soft warm tick.
             finished = true;
@@ -288,6 +291,11 @@ export function ChatThread({
                 >
                   {m.content}
                 </div>
+                {m.degraded && m.role === "assistant" && (
+                  <p className="text-xs italic text-ink-dim">
+                    Quick picks while the concierge is out - not personalized.
+                  </p>
+                )}
                 {m.tone === "error" && failedText && !busy && (
                   <button
                     type="button"
@@ -395,6 +403,7 @@ type ChatResponse = {
   text?: string;
   picks?: ChatPickCard[];
   marketRunId?: string;
+  degraded?: boolean;
   message?: string;
   error?: string;
   code?: string;
@@ -484,9 +493,21 @@ function PickCard({ pick }: { pick: ChatPickCard }) {
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-ink">{pick.name}</p>
         {pick.area && <p className="text-xs text-ink-dim">{pick.area}</p>}
-        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-dim">
-          {pick.reason}
-        </p>
+        {pick.reason && (
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-dim">
+            {/* Only a reason the model wrote for this user reads as "why for
+                you"; an editor-note fallback is honestly labeled as the
+                house note (also covers picks saved before reasonSource). */}
+            {pick.reasonSource === "model" ? (
+              pick.reason
+            ) : (
+              <>
+                <span className="text-ink-dim/80">From our notes: </span>
+                {pick.reason}
+              </>
+            )}
+          </p>
+        )}
       </div>
     </Link>
   );

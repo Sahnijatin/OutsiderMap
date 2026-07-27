@@ -72,6 +72,12 @@ export class ChatToolCollector {
   readonly surfaced = new Map<string, SurfacedPlace>();
   /** Slugs the agent explicitly chose to show, in order, deduped. */
   readonly shown: string[] = [];
+  /**
+   * The model's own per-pick reason, by slug - written for this user and this
+   * ask via show_on_map. Only reasons for grounded (surfaced) slugs land here;
+   * a pick with no entry falls back to the static editor note, marked as such.
+   */
+  readonly reasons = new Map<string, string>();
   readonly saved = new Set<string>();
   /** Quest id if the agent built a plan this turn. */
   planId: string | null = null;
@@ -200,6 +206,10 @@ export function buildChatTools(
         )
         .eq("slug", input.slug)
         .eq("city", ctx.city.slug)
+        // Product law: only published, non-chain places exist as far as the
+        // agent is concerned - even on direct slug lookups.
+        .eq("is_published", true)
+        .eq("is_chain", false)
         .maybeSingle();
       collector.trace.push({
         tool: "get_place_details",
@@ -230,6 +240,9 @@ export function buildChatTools(
         .select("hours")
         .eq("slug", input.slug)
         .eq("city", ctx.city.slug)
+        // Product law: chains and drafts don't exist here either.
+        .eq("is_published", true)
+        .eq("is_chain", false)
         .maybeSingle();
       collector.trace.push({ tool: "check_open_now", summary: input.slug });
       if (!data) return `No catalog place with slug "${input.slug}".`;
@@ -529,24 +542,48 @@ export function buildChatTools(
   });
 
   const ShowOnMapInput = z.object({
-    slugs: z
-      .array(z.string().min(1))
+    picks: z
+      .array(
+        z.object({
+          slug: z
+            .string()
+            .min(1)
+            .describe("Catalog slug from a prior search result, verbatim."),
+          reason: z
+            .string()
+            .max(280)
+            .nullish()
+            .describe(
+              "REQUIRED in practice: one specific sentence on why THIS place answers THIS person's ask right now - name the detail that earns it (a dish, a corner, the hour, the quiet). Write it fresh for this user; never copy the editor note.",
+            ),
+        }),
+      )
       .min(1)
       .max(6)
-      .describe("Slugs from prior search results to render as cards / on the map."),
+      .describe(
+        "The places to render as cards / pins, each with your reason for this user.",
+      ),
   });
 
   const show_on_map = defineTool({
     name: "show_on_map",
     description:
-      "Render these places as cards and pins for the user. Only pass slugs that came back from search_places - this is how the user actually sees your picks.",
+      "Render these places as cards and pins for the user, each with your one-sentence reason why it fits this person's ask right now. Only pass slugs that came back from search_places - this is how the user actually sees your picks.",
     inputSchema: ShowOnMapInput,
     handler: (input) => {
       const accepted: string[] = [];
       const rejected: string[] = [];
-      for (const slug of input.slugs) {
+      for (const pick of input.picks) {
+        const slug = pick.slug;
         if (collector.surfaced.has(slug)) {
           if (!collector.shown.includes(slug)) collector.shown.push(slug);
+          // The reason is the model's own text for this user; slugs stay
+          // validated against the surfaced allowlist above, so untrusted text
+          // can never inject a place. Normalize dashes to the house style.
+          const reason = (pick.reason ?? "")
+            .replace(/\s*[–—]\s*/g, " - ")
+            .trim();
+          if (reason) collector.reasons.set(slug, reason);
           accepted.push(slug);
         } else {
           rejected.push(slug);
@@ -563,9 +600,13 @@ export function buildChatTools(
           ", ",
         )}. Run search_places first.`;
       }
+      const missingReasons = accepted.filter((s) => !collector.reasons.has(s));
+      const reasonNudge = missingReasons.length
+        ? ` Missing a reason for: ${missingReasons.join(", ")} - those cards fall back to the generic editor note, which is worse for the user.`
+        : "";
       return rejected.length
-        ? `Showing ${accepted.length}. Ignored unknown slugs: ${rejected.join(", ")}.`
-        : `Showing ${accepted.length} place(s) to the user.`;
+        ? `Showing ${accepted.length}. Ignored unknown slugs: ${rejected.join(", ")}.${reasonNudge}`
+        : `Showing ${accepted.length} place(s) to the user.${reasonNudge}`;
     },
   });
 
@@ -583,6 +624,9 @@ export function buildChatTools(
           .select("id")
           .eq("slug", input.slug)
           .eq("city", ctx.city.slug)
+          // Product law: never let a save resurrect a draft or a chain.
+          .eq("is_published", true)
+          .eq("is_chain", false)
           .maybeSingle();
         placeId = data?.id ?? null;
       }
