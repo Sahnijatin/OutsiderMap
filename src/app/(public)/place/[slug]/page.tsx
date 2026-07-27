@@ -1,6 +1,5 @@
 import Image from "next/image";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navigation } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
