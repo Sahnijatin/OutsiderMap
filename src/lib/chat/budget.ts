@@ -36,6 +36,14 @@ export function rupeesToTier(rupees: number): PriceTier | null {
  * judgment via the budget_rupees tool arg; this is a hint and an eval anchor.
  */
 export function extractRupees(text: string): number | null {
+  // "4k" / "3.5k" / "₹2k" first - the k-form is how people actually type
+  // thousands ("budget is 4k"), and the plain-digits pattern below can't see
+  // it (a lone digit before the k is deliberately outside its range).
+  const kMatch = text.match(/(?:₹|\brs\.?\s*)?(\d{1,3}(?:\.\d)?)\s*k\b/i);
+  if (kMatch) {
+    const value = Number(kMatch[1]) * 1000;
+    if (Number.isFinite(value) && value >= 20 && value <= 100_000) return value;
+  }
   const match = text.match(/(?:₹|\brs\.?\s*)?(\d{2,5})\b/i);
   if (!match) return null;
   const value = Number(match[1]);

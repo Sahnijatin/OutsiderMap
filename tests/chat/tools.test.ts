@@ -11,6 +11,13 @@ vi.mock("@/lib/market/store", () => ({
 vi.mock("@/lib/market/report", () => ({
   recordMarketReport: async () => ({ outcome: "no_market", staged: 0 }),
 }));
+// The planner is a subsystem of its own; the chat tool contract under test is
+// that its REAL stops flow back to the model (the grounding that stops plan
+// replies being narrated from imagination).
+const generateQuestMock = vi.fn();
+vi.mock("@/lib/quests/generate", () => ({
+  generateQuest: (...args: unknown[]) => generateQuestMock(...args),
+}));
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -70,6 +77,7 @@ describe("buildChatTools", () => {
         "check_open_now",
         "get_market_intelligence",
         "get_place_details",
+        "get_plan",
         "get_user_behavior",
         "log_market_report",
         "save_to_bucket",
@@ -77,6 +85,102 @@ describe("buildChatTools", () => {
         "show_on_map",
       ].sort(),
     );
+  });
+});
+
+describe("build_plan grounding", () => {
+  it("returns the plan's real stops and forbids id-talk, and passes the area through", async () => {
+    generateQuestMock.mockResolvedValueOnce({
+      questId: "q-1",
+      title: "Slow Evening in GK",
+      stops: 2,
+      stopList: [
+        { name: "Pizza Place", area: "GK", note: "Wood-fired base" },
+        { name: "Dolce Bar", area: "GK", note: "Tiramisu to finish" },
+      ],
+    });
+    const collector = new ChatToolCollector();
+    const tools = buildChatTools(makeCtx(), collector);
+    const out = String(
+      await byName(tools, "build_plan").handler({
+        brief: "pizza then tiramisu",
+        area: "GK",
+        budget_rupees: 4000,
+      }),
+    );
+
+    // The model sees the actual stops - the raw material for an honest reply.
+    expect(out).toContain("Pizza Place");
+    expect(out).toContain("Tiramisu to finish");
+    // ...but never the id; the app owns the View plan affordance.
+    expect(out).not.toContain("q-1");
+    expect(out).toContain("never mention a plan id");
+    expect(collector.planId).toBe("q-1");
+    // The stated area reached the planner instead of dying in prose.
+    expect(generateQuestMock.mock.calls[0][2]).toMatchObject({ area: "GK" });
+  });
+
+  it("degrades honestly when the planner fails", async () => {
+    generateQuestMock.mockRejectedValueOnce(new Error("catalog too thin"));
+    const collector = new ChatToolCollector();
+    const tools = buildChatTools(makeCtx(), collector);
+    const out = String(
+      await byName(tools, "build_plan").handler({ brief: "a day out" }),
+    );
+    expect(out).toContain("catalog too thin");
+    expect(out).toContain("Be honest");
+    expect(collector.planId).toBeNull();
+  });
+});
+
+describe("get_plan grounding", () => {
+  function planSupabase(opts: { quest?: unknown; stops?: unknown[] }) {
+    const chain = (rows: unknown) => {
+      const c: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "order"]) c[m] = () => c;
+      c.maybeSingle = () => Promise.resolve({ data: rows, error: null });
+      c.then = (resolve: (v: unknown) => unknown) =>
+        Promise.resolve({ data: rows, error: null }).then(resolve);
+      return c;
+    };
+    return {
+      from: (name: string) =>
+        name === "quests" ? chain(opts.quest ?? null) : chain(opts.stops ?? null),
+    } as unknown as ChatToolContext["supabase"];
+  }
+
+  it("returns the saved plan's real stops in order", async () => {
+    const supabase = planSupabase({
+      quest: { id: "q-1", title: "Slow Evening in GK", city: "delhi" },
+      stops: [
+        { position: 1, note: "Start here", places: { name: "Pizza Place", area: "GK" } },
+        { position: 2, note: "End sweet", places: { name: "Dolce Bar", area: "GK" } },
+      ],
+    });
+    const tools = buildChatTools(makeCtx({ supabase }), new ChatToolCollector());
+    const out = String(
+      await byName(tools, "get_plan").handler({
+        plan_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      }),
+    );
+    expect(out).toContain("Slow Evening in GK");
+    expect(out).toContain("Pizza Place");
+    expect(out).toContain("Dolce Bar");
+    expect(out).toContain("from these stops only");
+  });
+
+  it("says not-found instead of inviting a memory-based description", async () => {
+    const tools = buildChatTools(
+      makeCtx({ supabase: planSupabase({}) }),
+      new ChatToolCollector(),
+    );
+    const out = String(
+      await byName(tools, "get_plan").handler({
+        plan_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      }),
+    );
+    expect(out).toContain("No such plan");
+    expect(out).toContain("rather than describing one from memory");
   });
 });
 

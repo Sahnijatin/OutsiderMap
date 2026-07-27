@@ -41,7 +41,7 @@ export async function GET(
   // yet) while looking exactly like "my messages were never saved".
   const { data: messages, error: messagesError } = await ctx.supabase
     .from("chat_messages")
-    .select("id, role, content, picks, degraded, created_at")
+    .select("id, role, content, picks, plan_id, market_run_id, degraded, created_at")
     .eq("thread_id", id)
     .order("created_at", { ascending: true })
     .limit(200);

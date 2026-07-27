@@ -16,6 +16,8 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   picks?: ChatPickCard[] | null;
+  /** Set when the turn built a trackable plan - links to it. */
+  planId?: string | null;
   /** Set when the turn built a trackable market shopping run - links to it. */
   marketRunId?: string | null;
   /** True when the concierge was down and this answer is a plain keyword fallback. */
@@ -63,12 +65,22 @@ export function ChatThread({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [failedText, setFailedText] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * Stick-to-bottom: true while the user is at (or near) the bottom, so the
+   * pane follows streaming replies on its own - but scrolling up to reread
+   * unpins it, and a growing answer stops yanking them back down.
+   */
+  const pinnedRef = useRef(true);
   const streamSeq = useRef(0);
   const voice = useSpeechInput();
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const el = scrollRef.current;
+    if (!el || !pinnedRef.current) return;
+    // Direct scrollTop, not smooth scrollIntoView: a smooth scroll restarted
+    // on every streamed delta never finishes, which read as "doesn't follow".
+    el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
   async function send(text: string, isRetry = false) {
@@ -78,6 +90,9 @@ export function ChatThread({
     // can feel in the native app. Both no-op when switched off, never throw.
     playSound("send");
     hapticTap();
+    // Sending is an explicit "take me to the newest" - repin even if they
+    // were reading somewhere up the thread.
+    pinnedRef.current = true;
     setInput("");
     setBusy(true);
     setFailedText(null);
@@ -181,6 +196,7 @@ export function ChatThread({
             patchBubble({
               content: body.text ?? acc,
               picks: body.picks,
+              planId: body.planId,
               marketRunId: body.marketRunId,
               degraded: body.degraded,
             });
@@ -247,7 +263,18 @@ export function ChatThread({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-5">
+      <div
+        ref={scrollRef}
+        onScroll={() => {
+          const el = scrollRef.current;
+          if (!el) return;
+          pinnedRef.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+        // min-h-0 lets this flex child actually shrink to the pane, so IT
+        // scrolls instead of growing the page (flex min-height:auto default).
+        className="min-h-0 flex-1 overflow-y-auto px-5"
+      >
         {empty ? (
           <div className="flex h-full flex-col justify-center gap-6">
             <div className="relative">
@@ -328,6 +355,14 @@ export function ChatThread({
                     </Link>
                   </div>
                 )}
+                {m.planId && (
+                  <Link
+                    href={`/quests/${m.planId}`}
+                    className="self-start rounded-full border border-accent/50 px-4 py-1.5 text-xs text-accent transition-colors hover:bg-accent/10"
+                  >
+                    View plan →
+                  </Link>
+                )}
                 {m.marketRunId && (
                   <Link
                     href={`/market-run/${m.marketRunId}`}
@@ -348,7 +383,6 @@ export function ChatThread({
                 thinking about it
               </div>
             )}
-            <div ref={bottomRef} />
           </div>
         )}
       </div>
@@ -409,6 +443,7 @@ type ChatResponse = {
   city?: string;
   text?: string;
   picks?: ChatPickCard[];
+  planId?: string;
   marketRunId?: string;
   degraded?: boolean;
   message?: string;
