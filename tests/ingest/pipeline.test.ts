@@ -8,6 +8,9 @@ describe("detectSourceType", () => {
     ["https://www.youtube.com/watch?v=abc", "youtube"],
     ["https://youtu.be/abc", "youtube"],
     ["https://someblog.in/hidden-gems-delhi", "blog"],
+    ["https://maps.app.goo.gl/AbCdEf", "maps"],
+    ["https://www.google.com/maps/place/Cafe+Lota/@28.61,77.24,17z", "maps"],
+    ["member://submission/uuid-1", "member"],
     ["not a url", "other"],
   ])("%s -> %s", (url, expected) => {
     expect(detectSourceType(url)).toBe(expected);

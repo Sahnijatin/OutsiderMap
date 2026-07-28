@@ -19,9 +19,11 @@ const MEMBER_SURFACES = [
   "/market-run",
   "/welcome",
   "/admin",
+  // Revived as the street-easy drop-a-spot flow (link or name + comment).
+  "/submit",
 ];
 
-const RETIRED = ["/onboarding", "/submit", "/reels", "/join", "/thank-you"];
+const RETIRED = ["/onboarding", "/reels", "/join", "/thank-you"];
 
 // Anon-viewable by design: the shared taste card is the invite loop's landing
 // page and its opengraph-image is fetched by link scrapers - it must never
