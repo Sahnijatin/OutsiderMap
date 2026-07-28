@@ -218,6 +218,185 @@ export type Database = {
         };
         Relationships: [];
       };
+      scout_runs: {
+        Row: {
+          id: string;
+          created_by: string | null;
+          state: string;
+          cities: string[];
+          categories: string[];
+          min_rating: number;
+          min_reviews: number;
+          max_per_query: number;
+          status: "active" | "done" | "archived";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          created_by?: string | null;
+          state: string;
+          cities: string[];
+          categories: string[];
+          min_rating?: number;
+          min_reviews?: number;
+          max_per_query?: number;
+          status?: "active" | "done" | "archived";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: "active" | "done" | "archived";
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      scout_tasks: {
+        Row: {
+          id: string;
+          run_id: string;
+          city_slug: string;
+          city_name: string;
+          lat: number;
+          lng: number;
+          radius_m: number;
+          category: string;
+          source: "google" | "osm";
+          status: "pending" | "running" | "done" | "failed";
+          error: string | null;
+          found_count: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          run_id: string;
+          city_slug: string;
+          city_name: string;
+          lat: number;
+          lng: number;
+          radius_m: number;
+          category: string;
+          source: "google" | "osm";
+          status?: "pending" | "running" | "done" | "failed";
+          error?: string | null;
+          found_count?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: "pending" | "running" | "done" | "failed";
+          error?: string | null;
+          found_count?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      scout_candidates: {
+        Row: {
+          id: string;
+          run_id: string;
+          merge_key: string;
+          name: string;
+          city_slug: string;
+          city_name: string;
+          address: string | null;
+          lat: number | null;
+          lng: number | null;
+          category: string;
+          rating: number | null;
+          review_count: number | null;
+          price_level: number | null;
+          sources: string[];
+          story_signals: Json;
+          google_place_id: string | null;
+          website: string | null;
+          maps_url: string | null;
+          score: number;
+          gate_reason: string | null;
+          status: "pending" | "approved" | "rejected" | "needs_visit";
+          review_note: string | null;
+          place_id: string | null;
+          reviewed_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          run_id: string;
+          merge_key: string;
+          name: string;
+          city_slug: string;
+          city_name: string;
+          address?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          category: string;
+          rating?: number | null;
+          review_count?: number | null;
+          price_level?: number | null;
+          sources?: string[];
+          story_signals?: Json;
+          google_place_id?: string | null;
+          website?: string | null;
+          maps_url?: string | null;
+          score?: number;
+          gate_reason?: string | null;
+          status?: "pending" | "approved" | "rejected" | "needs_visit";
+          review_note?: string | null;
+          place_id?: string | null;
+          reviewed_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          sources?: string[];
+          story_signals?: Json;
+          rating?: number | null;
+          review_count?: number | null;
+          address?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          price_level?: number | null;
+          website?: string | null;
+          maps_url?: string | null;
+          google_place_id?: string | null;
+          score?: number;
+          gate_reason?: string | null;
+          status?: "pending" | "approved" | "rejected" | "needs_visit";
+          review_note?: string | null;
+          place_id?: string | null;
+          reviewed_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      scout_candidate_media: {
+        Row: {
+          id: string;
+          candidate_id: string;
+          kind: "image" | "embed";
+          storage_path: string | null;
+          source_url: string | null;
+          author_name: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          candidate_id: string;
+          kind: "image" | "embed";
+          storage_path?: string | null;
+          source_url?: string | null;
+          author_name?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          storage_path?: string | null;
+          source_url?: string | null;
+          author_name?: string | null;
+        };
+        Relationships: [];
+      };
       taste_profiles: {
         Row: {
           user_id: string;
