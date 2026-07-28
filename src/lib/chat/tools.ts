@@ -9,6 +9,8 @@ import {
   type AdventurousnessPrior,
 } from "@/lib/chat/adventurousness";
 import { effectiveTier } from "@/lib/chat/budget";
+import { forYou } from "@/lib/chat/for-you";
+import type { Persona } from "@/lib/chat/persona";
 import {
   keywordSearch,
   preferOpen,
@@ -48,7 +50,6 @@ export interface ChatToolContext {
   city: City;
   /** Consent-gated personalization. When false, taste/behaviour stay out. */
   personalize: boolean;
-  tasteEmbedding: number[] | null;
   tasteSummary: string | null;
   learnedSignals: Json | null;
   /**
@@ -57,6 +58,11 @@ export interface ChatToolContext {
    * working; missing means "fall back to the no-prior default".
    */
   quizPrior?: AdventurousnessPrior | null;
+  /**
+   * The member, for per-candidate evidence. Optional so existing call sites and
+   * tests keep working; missing means search results carry no `for_you`.
+   */
+  persona?: Persona | null;
   /**
    * Slugs already recommended earlier in this thread. Search results carry an
    * `already_shown` flag for these so the agent stops re-serving the same
@@ -111,7 +117,11 @@ export class ChatToolCollector {
   }
 }
 
-function compactCandidate(c: CatalogCandidate, shownEarlier?: Set<string>) {
+function compactCandidate(
+  c: CatalogCandidate,
+  opts: { shownEarlier?: Set<string>; persona?: Persona | null } = {},
+) {
+  const evidence = forYou(c, opts.persona ?? null);
   return {
     slug: c.slug,
     name: c.name,
@@ -122,13 +132,19 @@ function compactCandidate(c: CatalogCandidate, shownEarlier?: Set<string>) {
     about: c.description,
     editor_note: c.editor_note,
     open: c.open === null ? "unknown" : c.open,
-    // Blended relevance (the ask + this user's taste profile) from retrieval,
-    // 0-1. Zero means keyword fallback ran and there is no semantic signal -
-    // omit rather than imply "no fit".
-    ...(c.similarity > 0 ? { fit: Math.round(c.similarity * 100) / 100 } : {}),
+    // How well the place answers THE ASK, 0-1 - and only the ask. It used to be
+    // a blend of the ask and the member's taste vector, which meant the model
+    // could not tell "matches what you asked for" apart from "matches you".
+    // The personal half now arrives separately, as `for_you`. Zero means
+    // keyword fallback ran and there is no semantic signal - omit rather than
+    // imply "no fit".
+    ...(c.similarity > 0 ? { ask_fit: Math.round(c.similarity * 100) / 100 } : {}),
+    // Named, quotable evidence about THIS member. Absent when there is nothing
+    // to say, so its presence always means something.
+    ...(evidence ? { for_you: evidence } : {}),
     // Flag repeats instead of hiding them: the user may be asking about a
     // known place again, and only the agent can tell that apart from a rut.
-    ...(shownEarlier?.has(c.slug) ? { already_shown: true } : {}),
+    ...(opts.shownEarlier?.has(c.slug) ? { already_shown: true } : {}),
   };
 }
 
@@ -189,7 +205,12 @@ export function buildChatTools(
         candidates = await searchCatalog(ctx.supabase, {
           city: ctx.city,
           queryEmbedding: embedding,
-          tasteEmbedding: ctx.personalize ? ctx.tasteEmbedding : null,
+          // Retrieve on the ask ALONE. Blending the taste vector in here
+          // perturbed the query itself - "crispy late-night" drifted toward the
+          // member's centroid, so retrieval answered a question nobody asked -
+          // and fused two signals into one score the model could not take
+          // apart. Taste now arrives per candidate as `for_you`, where it is
+          // separable and sayable.
           area: sqlArea,
           budgetMax,
         });
@@ -231,7 +252,12 @@ export function buildChatTools(
       if (pool.length === 0) {
         return "No catalog places match that. Tell the user honestly; do not invent places.";
       }
-      const places = pool.map((c) => compactCandidate(c, ctx.shownEarlier));
+      const places = pool.map((c) =>
+        compactCandidate(c, {
+          shownEarlier: ctx.shownEarlier,
+          persona: ctx.personalize ? ctx.persona : null,
+        }),
+      );
       return JSON.stringify(areaNote ? { area_note: areaNote, places } : places);
     },
   });

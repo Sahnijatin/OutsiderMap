@@ -4,7 +4,7 @@ import { getAI } from "@/lib/ai";
 import type { AIMessage } from "@/lib/ai";
 import { describeError } from "@/lib/ai/retry";
 import { resolveCity } from "@/lib/cities";
-import { keywordSearch, parseStoredEmbedding } from "@/lib/catalog/search";
+import { keywordSearch } from "@/lib/catalog/search";
 import {
   buildChatTools,
   ChatToolCollector,
@@ -60,7 +60,6 @@ export async function runMapSearch(
   const ai = getAI();
 
   let personalize = false;
-  let tasteEmbedding: number[] | null = null;
   let tasteSummary: string | null = null;
   let learnedSignals: Json | null = null;
   let persona: Persona | null = null;
@@ -77,10 +76,9 @@ export async function runMapSearch(
     if (personalize) {
       const { data: taste } = await supabase
         .from("taste_profiles")
-        .select("taste_summary, embedding, learned_signals, quiz_answers")
+        .select("taste_summary, learned_signals, quiz_answers")
         .eq("user_id", opts.userId)
         .maybeSingle();
-      tasteEmbedding = parseStoredEmbedding(taste?.embedding);
       tasteSummary = taste?.taste_summary ?? null;
       learnedSignals = taste?.learned_signals ?? null;
       persona = await loadPersona(
@@ -104,10 +102,10 @@ export async function runMapSearch(
     userId: opts.userId ?? "",
     city,
     personalize,
-    tasteEmbedding,
     tasteSummary,
     learnedSignals,
     quizPrior: persona ? { adventurousness: persona.quizAdventurousness } : null,
+    persona,
   };
   // Reduced toolbox: find + show only.
   const tools = buildChatTools(ctx, collector).filter(

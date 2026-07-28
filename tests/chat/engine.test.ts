@@ -546,3 +546,58 @@ describe("runChatTurn - the member in the prompt", () => {
     expect(system).toContain("Consult get_user_behavior to personalize");
   });
 });
+
+/**
+ * Search results used to carry one number - `fit` - produced by blending the
+ * member's taste vector into the query before retrieval. That perturbed the ask
+ * and fused two signals into one scalar the model could not take apart, so a
+ * reason could only ever paraphrase the editorial copy.
+ */
+describe("runChatTurn - separated ask and member signals", () => {
+  const TASTE_GK = {
+    taste_summary: "quiet corners",
+    learned_signals: {
+      event_count: 40,
+      top_vibes: [{ tag: "study-spot", score: 20 }],
+      avoid_vibes: [],
+      top_areas: ["GK"],
+      active_hours: { morning: 20, afternoon: 20, evening: 1, late_night: 0 },
+    },
+    quiz_answers: { dimensions: { budget_band: 2, anchors: ["reads and stays"] } },
+  };
+
+  /** Runs a turn and returns what search_places handed back to the model. */
+  async function searchOutputFor(supabase: SupabaseClient<Database>) {
+    let out = "";
+    runToolsImpl = async ({ tools }) => {
+      out = String(await find(tools, "search_places").handler({ query: "quiet" }));
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(supabase, "u1", { message: "somewhere quiet" });
+    return out;
+  }
+
+  it("reports how well a place answers the ask, on its own", async () => {
+    const out = await searchOutputFor(fakeSupabase({ taste: TASTE_GK }));
+    expect(out).toContain("ask_fit");
+    // The old blended name is gone; leaving it would tell the model the number
+    // still means something it no longer means.
+    expect(out).not.toContain('"fit"');
+  });
+
+  it("attaches the member's own evidence alongside it", async () => {
+    const out = await searchOutputFor(fakeSupabase({ taste: TASTE_GK }));
+    // The mocked candidate sits in GK, which is where this member actually goes.
+    expect(out).toContain("for_you");
+    expect(out).toContain("their_area");
+  });
+
+  it("attaches nothing personal when the member opted out", async () => {
+    const out = await searchOutputFor(
+      fakeSupabase({ taste: TASTE_GK, personalizationEnabled: false }),
+    );
+    expect(out).toContain("ask_fit");
+    expect(out).not.toContain("for_you");
+  });
+});

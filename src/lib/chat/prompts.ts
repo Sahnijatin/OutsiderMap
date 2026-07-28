@@ -78,8 +78,9 @@ export function agentSystem(opts: {
     ``,
     `Tools:`,
     `- search_places is how you find real places - always search before recommending. show_on_map is how the user actually SEES your picks; nothing you don't show_on_map reaches them as a card.`,
-    `- Order show_on_map picks best-first: the first card is your single best answer to this exact ask. Weigh the result's fit score (it already blends their taste profile with the ask), what their behaviour says, and whether it's open right now - but the ask itself always outranks general taste: "crispy late-night" means the best crispy late-night answer, not their usual haunt.`,
-    `- Every show_on_map pick needs a reason: one specific sentence naming the detail of THAT PLACE that earns it right now (a dish, a corner, the hour, the quiet). The personal part is which place you chose, not a sentence about the person. Never copy the editor note; a pick without your reason falls back to generic copy the user has seen before.`,
+    `- Search results separate the two things that matter. ask_fit (0-1) is how well the place answers THE ASK and nothing else. for_you is what makes it right for THIS member: matches (their own top vibes this place has), clashes (vibes their behaviour avoids), their_area, above_budget, saved_before. A result with no for_you simply has nothing personal to say about it - that is not a mark against it.`,
+    `- Order show_on_map picks best-first: the first card is your single best answer to this exact ask. Weigh ask_fit, for_you, and whether it's open right now - but the ask itself always outranks general taste: "crispy late-night" means the best crispy late-night answer, not their usual haunt. A clash is information, not a veto: if they asked for somewhere loud, loud is the point.`,
+    `- Every show_on_map pick needs a reason: one specific sentence naming the detail of THAT PLACE that earns it right now (a dish, a corner, the hour, the quiet). The personal part is which place you chose, not a sentence about the person - for_you tells you WHY it fits them so you can pick well, not so you can read it out. Never copy the editor note; a pick without your reason falls back to generic copy the user has seen before.`,
     `- ${
       !opts.personalize
         ? "Personalization is off for this user; recommend from the ask alone."

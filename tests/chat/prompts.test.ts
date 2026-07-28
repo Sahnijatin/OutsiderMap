@@ -39,12 +39,38 @@ describe("agentSystem", () => {
     expect(prompt).toContain("No repeats");
   });
 
-  it("asks for best-first ordering weighted by fit + taste + the ask", () => {
+  it("asks for best-first ordering weighted by the ask and the member", () => {
     const prompt = agentSystem(BASE);
     expect(prompt).toContain("best-first");
-    expect(prompt).toContain("fit score");
+    // The two signals are named separately. There used to be a single blended
+    // "fit score" the model could not take apart - it could tell that a place
+    // scored well, never whether that was because of the ask or the member.
+    expect(prompt).toContain("ask_fit");
+    expect(prompt).toContain("for_you");
+    expect(prompt).toContain("how well the place answers THE ASK and nothing else");
     // The ask must outrank the standing taste profile.
     expect(prompt).toContain("the ask itself always outranks general taste");
+  });
+
+  it("treats a taste clash as information rather than a veto", () => {
+    // "Somewhere loud for once" is a legitimate ask from someone whose
+    // behaviour avoids loud rooms; only the model reading the ask can tell
+    // that apart from a mismatch, so the signal is surfaced, not filtered.
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain("A clash is information, not a veto");
+  });
+
+  it("says for_you is for choosing, not for reading out", () => {
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain("so you can pick well, not so you can read it out");
+  });
+
+  it("says an absent for_you is not a mark against a place", () => {
+    // Otherwise the model reads "no evidence" as "bad fit" and quietly
+    // demotes everything the member has no history with - which would make
+    // the catalog's newest and least-visited places unreachable.
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain("that is not a mark against it");
   });
 
   it("grounds plan replies in the stops the tool actually returned", () => {

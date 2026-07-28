@@ -42,7 +42,6 @@ function makeCtx(over: Partial<ChatToolContext> = {}): ChatToolContext {
     userId: "u1",
     city: CITY,
     personalize: true,
-    tasteEmbedding: null,
     tasteSummary: "quiet, older places",
     learnedSignals: { top: "cafes" },
     ...over,

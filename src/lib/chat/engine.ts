@@ -6,7 +6,7 @@ import type { AIMessage } from "@/lib/ai";
 import { describeError } from "@/lib/ai/retry";
 import { resolveCity } from "@/lib/cities";
 import { nowInIST } from "@/lib/places/hours";
-import { keywordSearch, parseStoredEmbedding } from "@/lib/catalog/search";
+import { keywordSearch } from "@/lib/catalog/search";
 import { agentSystem } from "@/lib/chat/prompts";
 import { loadPersona, renderPersona } from "@/lib/chat/persona";
 import { extractRupees } from "@/lib/chat/budget";
@@ -247,7 +247,7 @@ export async function runChatTurn(
   const { data: tasteRow } = personalize
     ? await supabase
         .from("taste_profiles")
-        .select("taste_summary, embedding, learned_signals, quiz_answers")
+        .select("taste_summary, learned_signals, quiz_answers")
         .eq("user_id", userId)
         .maybeSingle()
     : { data: null };
@@ -268,12 +268,12 @@ export async function runChatTurn(
     userId,
     city,
     personalize,
-    tasteEmbedding: personalize ? parseStoredEmbedding(tasteRow?.embedding) : null,
     tasteSummary: tasteRow?.taste_summary ?? null,
     learnedSignals: tasteRow?.learned_signals ?? null,
     // Same prior the persona block used, so the tool and the block cannot
     // report two different dials for the same member on the same turn.
     quizPrior: persona ? { adventurousness: persona.quizAdventurousness } : null,
+    persona,
     shownEarlier: new Set(shownEarlier.keys()),
   };
   const tools = buildChatTools(toolCtx, collector);
