@@ -20,6 +20,7 @@ import {
 import { MemoryCard } from "./memory-card";
 import { TasteCardShare } from "./taste-card-share";
 import { IdentityCard } from "./identity-card";
+import { BioCard } from "./bio-card";
 import { StatsRow } from "./stats-row";
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -134,6 +135,7 @@ export default async function ProfilePage({
           followers={followerCount ?? 0}
           following={followingCount ?? 0}
         />
+        <BioCard initial={profile.bio} />
       </div>
 
       <div className="flex flex-col gap-10 lg:col-span-3">

@@ -30,6 +30,7 @@ export const PROTECTED_PREFIXES = [
   "/market-run",
   "/welcome",
   "/submit",
+  "/business",
 ];
 
 function isProtected(pathname: string) {

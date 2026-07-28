@@ -84,6 +84,7 @@ export type Database = {
         Row: {
           id: string;
           display_name: string | null;
+          bio: string | null;
           avatar_url: string | null;
           home_area: string | null;
           is_admin: boolean;
@@ -100,6 +101,7 @@ export type Database = {
         Insert: {
           id: string;
           display_name?: string | null;
+          bio?: string | null;
           avatar_url?: string | null;
           home_area?: string | null;
           is_admin?: boolean;
@@ -116,6 +118,7 @@ export type Database = {
         Update: {
           id?: string;
           display_name?: string | null;
+          bio?: string | null;
           avatar_url?: string | null;
           home_area?: string | null;
           is_admin?: boolean;
@@ -217,6 +220,58 @@ export type Database = {
           created_at?: string;
         };
         Relationships: [];
+      };
+      place_claims: {
+        Row: {
+          id: string;
+          place_id: string;
+          user_id: string;
+          note: string;
+          contact: string | null;
+          status: "pending" | "approved" | "rejected";
+          reviewed_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          place_id: string;
+          user_id: string;
+          note: string;
+          contact?: string | null;
+          status?: "pending" | "approved" | "rejected";
+          reviewed_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: "pending" | "approved" | "rejected";
+          reviewed_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "place_claims_place_id_fkey";
+            columns: ["place_id"];
+            isOneToOne: false;
+            referencedRelation: "places";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "place_claims_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "place_claims_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       scout_runs: {
         Row: {
@@ -448,6 +503,7 @@ export type Database = {
           is_published: boolean;
           source: "curated" | "submitted" | "ingested";
           submitted_by: string | null;
+          claimed_by: string | null;
           category_id: string | null;
           kind: PlaceKind;
           is_chain: boolean;
@@ -480,6 +536,7 @@ export type Database = {
           is_published?: boolean;
           source?: "curated" | "submitted" | "ingested";
           submitted_by?: string | null;
+          claimed_by?: string | null;
           category_id?: string | null;
           kind?: PlaceKind;
           is_chain?: boolean;
@@ -512,6 +569,7 @@ export type Database = {
           is_published?: boolean;
           source?: "curated" | "submitted" | "ingested";
           submitted_by?: string | null;
+          claimed_by?: string | null;
           category_id?: string | null;
           kind?: PlaceKind;
           is_chain?: boolean;
@@ -2324,6 +2382,7 @@ export type Database = {
           display_name: string | null;
           avatar_url: string | null;
           outsider_number: number | null;
+          bio: string | null;
         }[];
       };
       set_taste_card_public: {

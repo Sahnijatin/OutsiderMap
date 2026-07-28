@@ -20,10 +20,12 @@ type ProfilePayload = {
     display_name: string | null;
     avatar_url: string | null;
     outsider_number: number | null;
+    bio: string | null;
   };
   follow: FollowState;
   isSelf: boolean;
   posts: PostCardData[];
+  contributions: Array<{ slug: string; name: string; area: string | null }>;
 };
 
 export function ProfileView({ username }: { username: string }) {
@@ -123,6 +125,30 @@ export function ProfileView({ username }: { username: string }) {
           </p>
         </div>
       </header>
+
+      {profile.bio && (
+        <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-ink">
+          {profile.bio}
+        </p>
+      )}
+
+      {(data.contributions?.length ?? 0) > 0 && (
+        <section className="mt-4">
+          <p className="voice">on the map because of them</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {data.contributions.map((c) => (
+              <Link
+                key={c.slug}
+                href={`/place/${encodeURIComponent(c.slug)}`}
+                className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs text-ink transition-colors hover:border-accent/50"
+              >
+                {c.name}
+                {c.area ? <span className="text-ink-dim"> · {c.area}</span> : null}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {!data.isSelf && (
         <ProfileActions

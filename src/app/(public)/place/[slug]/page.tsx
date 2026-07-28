@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -27,7 +28,7 @@ const PLATFORM_LABEL = {
 } as const;
 
 const DETAIL_FIELDS =
-  "id, slug, name, area, kind, category, category_id, price_level, vibe_tags, description, editor_note, hours, best_for, image_path, story, lat, lng, google_place_id";
+  "id, slug, name, area, kind, category, category_id, price_level, vibe_tags, description, editor_note, hours, best_for, image_path, story, lat, lng, google_place_id, claimed_by";
 
 type StoryCard = {
   media_path?: string;
@@ -233,6 +234,11 @@ export default async function PlacePage({
             ]
               .filter(Boolean)
               .join(" · ")}
+            {place.claimed_by && (
+              <span className="ml-2 rounded-full bg-accent/15 px-2 py-0.5 text-[0.65rem] font-medium text-accent">
+                owner-verified
+              </span>
+            )}
           </p>
         </div>
       </header>
@@ -251,6 +257,14 @@ export default async function PlacePage({
           </a>
         )}
         <AddPlacePhoto slug={place.slug} />
+        {!place.claimed_by && (
+          <Link
+            href={`/business?claim=${encodeURIComponent(place.slug)}`}
+            className="rounded-full border border-line px-3.5 py-1.5 text-xs text-ink-dim transition-colors hover:text-ink"
+          >
+            Own this place?
+          </Link>
+        )}
         <span
           className={`text-xs ${open ? "text-accent" : "text-ink-dim"}`}
         >
