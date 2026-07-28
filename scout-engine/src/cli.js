@@ -148,10 +148,12 @@ for (const city of targets) {
   errors.push(...result.errors);
 }
 
-const stamp = new Date().toISOString().slice(0, 10);
+// Time in the default name: two runs the same day must not collide, and the
+// morning's file being open in Excel must not lock the afternoon's run out.
+const stamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
 const outPath = values.out ?? path.join("out", `${values.state}-${stamp}.xlsx`);
 await mkdir(path.dirname(outPath), { recursive: true });
-await writeWorkbook(outPath, {
+const workbook = {
   accepted,
   rejected,
   errors,
@@ -165,8 +167,23 @@ await writeWorkbook(outPath, {
     accepted: accepted.length,
     rejected: rejected.length,
   },
-});
-console.log(`\nWrote ${accepted.length} candidates (+${rejected.length} rejects) to ${outPath}`);
+};
+// A scrape is minutes of API calls held only in memory - it must NEVER die on
+// the final write (the classic: the target file is open in Excel and Windows
+// locks it, EBUSY). Any write failure falls back to a fresh sibling name.
+let wrotePath = outPath;
+try {
+  await writeWorkbook(outPath, workbook);
+} catch (err) {
+  const alt = outPath.replace(/(\.xlsx)?$/i, `-${Date.now()}.xlsx`);
+  console.warn(
+    `! Could not write ${outPath} (${err?.code ?? err?.message ?? err}) - ` +
+      `likely open in Excel. Saving to ${alt} instead.`,
+  );
+  await writeWorkbook(alt, workbook);
+  wrotePath = alt;
+}
+console.log(`\nWrote ${accepted.length} candidates (+${rejected.length} rejects) to ${wrotePath}`);
 
 if (values.airtable) {
   const { AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE } = process.env;
