@@ -34,11 +34,12 @@ export const metadata: Metadata = { title: "Harvest · Admin" };
 export default async function AdminHarvestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ run?: string; city?: string; category?: string }>;
+  searchParams: Promise<{ run?: string; city?: string; category?: string; q?: string }>;
 }) {
   await requireAdmin();
   const admin = createAdminClient();
   const filters = await searchParams;
+  const q = (filters.q ?? "").trim().slice(0, 80);
 
   // Every recent run stays on the page - a new harvest never hides an older
   // one still under review. Filters narrow the shared review list.
@@ -99,6 +100,16 @@ export default async function AdminHarvestPage({
       : pendingQuery.in("run_id", runIds);
     if (filters.city) pendingQuery = pendingQuery.eq("city_slug", filters.city);
     if (filters.category) pendingQuery = pendingQuery.eq("category", filters.category);
+    if (q) {
+      // Commas and parens would break PostgREST's or() syntax; spaces match
+      // just as well for a human search.
+      const safe = q.replace(/[%,()]/g, " ").trim();
+      if (safe) {
+        pendingQuery = pendingQuery.or(
+          `name.ilike.%${safe}%,address.ilike.%${safe}%`,
+        );
+      }
+    }
     const { data: pending } = await pendingQuery;
     reviewable = (pending ?? []).filter((c) => !c.gate_reason) as never;
     gated = (pending ?? []).filter((c) => c.gate_reason) as never;
@@ -158,17 +169,20 @@ export default async function AdminHarvestPage({
     run?: string | null;
     city?: string | null;
     category?: string | null;
+    q?: string | null;
   }) => {
     const merged = {
       run: patch.run === undefined ? (runFilter ?? null) : patch.run,
       city: patch.city === undefined ? (filters.city ?? null) : patch.city,
       category:
         patch.category === undefined ? (filters.category ?? null) : patch.category,
+      q: patch.q === undefined ? (q || null) : patch.q,
     };
     const p = new URLSearchParams();
     if (merged.run) p.set("run", merged.run);
     if (merged.city) p.set("city", merged.city);
     if (merged.category) p.set("category", merged.category);
+    if (merged.q) p.set("q", merged.q);
     const qs = p.toString();
     return qs ? `/admin/harvest?${qs}` : "/admin/harvest";
   };
@@ -275,6 +289,33 @@ export default async function AdminHarvestPage({
             {handled.approved} approved · {handled.rejected} rejected ·{" "}
             {handled.needs_visit} flagged for a visit · across all runs
           </p>
+
+          {/* Search: plain GET form, so it composes with the filter chips. */}
+          <form
+            action="/admin/harvest"
+            method="get"
+            className="mt-3 flex flex-wrap items-center gap-2"
+          >
+            {runFilter && <input type="hidden" name="run" value={runFilter} />}
+            {filters.city && <input type="hidden" name="city" value={filters.city} />}
+            {filters.category && (
+              <input type="hidden" name="category" value={filters.category} />
+            )}
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Search name or address…"
+              className="w-64 rounded-card border border-line bg-surface px-3 py-2 text-sm outline-none placeholder:text-ink-dim focus:border-accent/60"
+            />
+            <Button type="submit" size="sm" variant="secondary">
+              Search
+            </Button>
+            {q && (
+              <Link href={href({ q: null })} className="text-xs text-ink-dim underline">
+                clear &ldquo;{q}&rdquo;
+              </Link>
+            )}
+          </form>
 
           {/* Filters: every run stays reviewable side by side. */}
           <div className="mt-3 flex flex-col gap-2">
