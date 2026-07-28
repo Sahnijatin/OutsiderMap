@@ -10,6 +10,8 @@ import {
 } from "@/lib/chat/adventurousness";
 import { effectiveTier } from "@/lib/chat/budget";
 import { forYou } from "@/lib/chat/for-you";
+import type { Origin } from "@/lib/chat/ask-context";
+import { distanceMeters } from "@/lib/scout/geo";
 import type { Persona } from "@/lib/chat/persona";
 import {
   keywordSearch,
@@ -64,6 +66,11 @@ export interface ChatToolContext {
    */
   persona?: Persona | null;
   /**
+   * Where the member is, when the client had a cached position. Turns "is this
+   * close?" from something the model has to guess into something it can read.
+   */
+  origin?: Origin | null;
+  /**
    * Slugs already recommended earlier in this thread. Search results carry an
    * `already_shown` flag for these so the agent stops re-serving the same
    * places. Optional so existing call sites/tests keep working; missing means
@@ -117,11 +124,27 @@ export class ChatToolCollector {
   }
 }
 
+/**
+ * Rounded to 100m: the position is a cached fix that can be a week old, so
+ * anything finer would be false precision - and a concierge says "ten minutes
+ * away", never "1.83km".
+ */
+function kmAway(c: CatalogCandidate, origin: Origin | null): number | null {
+  if (!origin || c.lat === null || c.lng === null) return null;
+  const metres = distanceMeters(origin.lat, origin.lng, c.lat, c.lng);
+  return Math.round(metres / 100) / 10;
+}
+
 function compactCandidate(
   c: CatalogCandidate,
-  opts: { shownEarlier?: Set<string>; persona?: Persona | null } = {},
+  opts: {
+    shownEarlier?: Set<string>;
+    persona?: Persona | null;
+    origin?: Origin | null;
+  } = {},
 ) {
   const evidence = forYou(c, opts.persona ?? null);
+  const km = kmAway(c, opts.origin ?? null);
   return {
     slug: c.slug,
     name: c.name,
@@ -142,6 +165,8 @@ function compactCandidate(
     // Named, quotable evidence about THIS member. Absent when there is nothing
     // to say, so its presence always means something.
     ...(evidence ? { for_you: evidence } : {}),
+    // Straight-line km from where the member is, when we know where that is.
+    ...(km !== null ? { km_away: km } : {}),
     // Flag repeats instead of hiding them: the user may be asking about a
     // known place again, and only the agent can tell that apart from a rut.
     ...(opts.shownEarlier?.has(c.slug) ? { already_shown: true } : {}),
@@ -256,6 +281,7 @@ export function buildChatTools(
         compactCandidate(c, {
           shownEarlier: ctx.shownEarlier,
           persona: ctx.personalize ? ctx.persona : null,
+          origin: ctx.origin,
         }),
       );
       return JSON.stringify(areaNote ? { area_note: areaNote, places } : places);

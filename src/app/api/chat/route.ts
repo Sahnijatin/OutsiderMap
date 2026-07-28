@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { runChatTurn } from "@/lib/chat/engine";
+import { AskContextSchema } from "@/lib/chat/ask-context";
 import { describeError, withTimeout, TimeoutError } from "@/lib/ai/retry";
 
 /**
@@ -24,6 +25,13 @@ const TURN_BUDGET_MS = 55_000;
 const BodySchema = z.object({
   threadId: z.string().uuid().optional(),
   message: z.string().trim().min(1).max(600),
+  /**
+   * What the member is doing when they ask: the city on screen, a cached
+   * position, the place the ask started from. All optional - every existing
+   * client keeps working unchanged, and a turn without any of it behaves
+   * exactly as before.
+   */
+  context: AskContextSchema.optional(),
 });
 
 export async function POST(request: NextRequest) {

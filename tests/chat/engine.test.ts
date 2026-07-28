@@ -71,6 +71,8 @@ function fakeSupabase(
     taste?: unknown;
     /** Rows the bucket lookup returns, for the persona's recent saves. */
     savedPlaces?: unknown[];
+    /** Override the places table - `null` models a lookup that finds nothing. */
+    placesRows?: unknown;
   } = {},
 ) {
   const table = (
@@ -86,7 +88,11 @@ function fakeSupabase(
       onUpdate?.(payload);
       return chain;
     };
-    chain.maybeSingle = () => Promise.resolve({ data: rows, error: null });
+    chain.maybeSingle = () =>
+      Promise.resolve({
+        data: Array.isArray(rows) ? (rows[0] ?? null) : rows,
+        error: null,
+      });
     chain.single = () => Promise.resolve({ data: rows, error: null });
     chain.then = (resolve: (v: unknown) => unknown) =>
       Promise.resolve({ data: error ? null : rows, error }).then(resolve);
@@ -121,9 +127,18 @@ function fakeSupabase(
         return table(opts.questStops ?? null);
       }
       if (name === "places") {
-        // The pick-assembly detail query (lat/lng + the static editor note).
+        // Serves both the pick-assembly detail query (lat/lng + editor note)
+        // and the single-row lookup for the place an ask started from.
+        if ("placesRows" in opts) return table(opts.placesRows);
         return table([
-          { slug: "spot-1", lat: 28.5, lng: 77.1, editor_note: "A classic editor blurb" },
+          {
+            slug: "spot-1",
+            name: "Spot One",
+            area: "GK",
+            lat: 28.5,
+            lng: 77.1,
+            editor_note: "A classic editor blurb",
+          },
         ]);
       }
       return table(null);
@@ -599,5 +614,75 @@ describe("runChatTurn - separated ask and member signals", () => {
     );
     expect(out).toContain("ask_fit");
     expect(out).not.toContain("for_you");
+  });
+});
+
+/**
+ * Chat was the only surface with no idea what the member was doing when they
+ * asked: the city came from their profile regardless of what they were looking
+ * at, and location never entered the picture at all - in a product that
+ * promises to answer "it's 3am, I'm in GK2, surprise me".
+ */
+describe("runChatTurn - context at the point of asking", () => {
+  async function systemAndSearch(
+    supabase: SupabaseClient<Database>,
+    context?: Record<string, unknown>,
+  ) {
+    let system = "";
+    let search = "";
+    runToolsImpl = async ({ messages, tools }) => {
+      system = String(messages.find((m) => m.role === "system")?.content ?? "");
+      search = String(await find(tools, "search_places").handler({ query: "x" }));
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(supabase, "u1", { message: "something good", context });
+    return { system, search };
+  }
+
+  it("measures distance from where the member is", async () => {
+    // The mocked candidate sits at 28.5/77.1; this position is ~11km off.
+    const { system, search } = await systemAndSearch(fakeSupabase(), {
+      lat: 28.6,
+      lng: 77.2,
+    });
+    expect(search).toContain("km_away");
+    expect(system).toContain("Results carry km_away");
+  });
+
+  it("says nothing about distance when it has no position", async () => {
+    const { system, search } = await systemAndSearch(fakeSupabase());
+    expect(search).not.toContain("km_away");
+    expect(system).toContain("You do NOT know where they are");
+  });
+
+  it("ignores a half-sent position rather than guessing the other half", async () => {
+    const { search } = await systemAndSearch(fakeSupabase(), { lat: 28.6 });
+    expect(search).not.toContain("km_away");
+  });
+
+  it("ignores null island", async () => {
+    // Taking (0, 0) at face value would put every Delhi place ~7000km away.
+    const { search } = await systemAndSearch(fakeSupabase(), { lat: 0, lng: 0 });
+    expect(search).not.toContain("km_away");
+  });
+
+  it("knows the place an ask started from", async () => {
+    const { system } = await systemAndSearch(fakeSupabase(), {
+      placeSlug: "spot-1",
+    });
+    // The client sends a slug; the name is resolved server-side, so an
+    // unpublished place or a chain can never become describable by routing
+    // around search.
+    expect(system).toContain("They opened this from Spot One in GK");
+  });
+
+  it("says nothing when the slug resolves to no place", async () => {
+    const { system } = await systemAndSearch(
+      fakeSupabase({ placesRows: null }),
+      { placeSlug: "not-a-real-place" },
+    );
+    expect(system).not.toContain("They opened this from");
+    expect(system).not.toContain("undefined");
   });
 });

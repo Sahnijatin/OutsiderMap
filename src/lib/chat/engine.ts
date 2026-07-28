@@ -9,6 +9,7 @@ import { nowInIST } from "@/lib/places/hours";
 import { keywordSearch } from "@/lib/catalog/search";
 import { agentSystem } from "@/lib/chat/prompts";
 import { loadPersona, renderPersona } from "@/lib/chat/persona";
+import { originOf, type AskContext } from "@/lib/chat/ask-context";
 import { extractRupees } from "@/lib/chat/budget";
 import { detectRegister } from "@/lib/chat/language";
 import { sanitizeReply } from "@/lib/chat/sanitize";
@@ -138,7 +139,7 @@ export interface ChatStreamHooks {
 export async function runChatTurn(
   supabase: SupabaseClient<Database>,
   userId: string,
-  input: { threadId?: string; message: string },
+  input: { threadId?: string; message: string; context?: AskContext },
   hooks?: ChatStreamHooks,
 ): Promise<ChatTurnResult> {
   const ai = getAI();
@@ -150,7 +151,15 @@ export async function runChatTurn(
     .eq("id", userId)
     .maybeSingle();
   const personalize = profileRow?.personalization_enabled !== false;
-  const city = await resolveCity(supabase, profileRow?.home_city);
+  // The city they are looking at beats the one on their profile - someone in
+  // Delhi browsing Goa is asking about Goa. resolveCity validates the slug
+  // against the live city list, so an unknown value falls back rather than
+  // reaching a query. Map search has worked this way since it shipped.
+  const city = await resolveCity(
+    supabase,
+    input.context?.city ?? profileRow?.home_city,
+  );
+  const origin = originOf(input.context);
 
   // Load or create the thread.
   let threadId = input.threadId ?? null;
@@ -274,6 +283,7 @@ export async function runChatTurn(
     // report two different dials for the same member on the same turn.
     quizPrior: persona ? { adventurousness: persona.quizAdventurousness } : null,
     persona,
+    origin,
     shownEarlier: new Set(shownEarlier.keys()),
   };
   const tools = buildChatTools(toolCtx, collector);
@@ -288,6 +298,8 @@ export async function runChatTurn(
         questionsAsked: intentState.questions_asked,
         personalize,
         persona: renderPersona(persona),
+        knowsLocation: origin !== null,
+        viewing: await resolveViewing(supabase, city.slug, input.context?.placeSlug),
         replyHint: detectRegister(input.message).replyHint,
         budgetRupees: extractRupees(input.message),
         shownEarlier: [...shownEarlier.values()],
@@ -479,6 +491,33 @@ export async function runChatTurn(
   if (collector.marketRunId) result.marketRunId = collector.marketRunId;
   if (degraded) result.degraded = true;
   return result;
+}
+
+/**
+ * The place the ask started from, when it started from one - someone tapping
+ * "ask about this" on a place sheet is mid-thought about that place, and a
+ * concierge who has to be told which place they mean has already lost the
+ * thread.
+ *
+ * Resolved server-side rather than trusted from the client: the slug arrives in
+ * a request body, and the same product law that governs search applies here -
+ * a draft or a chain must not become describable by routing around search.
+ */
+async function resolveViewing(
+  supabase: SupabaseClient<Database>,
+  citySlug: string,
+  placeSlug: string | undefined,
+): Promise<{ name: string; area: string | null } | null> {
+  if (!placeSlug) return null;
+  const { data } = await supabase
+    .from("places")
+    .select("name, area")
+    .eq("slug", placeSlug)
+    .eq("city", citySlug)
+    .eq("is_published", true)
+    .eq("is_chain", false)
+    .maybeSingle();
+  return data ? { name: data.name, area: data.area } : null;
 }
 
 const HistoryPickSchema = z.object({ slug: z.string(), name: z.string() });

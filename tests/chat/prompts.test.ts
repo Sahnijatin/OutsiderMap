@@ -203,3 +203,40 @@ describe("agentSystem - the member profile block", () => {
     );
   });
 });
+
+describe("agentSystem - context at the point of asking", () => {
+  it("refuses to talk about distance when it does not know where they are", () => {
+    // "Close to you" from a concierge with no idea where you are is the kind of
+    // confident wrongness that costs trust at 3am - the exact moment the
+    // product promises to be right.
+    const prompt = agentSystem(BASE);
+    expect(prompt).toContain("You do NOT know where they are");
+    expect(prompt).toContain("Never say a place is close");
+    expect(prompt).not.toContain("Results carry km_away");
+  });
+
+  it("uses distance when it has it, and hedges the precision", () => {
+    const prompt = agentSystem({ ...BASE, knowsLocation: true });
+    expect(prompt).toContain("Results carry km_away");
+    // The fix is cached and can be a week old; a precise number would be a lie
+    // dressed as data.
+    expect(prompt).toContain("treat it as roughly right");
+    expect(prompt).not.toContain("You do NOT know where they are");
+  });
+
+  it("knows which place the ask started from", () => {
+    const prompt = agentSystem({
+      ...BASE,
+      viewing: { name: "Karim's", area: "Old Delhi" },
+    });
+    expect(prompt).toContain("They opened this from Karim's in Old Delhi");
+    expect(prompt).toContain("Don't make them name it again");
+  });
+
+  it("handles a place with no area, and says nothing without one", () => {
+    expect(
+      agentSystem({ ...BASE, viewing: { name: "Karim's", area: null } }),
+    ).toContain("They opened this from Karim's,");
+    expect(agentSystem(BASE)).not.toContain("They opened this from");
+  });
+});

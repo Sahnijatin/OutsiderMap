@@ -25,6 +25,15 @@ export function agentSystem(opts: {
    * remembering to do the right thing.
    */
   persona?: string | null;
+  /**
+   * True when search results will carry `km_away`. The model must not talk
+   * about distance when they don't - "close to you" from a concierge that has
+   * no idea where you are is the kind of confident wrongness that costs trust
+   * at 3am.
+   */
+  knowsLocation?: boolean;
+  /** The place the ask started from, when it started from one. */
+  viewing?: { name: string; area: string | null } | null;
   /** Register steer (Hinglish/Hindi) from language detection, or "" (#98). */
   replyHint?: string;
   /** A per-head rupee budget detected in the message, if any (#96/#100). */
@@ -78,6 +87,18 @@ export function agentSystem(opts: {
     ``,
     `Tools:`,
     `- search_places is how you find real places - always search before recommending. show_on_map is how the user actually SEES your picks; nothing you don't show_on_map reaches them as a card.`,
+    ...(opts.viewing
+      ? [
+          `- They opened this from ${opts.viewing.name}${opts.viewing.area ? ` in ${opts.viewing.area}` : ""}, so a bare "is it any good?" or "what about nearby?" is about that place. Don't make them name it again.`,
+        ]
+      : []),
+    ...(opts.knowsLocation
+      ? [
+          `- Results carry km_away: straight-line distance from where they are. Use it - at a late hour or in bad weather, near beats better. It comes from a cached fix that can be stale, so treat it as roughly right: "ten minutes away" is fair, "1.8km" is not.`,
+        ]
+      : [
+          `- You do NOT know where they are. Never say a place is close, nearby, or a short walk - you have no basis for it. If proximity is the whole ask, ask which area they're in.`,
+        ]),
     `- Search results separate the two things that matter. ask_fit (0-1) is how well the place answers THE ASK and nothing else. for_you is what makes it right for THIS member: matches (their own top vibes this place has), clashes (vibes their behaviour avoids), their_area, above_budget, saved_before. A result with no for_you simply has nothing personal to say about it - that is not a mark against it.`,
     `- Order show_on_map picks best-first: the first card is your single best answer to this exact ask. Weigh ask_fit, for_you, and whether it's open right now - but the ask itself always outranks general taste: "crispy late-night" means the best crispy late-night answer, not their usual haunt. A clash is information, not a veto: if they asked for somewhere loud, loud is the point.`,
     `- Every show_on_map pick needs a reason: one specific sentence naming the detail of THAT PLACE that earns it right now (a dish, a corner, the hour, the quiet). The personal part is which place you chose, not a sentence about the person - for_you tells you WHY it fits them so you can pick well, not so you can read it out. Never copy the editor note; a pick without your reason falls back to generic copy the user has seen before.`,

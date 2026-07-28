@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSpeechInput } from "@/lib/voice/use-speech-input";
 import { tap as hapticTap } from "@/lib/native/haptics";
 import { playSound } from "@/lib/sound/engine";
+import { readCachedLocation } from "@/lib/map/location";
 import { publicMediaUrl } from "@/lib/media/url";
 import { cn } from "@/lib/utils";
 import type { ChatPickCard } from "@/lib/chat/engine";
@@ -41,6 +42,7 @@ const SUGGESTIONS = [
  */
 export function ChatThread({
   displayName,
+  viewing,
   threadId: initialThreadId,
   initialMessages,
   onThreadCreated,
@@ -49,6 +51,8 @@ export function ChatThread({
   onOpenHistory,
 }: {
   displayName: string | null;
+  /** The place this conversation was opened from (`/chat?place=`). */
+  viewing?: { slug: string; name: string } | null;
   threadId?: string;
   initialMessages?: Message[];
   /** A first send created a server thread - lets the list insert it. */
@@ -130,7 +134,14 @@ export function ChatThread({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-        body: JSON.stringify({ threadId, message }),
+        body: JSON.stringify({
+          threadId,
+          message,
+          // The opening place rides on the first turn only: after that the
+          // conversation has its own history, and re-asserting it every turn
+          // would keep dragging an old place into new questions.
+          context: askContext(threadId ? null : (viewing?.slug ?? null)),
+        }),
       });
 
       if (res.status === 429) {
@@ -280,16 +291,18 @@ export function ChatThread({
             <div className="relative">
               <div className="halo absolute -inset-10" />
               <h1 className="relative font-display text-3xl italic">
-                {firstName ? `${firstName}.` : "Hey."} What are you in the
-                mood for?
+                {viewing
+                  ? `${viewing.name}.`
+                  : `${firstName ? `${firstName}.` : "Hey."} What are you in the mood for?`}
               </h1>
               <p className="relative mt-2 text-sm text-ink-dim">
-                Say it however it comes out. Vague is fine - that&rsquo;s
-                what the questions are for.
+                {viewing
+                  ? "Ask me anything about it - or what else is worth the trip while you're there."
+                  : "Say it however it comes out. Vague is fine - that\u2019s what the questions are for."}
               </p>
             </div>
             <div className="flex flex-col items-start gap-2">
-              {SUGGESTIONS.map((s) => (
+              {(viewing ? viewingSuggestions() : SUGGESTIONS).map((s) => (
                 <button
                   key={s}
                   type="button"
@@ -476,6 +489,35 @@ function lastUserMessageBefore(messages: Message[], i: number) {
     if (messages[j].role === "user") return messages[j].content;
   }
   return "";
+}
+
+/**
+ * What the member is doing when they ask, for the concierge to use.
+ *
+ * Location comes from the last-known cache, never from `getDevicePosition` -
+ * that prompts, and opening chat must not be the thing that asks somebody for
+ * their location. The cache is only ever populated after they granted it to the
+ * map, so this rides on consent they already gave, and is simply absent when
+ * they never did.
+ */
+/** Openers that only make sense when the ask started from a place. */
+function viewingSuggestions(): string[] {
+  return [
+    "is it any good?",
+    "what should I order?",
+    "anything else worth it nearby?",
+  ];
+}
+
+function askContext(placeSlug: string | null): Record<string, unknown> | undefined {
+  const cached = readCachedLocation(Date.now());
+  const ctx: Record<string, unknown> = {};
+  if (cached) {
+    ctx.lat = cached.lat;
+    ctx.lng = cached.lng;
+  }
+  if (placeSlug) ctx.placeSlug = placeSlug;
+  return Object.keys(ctx).length > 0 ? ctx : undefined;
 }
 
 function questHandoffHref(city: string | null, brief: string) {
