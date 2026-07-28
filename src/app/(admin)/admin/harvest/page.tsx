@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { HARVEST_CATEGORIES, loadHarvestGeography } from "@/lib/harvest/registry";
@@ -30,47 +31,75 @@ export const metadata: Metadata = { title: "Harvest · Admin" };
  * publish, Reject, or flag for a real visit. Nothing goes live without the
  * reviewer's click.
  */
-export default async function AdminHarvestPage() {
+export default async function AdminHarvestPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ run?: string; city?: string; category?: string }>;
+}) {
   await requireAdmin();
   const admin = createAdminClient();
+  const filters = await searchParams;
 
+  // Every recent run stays on the page - a new harvest never hides an older
+  // one still under review. Filters narrow the shared review list.
   const { data: runs } = await admin
     .from("scout_runs")
     .select("id, state, cities, categories, status, min_rating, min_reviews, created_at")
+    .neq("status", "archived")
     .order("created_at", { ascending: false })
-    .limit(1);
-  const run = runs?.[0] ?? null;
+    .limit(20);
+  const runIds = (runs ?? []).map((r) => r.id);
+  const runFilter = runIds.includes(filters.run ?? "") ? filters.run : undefined;
 
   let progress = null;
   let reviewable: Array<Record<string, unknown>> = [];
   let gated: Array<Record<string, unknown>> = [];
+  let facets: Array<{ city_slug: string; city_name: string; category: string }> = [];
   const mediaByCandidate = new Map<string, Array<{ kind: string; storage_path: string | null; source_url: string | null; author_name: string | null }>>();
   let handled = { approved: 0, rejected: 0, needs_visit: 0 };
 
-  if (run) {
-    const [{ count: total }, { count: done }, { count: failed }, { count: candidates }] =
-      await Promise.all([
-        admin.from("scout_tasks").select("id", { count: "exact", head: true }).eq("run_id", run.id),
-        admin.from("scout_tasks").select("id", { count: "exact", head: true }).eq("run_id", run.id).eq("status", "done"),
-        admin.from("scout_tasks").select("id", { count: "exact", head: true }).eq("run_id", run.id).eq("status", "failed"),
-        admin.from("scout_candidates").select("id", { count: "exact", head: true }).eq("run_id", run.id),
-      ]);
-    progress = {
-      runId: run.id,
-      status: run.status,
-      totalTasks: total ?? 0,
-      doneTasks: done ?? 0,
-      failedTasks: failed ?? 0,
-      candidates: candidates ?? 0,
-    };
+  if (runIds.length > 0) {
+    const activeIds = (runs ?? []).filter((r) => r.status === "active").map((r) => r.id);
+    if (activeIds.length > 0) {
+      const [{ count: total }, { count: done }, { count: failed }, { count: candidates }] =
+        await Promise.all([
+          admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", activeIds),
+          admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", activeIds).eq("status", "done"),
+          admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", activeIds).eq("status", "failed"),
+          admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", activeIds),
+        ]);
+      progress = {
+        runId: activeIds.join(","),
+        status: "active",
+        totalTasks: total ?? 0,
+        doneTasks: done ?? 0,
+        failedTasks: failed ?? 0,
+        candidates: candidates ?? 0,
+      };
+    }
 
-    const { data: pending } = await admin
+    // Filter facets come from everything pending, unfiltered - so a chip for
+    // "Kochi" stays visible while you're looking at Delhi.
+    const { data: facetRows } = await admin
+      .from("scout_candidates")
+      .select("city_slug, city_name, category")
+      .in("run_id", runIds)
+      .eq("status", "pending")
+      .limit(2000);
+    facets = facetRows ?? [];
+
+    let pendingQuery = admin
       .from("scout_candidates")
       .select("*")
-      .eq("run_id", run.id)
       .eq("status", "pending")
       .order("score", { ascending: false })
       .limit(200);
+    pendingQuery = runFilter
+      ? pendingQuery.eq("run_id", runFilter)
+      : pendingQuery.in("run_id", runIds);
+    if (filters.city) pendingQuery = pendingQuery.eq("city_slug", filters.city);
+    if (filters.category) pendingQuery = pendingQuery.eq("category", filters.category);
+    const { data: pending } = await pendingQuery;
     reviewable = (pending ?? []).filter((c) => !c.gate_reason) as never;
     gated = (pending ?? []).filter((c) => c.gate_reason) as never;
 
@@ -89,9 +118,9 @@ export default async function AdminHarvestPage() {
 
     const [{ count: approved }, { count: rejected }, { count: needsVisit }] =
       await Promise.all([
-        admin.from("scout_candidates").select("id", { count: "exact", head: true }).eq("run_id", run.id).eq("status", "approved"),
-        admin.from("scout_candidates").select("id", { count: "exact", head: true }).eq("run_id", run.id).eq("status", "rejected"),
-        admin.from("scout_candidates").select("id", { count: "exact", head: true }).eq("run_id", run.id).eq("status", "needs_visit"),
+        admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", runIds).eq("status", "approved"),
+        admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", runIds).eq("status", "rejected"),
+        admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", runIds).eq("status", "needs_visit"),
       ]);
     handled = {
       approved: approved ?? 0,
@@ -120,6 +149,29 @@ export default async function AdminHarvestPage() {
     .from("harvest_cities")
     .select("id, name, state_name, lat, lng, radius_m")
     .order("created_at", { ascending: false });
+
+  // Facet chips, deduped from everything pending across all runs.
+  const cityFacets = [...new Map(facets.map((f) => [f.city_slug, f.city_name]))];
+  const categoryFacets = [...new Set(facets.map((f) => f.category))].sort();
+
+  const href = (patch: {
+    run?: string | null;
+    city?: string | null;
+    category?: string | null;
+  }) => {
+    const merged = {
+      run: patch.run === undefined ? (runFilter ?? null) : patch.run,
+      city: patch.city === undefined ? (filters.city ?? null) : patch.city,
+      category:
+        patch.category === undefined ? (filters.category ?? null) : patch.category,
+    };
+    const p = new URLSearchParams();
+    if (merged.run) p.set("run", merged.run);
+    if (merged.city) p.set("city", merged.city);
+    if (merged.category) p.set("category", merged.category);
+    const qs = p.toString();
+    return qs ? `/admin/harvest?${qs}` : "/admin/harvest";
+  };
 
   return (
     <div className="flex flex-col gap-10">
@@ -212,20 +264,77 @@ export default async function AdminHarvestPage() {
         )}
       </section>
 
-      {progress && <HarvestProgress initial={progress} />}
+      {progress && <HarvestProgress key={progress.runId} initial={progress} />}
 
-      {run && (
+      {(runs ?? []).length > 0 && (
         <section>
           <h2 className="font-display text-2xl italic">
             Review ({reviewable.length})
           </h2>
           <p className="mt-1 text-xs text-ink-dim">
             {handled.approved} approved · {handled.rejected} rejected ·{" "}
-            {handled.needs_visit} flagged for a visit
+            {handled.needs_visit} flagged for a visit · across all runs
           </p>
+
+          {/* Filters: every run stays reviewable side by side. */}
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <FilterChip href={href({ run: null })} active={!runFilter}>
+                all runs
+              </FilterChip>
+              {(runs ?? []).map((r) => (
+                <FilterChip
+                  key={r.id}
+                  href={href({ run: r.id })}
+                  active={runFilter === r.id}
+                >
+                  {geography[r.state]?.name ?? r.state} ·{" "}
+                  {new Date(r.created_at).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                  {r.status === "active" ? " · sweeping" : ""}
+                </FilterChip>
+              ))}
+            </div>
+            {cityFacets.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <FilterChip href={href({ city: null })} active={!filters.city}>
+                  all cities
+                </FilterChip>
+                {cityFacets.map(([slug, name]) => (
+                  <FilterChip
+                    key={slug}
+                    href={href({ city: slug })}
+                    active={filters.city === slug}
+                  >
+                    {name}
+                  </FilterChip>
+                ))}
+              </div>
+            )}
+            {categoryFacets.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <FilterChip href={href({ category: null })} active={!filters.category}>
+                  all categories
+                </FilterChip>
+                {categoryFacets.map((cat) => (
+                  <FilterChip
+                    key={cat}
+                    href={href({ category: cat })}
+                    active={filters.category === cat}
+                  >
+                    {cat}
+                  </FilterChip>
+                ))}
+              </div>
+            )}
+          </div>
+
           {reviewable.length === 0 ? (
             <p className="mt-3 text-sm text-ink-dim">
-              Nothing waiting - start a harvest or check the gate section.
+              Nothing waiting here - widen the filters, start a harvest, or
+              check the gate section.
             </p>
           ) : (
             <div className="mt-4 flex flex-col gap-4">
@@ -261,6 +370,29 @@ export default async function AdminHarvestPage() {
         </details>
       )}
     </div>
+  );
+}
+
+function FilterChip({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+        active
+          ? "border-accent/60 bg-accent/15 text-accent"
+          : "border-line text-ink-dim hover:text-ink"
+      }`}
+    >
+      {children}
+    </Link>
   );
 }
 

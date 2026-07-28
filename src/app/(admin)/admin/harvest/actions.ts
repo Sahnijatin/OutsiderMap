@@ -153,23 +153,27 @@ export async function tickHarvest() {
   } catch (err) {
     console.error("[harvest] tick failed", err);
   }
-  const { data: runs } = await admin
+  // Progress aggregates every ACTIVE run - the tick advances all of them,
+  // and parallel harvests (Delhi still under review, Kerala sweeping) are a
+  // supported, normal state.
+  const { data: activeRuns } = await admin
     .from("scout_runs")
-    .select("id, state, cities, categories, status, created_at")
-    .order("created_at", { ascending: false })
-    .limit(1);
-  const run = runs?.[0];
-  if (!run) return null;
+    .select("id")
+    .eq("status", "active");
+  const ids = (activeRuns ?? []).map((r) => r.id);
+  if (ids.length === 0) {
+    return { runId: "all", status: "done", totalTasks: 0, doneTasks: 0, failedTasks: 0, candidates: 0 };
+  }
   const [{ count: total }, { count: done }, { count: failed }, { count: candidates }] =
     await Promise.all([
-      admin.from("scout_tasks").select("id", { count: "exact", head: true }).eq("run_id", run.id),
-      admin.from("scout_tasks").select("id", { count: "exact", head: true }).eq("run_id", run.id).eq("status", "done"),
-      admin.from("scout_tasks").select("id", { count: "exact", head: true }).eq("run_id", run.id).eq("status", "failed"),
-      admin.from("scout_candidates").select("id", { count: "exact", head: true }).eq("run_id", run.id),
+      admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", ids),
+      admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", ids).eq("status", "done"),
+      admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", ids).eq("status", "failed"),
+      admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", ids),
     ]);
   return {
-    runId: run.id,
-    status: run.status,
+    runId: ids.join(","),
+    status: "active",
     totalTasks: total ?? 0,
     doneTasks: done ?? 0,
     failedTasks: failed ?? 0,
