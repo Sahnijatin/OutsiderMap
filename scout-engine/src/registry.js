@@ -78,14 +78,27 @@ export const STATES = {
   },
 };
 
-/** Categories the engine hunts, mapped to source-specific query terms. */
+/**
+ * Categories the engine hunts, mapped to source-specific query terms.
+ * OSM tagging splits eat-in venues (amenity=*) from retail (shop=*) - a
+ * bakery is shop=bakery, never amenity=bakery, which is why the osmShop
+ * list exists (the bakery category silently found nothing before it).
+ */
 export const CATEGORIES = {
-  cafe: { google: "specialty cafe", osm: ["cafe"] },
-  restaurant: { google: "restaurant", osm: ["restaurant"] },
-  bar: { google: "bar", osm: ["bar", "pub"] },
-  bakery: { google: "bakery dessert", osm: ["bakery"] },
-  "street-food": { google: "street food", osm: ["fast_food"] },
-  experience: { google: "unique things to do", osm: ["arts_centre", "gallery"] },
+  cafe: { google: "specialty cafe", osm: ["cafe"], osmShop: [] },
+  restaurant: { google: "restaurant", osm: ["restaurant"], osmShop: [] },
+  bar: { google: "bar", osm: ["bar", "pub"], osmShop: [] },
+  bakery: {
+    google: "bakery dessert",
+    osm: ["ice_cream"],
+    osmShop: ["bakery", "pastry", "confectionery"],
+  },
+  "street-food": { google: "street food", osm: ["fast_food"], osmShop: [] },
+  experience: {
+    google: "unique things to do",
+    osm: ["arts_centre"],
+    osmShop: [],
+  },
 };
 
 export function resolveTargets(stateSlug, citySlugs) {
