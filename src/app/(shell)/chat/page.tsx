@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { pendingVisitCheck } from "@/lib/chat/followup";
+import { chatOpeners } from "@/lib/chat/openers";
+import { loadPersona } from "@/lib/chat/persona";
+import { nowInIST } from "@/lib/places/hours";
 import { ChatShell } from "./chat-shell";
 
 export const metadata: Metadata = { title: "Chat" };
@@ -48,15 +51,64 @@ export default async function ChatPage({
     searchParams,
   ]);
   const supabase = await createClient();
-  const [viewing, visitCheck] = await Promise.all([
+  const [viewing, visitCheck, openers] = await Promise.all([
     resolveViewing(place),
     pendingVisitCheck(supabase, profile.id),
+    resolveOpeners(supabase, profile),
   ]);
   return (
     <ChatShell
       displayName={profile.display_name}
       viewing={viewing}
       visitCheck={visitCheck}
+      openers={openers}
     />
+  );
+}
+
+/**
+ * The suggestion chips, built from the member's own vocabulary.
+ *
+ * Runs on the server because the hour has to be IST regardless of the device
+ * clock, and because rendering the same strings on both sides is the only way
+ * a chip does not flicker on hydration.
+ *
+ * Reuses `loadPersona` rather than re-reading the profile by hand: it already
+ * carries the consent gate and the defensive parsing of two columns that have
+ * survived several shape changes, and a second implementation of either would
+ * be a second thing to keep right.
+ */
+async function resolveOpeners(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  profile: { id: string; personalization_enabled: boolean | null },
+) {
+  const { data: taste } = await supabase
+    .from("taste_profiles")
+    .select("quiz_answers, learned_signals")
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  const persona = await loadPersona(
+    supabase,
+    profile.id,
+    profile.personalization_enabled !== false,
+    {
+      displayName: null,
+      quizAnswers: taste?.quiz_answers ?? null,
+      learnedSignals: taste?.learned_signals ?? null,
+    },
+  );
+
+  // Null persona means personalization is off, and the generic chips are the
+  // honest answer: an opted-out member should see a chat that knows nothing
+  // about them, not a slightly less specific version of one that does.
+  return chatOpeners(
+    persona && {
+      areas: persona.areas,
+      cuisines: persona.cuisines,
+      savedRecently: persona.savedRecently,
+      posture: persona.posture,
+      hourIST: Math.floor(nowInIST().minutes / 60),
+    },
   );
 }

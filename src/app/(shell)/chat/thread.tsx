@@ -15,6 +15,7 @@ import { playSound } from "@/lib/sound/engine";
 import { readCachedLocation } from "@/lib/map/location";
 import { publicMediaUrl } from "@/lib/media/url";
 import { cn } from "@/lib/utils";
+import { GENERIC_OPENERS } from "@/lib/chat/openers";
 import type { ChatPickCard } from "@/lib/chat/engine";
 
 export type Message = {
@@ -32,13 +33,6 @@ export type Message = {
   tone?: "error" | "limit";
 };
 
-const SUGGESTIONS = [
-  "I want something good and crispy",
-  "quiet place to read for a few hours",
-  "first date, not trying too hard",
-  "it's late and I'm starving",
-];
-
 /**
  * One conversation pane. Fresh chats start empty by design - history lives
  * in the thread list (sidebar on desktop, sheet on phones) and an opened
@@ -49,6 +43,7 @@ export function ChatThread({
   displayName,
   viewing,
   visitCheck,
+  openers,
   threadId: initialThreadId,
   initialMessages,
   onThreadCreated,
@@ -61,6 +56,12 @@ export function ChatThread({
   viewing?: { slug: string; name: string } | null;
   /** A pick they clicked a day or two ago that we have not heard back about. */
   visitCheck?: { placeId: string; slug: string; name: string } | null;
+  /**
+   * Empty-state suggestions, built server-side from this member's own
+   * vocabulary and the real hour. Absent on any surface that renders this
+   * component without a page behind it, which falls back to the generic four.
+   */
+  openers?: string[];
   threadId?: string;
   initialMessages?: Message[];
   /** A first send created a server thread - lets the list insert it. */
@@ -310,7 +311,10 @@ export function ChatThread({
               </p>
             </div>
             <div className="flex flex-col items-start gap-2">
-              {(viewing ? viewingSuggestions() : SUGGESTIONS).map((s) => (
+              {(viewing
+                ? viewingSuggestions()
+                : (openers?.length ? openers : GENERIC_OPENERS)
+              ).map((s) => (
                 <button
                   key={s}
                   type="button"
