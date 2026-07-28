@@ -31,7 +31,7 @@ export default async function AdminIngestPage() {
     await Promise.all([
       admin
         .from("ingest_items")
-        .select("id, url, source_type, candidate, dedupe_matches, created_at")
+        .select("id, url, source_type, candidate, dedupe_matches, raw_metadata, created_at")
         .eq("status", "needs_review")
         .order("created_at")
         .limit(30),
@@ -92,6 +92,18 @@ export default async function AdminIngestPage() {
               const parsed = CandidateSchema.safeParse(item.candidate);
               const candidate = parsed.success ? parsed.data : null;
               const dupes = (item.dedupe_matches ?? []) as DedupeMatch[];
+              // Street-submission context (member's own words) + canonical
+              // Places API data, when the metadata carries them.
+              const meta = (
+                item.raw_metadata && typeof item.raw_metadata === "object" && !Array.isArray(item.raw_metadata)
+                  ? item.raw_metadata
+                  : {}
+              ) as Record<string, unknown>;
+              const google = (
+                meta.google && typeof meta.google === "object" && !Array.isArray(meta.google)
+                  ? meta.google
+                  : null
+              ) as Record<string, unknown> | null;
               return (
                 <Card key={item.id} className="flex flex-col gap-3 p-4">
                   <div className="flex items-center justify-between gap-3">
@@ -105,6 +117,35 @@ export default async function AdminIngestPage() {
                     </a>
                     <Badge>{item.source_type}</Badge>
                   </div>
+
+                  {meta.member_submission === true && (
+                    <p className="rounded-card border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
+                      <span className="voice">street submission</span>{" "}
+                      {typeof meta.member_name === "string" && (
+                        <span className="font-medium">{meta.member_name}</span>
+                      )}
+                      {typeof meta.member_comment === "string" && (
+                        <span className="text-ink-dim">
+                          {" "}
+                          - &ldquo;{meta.member_comment}&rdquo;
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {google && (
+                    <p className="text-xs text-ink-dim">
+                      Google:{" "}
+                      {[
+                        typeof google.name === "string" ? google.name : null,
+                        typeof google.rating === "number"
+                          ? `${google.rating}★ (${google.review_count ?? "?"} reviews)`
+                          : null,
+                        typeof google.address === "string" ? google.address : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
 
                   {candidate ? (
                     <div className="grid gap-4 sm:grid-cols-2">

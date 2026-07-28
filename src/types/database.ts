@@ -1169,7 +1169,7 @@ export type Database = {
         Row: {
           id: string;
           url: string;
-          source_type: "instagram" | "youtube" | "blog" | "other";
+          source_type: "instagram" | "youtube" | "blog" | "other" | "maps" | "member";
           status:
             | "queued"
             | "fetching"
@@ -1191,7 +1191,7 @@ export type Database = {
         Insert: {
           id?: string;
           url: string;
-          source_type?: "instagram" | "youtube" | "blog" | "other";
+          source_type?: "instagram" | "youtube" | "blog" | "other" | "maps" | "member";
           status?:
             | "queued"
             | "fetching"
@@ -1213,7 +1213,7 @@ export type Database = {
         Update: {
           id?: string;
           url?: string;
-          source_type?: "instagram" | "youtube" | "blog" | "other";
+          source_type?: "instagram" | "youtube" | "blog" | "other" | "maps" | "member";
           status?:
             | "queued"
             | "fetching"
