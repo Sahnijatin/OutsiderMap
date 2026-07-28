@@ -1,0 +1,13 @@
+{
+  "name": "scout-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone place-discovery pipeline: state -> cities -> multi-source scrape -> quality gate -> story signals -> Excel/Airtable for manual verification. Feeds OutsiderMap only after a human approves each row.",
+  "scripts": {
+    "scout": "node src/cli.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  }
+}
