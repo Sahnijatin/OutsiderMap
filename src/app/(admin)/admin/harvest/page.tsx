@@ -55,6 +55,8 @@ export default async function AdminHarvestPage({
   let progress = null;
   let reviewable: Array<Record<string, unknown>> = [];
   let gated: Array<Record<string, unknown>> = [];
+  let reviewTotal = 0;
+  let gatedTotal = 0;
   let facets: Array<{ city_slug: string; city_name: string; category: string }> = [];
   const mediaByCandidate = new Map<string, Array<{ kind: string; storage_path: string | null; source_url: string | null; author_name: string | null }>>();
   let handled = { approved: 0, rejected: 0, needs_visit: 0 };
@@ -89,32 +91,56 @@ export default async function AdminHarvestPage({
       .limit(2000);
     facets = facetRows ?? [];
 
-    let pendingQuery = admin
-      .from("scout_candidates")
-      .select("*")
-      .eq("status", "pending")
-      .order("score", { ascending: false })
-      .limit(200);
-    pendingQuery = runFilter
-      ? pendingQuery.eq("run_id", runFilter)
-      : pendingQuery.in("run_id", runIds);
-    if (filters.city) pendingQuery = pendingQuery.eq("city_slug", filters.city);
-    if (filters.category) pendingQuery = pendingQuery.eq("category", filters.category);
-    if (q) {
-      // Commas and parens would break PostgREST's or() syntax; spaces match
-      // just as well for a human search.
-      const safe = q.replace(/[%,()]/g, " ").trim();
-      if (safe) {
-        pendingQuery = pendingQuery.or(
-          `name.ilike.%${safe}%,address.ilike.%${safe}%`,
-        );
+    // Reviewable and gated are SEPARATE queries with true database counts.
+    // Splitting one capped list in JS made the numbers lie: the top-200
+    // window shifted with every filter, so narrowing to a city could SHOW
+    // more than "all runs" did.
+    const applyFilters = <T,>(query: T): T => {
+      let qy = query as never as {
+        eq: (c: string, v: string) => unknown;
+        in: (c: string, v: string[]) => unknown;
+        or: (v: string) => unknown;
+      };
+      qy = (runFilter ? qy.eq("run_id", runFilter) : qy.in("run_id", runIds)) as never;
+      if (filters.city) qy = qy.eq("city_slug", filters.city) as never;
+      if (filters.category) qy = qy.eq("category", filters.category) as never;
+      if (q) {
+        // Commas and parens would break PostgREST's or() syntax; spaces
+        // match just as well for a human search.
+        const safe = q.replace(/[%,()]/g, " ").trim();
+        if (safe) {
+          qy = qy.or(`name.ilike.%${safe}%,address.ilike.%${safe}%`) as never;
+        }
       }
-    }
-    const { data: pending } = await pendingQuery;
-    reviewable = (pending ?? []).filter((c) => !c.gate_reason) as never;
-    gated = (pending ?? []).filter((c) => c.gate_reason) as never;
+      return qy as never as T;
+    };
 
-    const ids = (pending ?? []).map((c) => c.id);
+    const [reviewRes, gatedRes] = await Promise.all([
+      applyFilters(
+        admin
+          .from("scout_candidates")
+          .select("*", { count: "exact" })
+          .eq("status", "pending")
+          .is("gate_reason", null),
+      )
+        .order("score", { ascending: false })
+        .limit(200),
+      applyFilters(
+        admin
+          .from("scout_candidates")
+          .select("id, name, city_name, gate_reason", { count: "exact" })
+          .eq("status", "pending")
+          .not("gate_reason", "is", null),
+      )
+        .order("score", { ascending: false })
+        .limit(100),
+    ]);
+    reviewable = (reviewRes.data ?? []) as never;
+    gated = (gatedRes.data ?? []) as never;
+    reviewTotal = reviewRes.count ?? reviewable.length;
+    gatedTotal = gatedRes.count ?? gated.length;
+
+    const ids = reviewable.map((c) => String(c.id));
     if (ids.length > 0) {
       const { data: media } = await admin
         .from("scout_candidate_media")
@@ -283,11 +309,14 @@ export default async function AdminHarvestPage({
       {(runs ?? []).length > 0 && (
         <section>
           <h2 className="font-display text-2xl italic">
-            Review ({reviewable.length})
+            Review ({reviewTotal})
           </h2>
           <p className="mt-1 text-xs text-ink-dim">
             {handled.approved} approved · {handled.rejected} rejected ·{" "}
             {handled.needs_visit} flagged for a visit · across all runs
+            {reviewTotal > reviewable.length
+              ? ` · showing top ${reviewable.length} by score`
+              : ""}
           </p>
 
           {/* Search: plain GET form, so it composes with the filter chips. */}
@@ -397,7 +426,7 @@ export default async function AdminHarvestPage({
       {gated.length > 0 && (
         <details>
           <summary className="cursor-pointer font-display text-xl italic">
-            Held by the quality gate ({gated.length})
+            Held by the quality gate ({gatedTotal})
           </summary>
           <div className="mt-3 flex flex-col gap-2">
             {gated.map((c) => (
