@@ -287,7 +287,7 @@ export function buildChatTools(
   const get_user_behavior = defineTool({
     name: "get_user_behavior",
     description:
-      "Read what this person's past behaviour says about their taste (learned signals + taste summary) and the explore/exploit dial telling you how far to stretch them vs. play it safe. Use it to personalize. Returns nothing personal when personalization is off.",
+      "A deeper read of this person than your instructions already carry: their taste summary in full prose, the raw learned-signal counts and scores, and the explore/exploit dial. Your instructions already tell you who this person is - do NOT call this just to find out. Call it when a turn genuinely needs the detail: an ambiguous ask where the summary would settle it, or a judgement about how far to stretch them. Returns nothing personal when personalization is off.",
     inputSchema: z.object({}),
     handler: () => {
       if (!ctx.personalize) {
@@ -299,9 +299,11 @@ export function buildChatTools(
         tool: "get_user_behavior",
         summary: `posture=${dial.posture}`,
       });
+      // Embedded as an object, not a stringified one: nesting JSON inside JSON
+      // handed the model an escape-littered string to read through.
       const signals =
         ctx.learnedSignals && typeof ctx.learnedSignals === "object"
-          ? JSON.stringify(ctx.learnedSignals)
+          ? ctx.learnedSignals
           : "none yet";
       return JSON.stringify({
         taste_summary: ctx.tasteSummary ?? "none yet",

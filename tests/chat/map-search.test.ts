@@ -61,21 +61,62 @@ vi.mock("@/lib/cities", () => ({
     }),
 }));
 
-function fakeSupabase() {
+function fakeSupabase(
+  opts: { personalize?: boolean; taste?: unknown; queried?: string[] } = {},
+) {
   const table = (rows: unknown) => {
     const chain: Record<string, unknown> = {};
-    for (const m of ["select", "eq", "in", "order", "limit"]) chain[m] = () => chain;
+    for (const m of ["select", "eq", "in", "order", "limit", "not"])
+      chain[m] = () => chain;
     chain.maybeSingle = () => Promise.resolve({ data: rows, error: null });
     chain.then = (resolve: (v: unknown) => unknown) =>
       Promise.resolve({ data: rows, error: null }).then(resolve);
     return chain;
   };
   return {
-    from: (name: string) =>
-      name === "profiles"
-        ? table({ personalization_enabled: false, home_city: "delhi" })
-        : table(null),
+    from: (name: string) => {
+      opts.queried?.push(name);
+      if (name === "profiles") {
+        return table({
+          personalization_enabled: opts.personalize ?? false,
+          home_city: "delhi",
+          display_name: "Ira",
+        });
+      }
+      if (name === "taste_profiles") return table(opts.taste ?? null);
+      return table(null);
+    },
   } as unknown as SupabaseClient<Database>;
+}
+
+const TASTE = {
+  taste_summary: "You go out to be alone in public.",
+  embedding: null,
+  learned_signals: {
+    event_count: 51,
+    top_vibes: [
+      { tag: "study-spot", score: 30 },
+      { tag: "books", score: 22 },
+    ],
+    avoid_vibes: [{ tag: "loud-music", score: -9 }],
+    top_areas: ["Khan Market"],
+    active_hours: { morning: 20, afternoon: 25, evening: 3, late_night: 0 },
+  },
+  quiz_answers: {
+    dimensions: { anchors: ["reads for three hours and orders once"] },
+  },
+};
+
+/** Runs a search and returns the system prompt the model was handed. */
+async function systemPromptFor(supabase: SupabaseClient<Database>) {
+  let system = "";
+  runToolsImpl = async ({ messages }: RunToolsRequest) => {
+    system = String(messages.find((m) => m.role === "system")?.content ?? "");
+    return { text: "", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+  };
+  const { runMapSearch } = await import("@/lib/chat/map-search");
+  await runMapSearch(supabase, { message: "quiet place", userId: "u1" });
+  return system;
 }
 
 beforeEach(() => {
@@ -117,5 +158,57 @@ describe("runMapSearch", () => {
       userId: null,
     });
     expect(result.slugs).toEqual(["spot-1"]);
+  });
+});
+
+/**
+ * Map search was the one surface with no notion of who was searching: it loaded
+ * the taste embedding, hardcoded `learnedSignals: null`, and its prompt said
+ * nothing about the member at all.
+ */
+describe("runMapSearch - taste in the ranking", () => {
+  it("gives the model the member's vocabulary to sort by", async () => {
+    const system = await systemPromptFor(
+      fakeSupabase({ personalize: true, taste: TASTE }),
+    );
+    expect(system).toContain("study-spot");
+    expect(system).toContain("Khan Market");
+    expect(system).toContain("never mention it");
+  });
+
+  it("stays a one-liner - no anchors, no summary, no reason coaching", async () => {
+    // This surface ranks pins and writes one line. Everything chat needs to
+    // write a good per-pick reason is dead weight here.
+    const system = await systemPromptFor(
+      fakeSupabase({ personalize: true, taste: TASTE }),
+    );
+    expect(system).not.toContain("reads for three hours");
+    expect(system).not.toContain("You go out to be alone in public");
+    expect(system).not.toContain("<member_profile>");
+    expect(system).not.toContain("Wrong:");
+  });
+
+  it("does not read the member's history it would never use", async () => {
+    // Two queries for place names this surface has no way to say would be
+    // latency spent on nothing.
+    const queried: string[] = [];
+    await systemPromptFor(
+      fakeSupabase({ personalize: true, taste: TASTE, queried }),
+    );
+    expect(queried).not.toContain("saved_places");
+    expect(queried).not.toContain("interaction_events");
+  });
+
+  it("says nothing personal when the member opted out", async () => {
+    const system = await systemPromptFor(
+      fakeSupabase({ personalize: false, taste: TASTE }),
+    );
+    expect(system).not.toContain("study-spot");
+    expect(system).not.toContain("Khan Market");
+  });
+
+  it("is unchanged for a member with no taste profile", async () => {
+    const withProfile = await systemPromptFor(fakeSupabase({ personalize: true }));
+    expect(withProfile).not.toContain("This member's taste runs to");
   });
 });

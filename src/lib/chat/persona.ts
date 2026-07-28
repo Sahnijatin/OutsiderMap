@@ -175,6 +175,14 @@ export async function loadPersona(
   userId: string,
   personalize: boolean,
   source: PersonaSource,
+  opts: {
+    /**
+     * Read the member's recent saves and passes. Chat wants them; map search
+     * does not - it ranks pins and never explains a pick, so two queries for
+     * names it will never say is latency spent on nothing.
+     */
+    includeHistory?: boolean;
+  } = {},
 ): Promise<Persona | null> {
   if (!personalize) return null;
 
@@ -186,10 +194,13 @@ export async function loadPersona(
   const signals = LearnedSignalsSchema.safeParse(source.learnedSignals);
   const parsedSignals = signals.success ? signals.data : {};
 
-  const [savedRecently, passedRecently] = await Promise.all([
-    recentSaves(supabase, userId),
-    recentPasses(supabase, userId),
-  ]);
+  const [savedRecently, passedRecently] =
+    opts.includeHistory === false
+      ? [[], []]
+      : await Promise.all([
+          recentSaves(supabase, userId),
+          recentPasses(supabase, userId),
+        ]);
 
   const dial = deriveAdventurousness(source.learnedSignals);
 

@@ -11,7 +11,12 @@ import {
   type ChatToolContext,
 } from "@/lib/chat/tools";
 import { detectRegister } from "@/lib/chat/language";
-import type { Database } from "@/types/database";
+import {
+  loadPersona,
+  renderPersonaCompact,
+  type Persona,
+} from "@/lib/chat/persona";
+import type { Database, Json } from "@/types/database";
 
 /**
  * The lighter, shared-brain agent behind the map search bar (#99). Same toolbox
@@ -23,13 +28,21 @@ import type { Database } from "@/types/database";
 
 const MAX_STEPS = 3;
 
-/** Scoped system prompt: understand, search, show - nothing more. */
-function mapSearchSystem(cityName: string): string {
+/**
+ * Scoped system prompt: understand, search, show - nothing more.
+ *
+ * The taste line is one line by design. This surface ranks pins and writes at
+ * most a one-line summary, so it needs vocabulary to sort by and nothing else -
+ * no anchors, no history, and none of the don't-recite coaching chat needs,
+ * because there are no per-pick reasons here to get wrong.
+ */
+function mapSearchSystem(cityName: string, personaLine: string): string {
   return [
     `You are the map search for ${cityName} on OutsiderMap.`,
     `Understand the user's query - including Hinglish, typos, and vibes - call search_places, then show_on_map the matches.`,
     `You find and filter real catalog places on the map. You do not chat, plan, ask questions, or save anything.`,
     `Only ever surface real catalog places returned by search_places; never invent one. If nothing fits, say so briefly.`,
+    ...(personaLine ? [personaLine] : []),
     `Keep any text to a short one-line summary. Write with plain hyphens only, never em or en dashes.`,
   ].join("\n");
 }
@@ -49,12 +62,14 @@ export async function runMapSearch(
   let personalize = false;
   let tasteEmbedding: number[] | null = null;
   let tasteSummary: string | null = null;
+  let learnedSignals: Json | null = null;
+  let persona: Persona | null = null;
   let homeCity: string | null = opts.citySlug ?? null;
 
   if (opts.userId) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("personalization_enabled, home_city")
+      .select("personalization_enabled, home_city, display_name")
       .eq("id", opts.userId)
       .maybeSingle();
     personalize = profile?.personalization_enabled !== false;
@@ -62,11 +77,23 @@ export async function runMapSearch(
     if (personalize) {
       const { data: taste } = await supabase
         .from("taste_profiles")
-        .select("taste_summary, embedding")
+        .select("taste_summary, embedding, learned_signals, quiz_answers")
         .eq("user_id", opts.userId)
         .maybeSingle();
       tasteEmbedding = parseStoredEmbedding(taste?.embedding);
       tasteSummary = taste?.taste_summary ?? null;
+      learnedSignals = taste?.learned_signals ?? null;
+      persona = await loadPersona(
+        supabase,
+        opts.userId,
+        personalize,
+        {
+          displayName: profile?.display_name ?? null,
+          quizAnswers: taste?.quiz_answers ?? null,
+          learnedSignals,
+        },
+        { includeHistory: false },
+      );
     }
   }
 
@@ -79,7 +106,7 @@ export async function runMapSearch(
     personalize,
     tasteEmbedding,
     tasteSummary,
-    learnedSignals: null,
+    learnedSignals,
   };
   // Reduced toolbox: find + show only.
   const tools = buildChatTools(ctx, collector).filter(
@@ -87,12 +114,11 @@ export async function runMapSearch(
   );
 
   const replyHint = detectRegister(opts.message).replyHint;
+  const system = mapSearchSystem(city.name, renderPersonaCompact(persona));
   const messages: AIMessage[] = [
     {
       role: "system",
-      content: replyHint
-        ? `${mapSearchSystem(city.name)}\n\n${replyHint}`
-        : mapSearchSystem(city.name),
+      content: replyHint ? `${system}\n\n${replyHint}` : system,
     },
     { role: "user", content: opts.message },
   ];
