@@ -332,7 +332,7 @@ export function PlaceSheet({
           {/* The concierge already knows which place this is, so an ask that
               starts here doesn't have to name it again. */}
           <ButtonLink
-            href={`/chat?place=${place.slug}`}
+            href={`/chat?place=${encodeURIComponent(place.slug)}`}
             variant="secondary"
             className="mt-2 w-full"
           >
