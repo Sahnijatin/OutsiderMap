@@ -34,7 +34,7 @@ function fakeSupabase(rows: TableRows, failOn?: string) {
           );
         },
       };
-      for (const method of ["select", "eq", "order", "limit", "in", "not"]) {
+      for (const method of ["select", "eq", "order", "limit", "in", "not", "or"]) {
         chain[method] = () => chain;
       }
       return chain;

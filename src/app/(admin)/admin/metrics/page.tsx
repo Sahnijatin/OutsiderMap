@@ -20,7 +20,12 @@ import {
   daysToClearInvisible,
   type CatalogInventory,
 } from "@/lib/catalog/inventory";
-import { ratePct, funnelShares, FUNNEL_LABELS } from "@/lib/metrics/format";
+import {
+  ratePct,
+  funnelShares,
+  reasonSourceTile,
+  FUNNEL_LABELS,
+} from "@/lib/metrics/format";
 import { ONE_ANSWER_VS_LIST } from "@/lib/experiments/server";
 import { toggleExperiment } from "./actions";
 
@@ -55,7 +60,17 @@ export default async function MetricsPage() {
       getAnswerAcceptRate(supabase, 7),
       getAcceptRate(supabase, 7),
       getActivation(supabase, 30),
-      getReasonSource(supabase, 7),
+      // Guarded because `metrics_reason_source` is new in this branch and its
+      // migration may not be applied yet. Without this the whole dashboard
+      // 500s on any deploy where code lands before migrations - including the
+      // inventory panel below, which is where you would go to find out what is
+      // wrong. The older RPCs are deliberately left unguarded: they have
+      // shipped, so an error from one of them is a real fault worth surfacing
+      // loudly rather than a deploy-ordering artefact.
+      getReasonSource(supabase, 7).catch((err): null => {
+        console.error("reason-source metric unavailable", err);
+        return null;
+      }),
       getDaily(supabase, 30),
       getFunnel(supabase, 30),
       getRetention(supabase, 8),
@@ -78,9 +93,7 @@ export default async function MetricsPage() {
   // the same blurb as everyone else. Degraded picks are excluded from both:
   // their reasons are static by construction, so counting them would let a
   // provider outage read as a personalization regression.
-  const reasonTotal = reasons.model + reasons.editorNote;
-  const ownReasonPct =
-    reasonTotal > 0 ? ratePct(reasons.model, reasonTotal) : null;
+  const ownReason = reasonSourceTile(reasons);
   const ttfa =
     activation.avgTtfaSeconds != null
       ? activation.avgTtfaSeconds < 90
@@ -148,15 +161,9 @@ export default async function MetricsPage() {
         />
         <Tile
           label="Own-reason rate · 7d"
-          value={ownReasonPct !== null ? `${ownReasonPct}%` : "-"}
-          sub={
-            ownReasonPct !== null
-              ? `${reasons.model}/${reasonTotal} picks${
-                  reasons.degraded > 0 ? ` · ${reasons.degraded} degraded` : ""
-                }`
-              : "awaiting picks"
-          }
-          muted={ownReasonPct === null}
+          value={ownReason.value}
+          sub={ownReason.sub}
+          muted={ownReason.muted}
         />
         <Tile
           label="Stretch-success-rate"

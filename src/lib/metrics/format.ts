@@ -20,6 +20,35 @@ export const FUNNEL_LABELS: Record<string, string> = {
   returned: "Returned",
 };
 
+/**
+ * The own-reason tile, which has three states rather than two.
+ *
+ * "No picks served yet" and "the metric is not deployed" both have no number to
+ * show, and rendering either as 0% would read as a total personalization
+ * collapse - the loudest possible false alarm on the one tile that measures how
+ * often members get the shared editor note instead of a reason written for
+ * them. `metrics_reason_source` is new, so on any deploy where code lands
+ * before migrations the second case is real rather than theoretical.
+ */
+export function reasonSourceTile(
+  reasons: { model: number; editorNote: number; degraded: number } | null,
+): { value: string; sub: string; muted: boolean } {
+  if (!reasons) {
+    return { value: "-", sub: "metric not deployed yet", muted: true };
+  }
+  const total = reasons.model + reasons.editorNote;
+  if (total === 0) {
+    return { value: "-", sub: "awaiting picks", muted: true };
+  }
+  return {
+    value: `${ratePct(reasons.model, total)}%`,
+    sub: `${reasons.model}/${total} picks${
+      reasons.degraded > 0 ? ` · ${reasons.degraded} degraded` : ""
+    }`,
+    muted: false,
+  };
+}
+
 /** Each stage as a share of the top of the funnel (first stage) - for bar widths. */
 export function funnelShares(
   stages: readonly FunnelStage[],

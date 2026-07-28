@@ -89,10 +89,14 @@ interface Rows {
   /** null models a member row that has gone missing. */
   profileMissing?: boolean;
   messageId?: string | null;
+  /** Makes the read return a PostgREST error alongside whatever data. */
+  readError?: string;
 }
 
 function fakeSupabase(rows: Rows, failOn?: string) {
   const tables: string[] = [];
+  /** Filters applied to member_memory, so the expiry query is inspectable. */
+  const filters: Array<[string, ...unknown[]]> = [];
   const client = {
     from(table: string) {
       tables.push(table);
@@ -107,6 +111,10 @@ function fakeSupabase(rows: Rows, failOn?: string) {
       const guard = () => {
         if (table === failOn) throw new Error(`${table} unavailable`);
       };
+      // Honoured rather than recorded and ignored: the row cap is the
+      // database's job now, so a fake that returns everything would let a
+      // missing .limit() pass.
+      let limit = Infinity;
       const chain: Record<string, unknown> = {
         maybeSingle: () => ({
           then: (r: (v: unknown) => unknown) => {
@@ -116,16 +124,27 @@ function fakeSupabase(rows: Rows, failOn?: string) {
         }),
         then: (r: (v: unknown) => unknown) => {
           guard();
-          return Promise.resolve({ data: data(), error: null }).then(r);
+          return Promise.resolve({
+            data: data().slice(0, limit),
+            error: rows.readError ? { message: rows.readError } : null,
+          }).then(r);
         },
       };
-      for (const m of ["select", "eq", "order", "limit", "in", "not"]) {
-        chain[m] = () => chain;
+      for (const m of ["select", "eq", "order", "limit", "in", "not", "or"]) {
+        chain[m] = (...args: unknown[]) => {
+          if (table === "member_memory") filters.push([m, ...args]);
+          if (m === "limit") limit = args[0] as number;
+          return chain;
+        };
       }
       return chain;
     },
   };
-  return { client: client as unknown as SupabaseClient<Database>, tables };
+  return {
+    client: client as unknown as SupabaseClient<Database>,
+    tables,
+    filters,
+  };
 }
 
 const memory = (over: Partial<Rows["memories"] extends (infer T)[] | undefined ? T : never> = {}) => ({
@@ -179,14 +198,67 @@ describe("loadMemories", () => {
     expect(loaded.map((m) => m.id)).toEqual(["live"]);
   });
 
-  it("caps what reaches the prompt", async () => {
+  it("excludes expired facts in the query, not after it", async () => {
+    // The regression this pins. Filtering after the fact looked equivalent and
+    // was not: expired rows still consumed the row limit, so a member with more
+    // dead facts than the limit - ranked above their live ones by confidence -
+    // got a page of corpses and ended up with no memory at all. That failure
+    // looks exactly like the feature being switched off.
+    const { client, filters } = fakeSupabase({ memories: [] });
+    await loadMemories(client, "u1", true);
+
+    const or = filters.find(([m]) => m === "or");
+    expect(or).toBeDefined();
+    expect(or![1]).toMatch(
+      /^expires_at\.is\.null,expires_at\.gt\.\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/,
+    );
+  });
+
+  it("sends a timestamp with no milliseconds", async () => {
+    // PostgREST reads an or() term as column.operator.value, splitting on the
+    // first two dots. A default toISOString() puts a third dot inside the
+    // value; it happens to survive, but not for a reason worth depending on.
+    const { client, filters } = fakeSupabase({ memories: [] });
+    await loadMemories(client, "u1", true);
+    expect(filters.find(([m]) => m === "or")![1]).not.toContain(".000Z");
+  });
+
+  it("still drops an expired row the query let through", async () => {
+    const past = new Date(Date.now() - 86_400_000).toISOString();
+    const { client } = fakeSupabase({
+      memories: [memory({ id: "stale", expires_at: past }), memory({ id: "live" })],
+    });
+    expect((await loadMemories(client, "u1", true)).map((m) => m.id)).toEqual([
+      "live",
+    ]);
+  });
+
+  it("says so when the read fails instead of quietly forgetting everything", async () => {
+    // A returned error is not an exception, so the old code read it as "no
+    // memories" and moved on. Memory silently ceasing to work is precisely the
+    // kind of failure nobody reports, because it looks like the product just
+    // not being very good.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { client } = fakeSupabase({
+      memories: [memory()],
+      readError: 'relation "member_memory" does not exist',
+    });
+
+    expect(await loadMemories(client, "u1", true)).toEqual([]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("caps what reaches the prompt, in the query", async () => {
     // The block has to be affordable on every turn. A member with thirty
-    // remembered facts does not want all thirty weighed against one question.
+    // remembered facts does not want all thirty weighed against one question -
+    // and the cap belongs in the query, so thirty rows never cross the wire.
     const many = Array.from({ length: MEMORY_LIMIT + 5 }, (_, i) =>
       memory({ id: `m${i}` }),
     );
-    expect(await loadMemories(fakeSupabase({ memories: many }).client, "u1", true))
-      .toHaveLength(MEMORY_LIMIT);
+    const { client, filters } = fakeSupabase({ memories: many });
+    expect(await loadMemories(client, "u1", true)).toHaveLength(MEMORY_LIMIT);
+    expect(filters).toContainEqual(["limit", MEMORY_LIMIT]);
   });
 
   it("degrades to no memory rather than throwing", async () => {

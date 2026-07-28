@@ -78,18 +78,33 @@ export async function loadMemories(
 ): Promise<MemoryFact[]> {
   if (!personalize) return [];
   try {
-    const { data } = await supabase
+    const now = Date.now();
+    const { data, error } = await supabase
       .from("member_memory")
       .select("id, kind, text, confidence, expires_at")
       .eq("user_id", userId)
+      // Expired rows are excluded in the query so they cannot occupy the limit.
+      // Filtering them afterwards looked equivalent and was not: a member who
+      // accumulates more expired facts than the limit, ranked above their live
+      // ones by confidence, would get a page of dead rows and end up with no
+      // memory at all - the failure looking exactly like the feature being off.
+      .or(`expires_at.is.null,expires_at.gt.${postgrestTimestamp(now)}`)
       .order("confidence", { ascending: false })
       .order("updated_at", { ascending: false })
-      .limit(MEMORY_LIMIT * 2);
+      .limit(MEMORY_LIMIT);
 
-    const now = Date.now();
+    // The query is authoritative; this is the belt to its braces. It costs one
+    // pass over at most six rows and means a filter that ever stops working
+    // degrades to stale memory rather than wrong memory.
+    if (error) {
+      console.warn(
+        "[chat] memory read failed",
+        JSON.stringify({ userId, message: error.message }),
+      );
+      return [];
+    }
     return (data ?? [])
       .filter((m) => !m.expires_at || Date.parse(m.expires_at) > now)
-      .slice(0, MEMORY_LIMIT)
       .map((m) => ({
         id: m.id,
         kind: m.kind,
@@ -102,11 +117,17 @@ export async function loadMemories(
 }
 
 /**
- * Expired rows are filtered in code rather than with a `.gt()` filter because
- * `expires_at` is nullable and "null or in the future" is an `or()` string that
- * has to be kept in sync with the column name by hand. Over-fetching a few rows
- * and dropping the dead ones is the same round trip and cannot drift.
+ * An ISO timestamp with the milliseconds removed.
+ *
+ * PostgREST parses an `or()` term as `column.operator.value`, splitting on the
+ * first two dots. A default `toISOString()` carries a third dot in `.000Z`,
+ * which lands inside the value and works - but only because of where the split
+ * stops. Dropping the milliseconds removes the question entirely, and
+ * second-resolution is far finer than anything an expiry measured in days needs.
  */
+function postgrestTimestamp(ms: number): string {
+  return new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
 
 // ---------------------------------------------------------------------------
 // Write
