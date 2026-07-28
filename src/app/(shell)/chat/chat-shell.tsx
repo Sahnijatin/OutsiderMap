@@ -17,10 +17,13 @@ const PAGE_SIZE = 20;
 export function ChatShell({
   displayName,
   viewing,
+  visitCheck,
 }: {
   displayName: string | null;
   /** The place this conversation was opened from, if any (`/chat?place=`). */
   viewing?: { slug: string; name: string } | null;
+  /** A pick they clicked a day or two ago that we have not heard back about. */
+  visitCheck?: { placeId: string; slug: string; name: string } | null;
 }) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -226,6 +229,7 @@ export function ChatShell({
           key={chatKey}
           displayName={displayName}
           viewing={viewing}
+          visitCheck={visitCheck}
           threadId={activeId ?? undefined}
           initialMessages={initialMessages}
           onThreadCreated={onThreadCreated}

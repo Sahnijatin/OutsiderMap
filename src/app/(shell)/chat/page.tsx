@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireOnboarded } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { pendingVisitCheck } from "@/lib/chat/followup";
 import { ChatShell } from "./chat-shell";
 
 export const metadata: Metadata = { title: "Chat" };
@@ -46,10 +47,16 @@ export default async function ChatPage({
     requireOnboarded(),
     searchParams,
   ]);
+  const supabase = await createClient();
+  const [viewing, visitCheck] = await Promise.all([
+    resolveViewing(place),
+    pendingVisitCheck(supabase, profile.id),
+  ]);
   return (
     <ChatShell
       displayName={profile.display_name}
-      viewing={await resolveViewing(place)}
+      viewing={viewing}
+      visitCheck={visitCheck}
     />
   );
 }

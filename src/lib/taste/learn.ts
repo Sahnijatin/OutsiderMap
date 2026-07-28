@@ -37,6 +37,30 @@ const EVENT_WEIGHTS: Record<string, number> = {
   unsave: -1,
 };
 
+/**
+ * How long a signal takes to count half as much.
+ *
+ * Without this, every one of the last 500 events counts the same, so taste from
+ * six months ago outvotes last week - in a product whose embedding text
+ * literally says "Lately drawn to". Sixty days is a guess at how fast taste
+ * drifts, and it is the one number here that wants checking against the eval
+ * once there is one: too short and a quiet fortnight erases someone, too long
+ * and this does nothing.
+ *
+ * Ratios are unaffected, so the explore/exploit dial - which reads shares, not
+ * magnitudes - behaves exactly as before.
+ */
+const HALF_LIFE_DAYS = 60;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 1 for something that just happened, 0.5 at one half-life, and so on. */
+export function recencyFactor(createdAt: string, nowMs: number): number {
+  const ageMs = nowMs - new Date(createdAt).getTime();
+  if (!Number.isFinite(ageMs) || ageMs <= 0) return 1;
+  return 0.5 ** (ageMs / DAY_MS / HALF_LIFE_DAYS);
+}
+
 const StoredQuizSchema = z.object({
   dimensions: TasteDimensionsSchema.optional(),
 });
@@ -63,6 +87,7 @@ export async function recomputeLearnedSignals(userId: string) {
     : { data: [] as { id: string; area: string | null; vibe_tags: string[] }[] };
   const placeById = new Map((places ?? []).map((p) => [p.id, p]));
 
+  const now = Date.now();
   const vibeScores = new Map<string, number>();
   const areaScores = new Map<string, number>();
   const hourBuckets = { morning: 0, afternoon: 0, evening: 0, late_night: 0 };
@@ -73,7 +98,9 @@ export async function recomputeLearnedSignals(userId: string) {
     if (event.event_type === "query") queries += 1;
     if (event.event_type === "save") saves += 1;
 
-    const weight = EVENT_WEIGHTS[event.event_type] ?? 0;
+    const weight =
+      (EVENT_WEIGHTS[event.event_type] ?? 0) *
+      recencyFactor(event.created_at, now);
     const place = event.place_id ? placeById.get(event.place_id) : undefined;
     if (weight !== 0 && place) {
       for (const tag of place.vibe_tags) {
@@ -109,8 +136,14 @@ export async function recomputeLearnedSignals(userId: string) {
     updated_at: new Date().toISOString(),
     event_count: events.length,
     save_rate: queries > 0 ? Number((saves / queries).toFixed(2)) : null,
-    top_vibes: topVibes.map(([tag, score]) => ({ tag, score })),
-    avoid_vibes: avoidVibes.map(([tag, score]) => ({ tag, score })),
+    top_vibes: topVibes.map(([tag, score]) => ({
+      tag,
+      score: Number(score.toFixed(2)),
+    })),
+    avoid_vibes: avoidVibes.map(([tag, score]) => ({
+      tag,
+      score: Number(score.toFixed(2)),
+    })),
     top_areas: topAreas,
     active_hours: hourBuckets,
   };

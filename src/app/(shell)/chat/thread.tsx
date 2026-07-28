@@ -2,8 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUp, History, Mic, Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowUp, History, Mic, Plus, X } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useSpeechInput } from "@/lib/voice/use-speech-input";
 import { tap as hapticTap } from "@/lib/native/haptics";
 import { playSound } from "@/lib/sound/engine";
@@ -43,6 +48,7 @@ const SUGGESTIONS = [
 export function ChatThread({
   displayName,
   viewing,
+  visitCheck,
   threadId: initialThreadId,
   initialMessages,
   onThreadCreated,
@@ -53,6 +59,8 @@ export function ChatThread({
   displayName: string | null;
   /** The place this conversation was opened from (`/chat?place=`). */
   viewing?: { slug: string; name: string } | null;
+  /** A pick they clicked a day or two ago that we have not heard back about. */
+  visitCheck?: { placeId: string; slug: string; name: string } | null;
   threadId?: string;
   initialMessages?: Message[];
   /** A first send created a server thread - lets the list insert it. */
@@ -313,6 +321,7 @@ export function ChatThread({
                 </button>
               ))}
             </div>
+            {visitCheck && <VisitCheckPrompt check={visitCheck} />}
           </div>
         ) : (
           <div className="flex flex-col gap-4 py-4">
@@ -528,6 +537,96 @@ function questHandoffHref(city: string | null, brief: string) {
   return qs ? `/quests/new?${qs}` : "/quests/new";
 }
 
+/**
+ * "Did you make it to X?" - the only signal that says whether an answer was
+ * any good, because the evidence happens in the world rather than in the app.
+ * A `visit` is also the heaviest positive the learning loop has short of
+ * completing a quest.
+ */
+function VisitCheckPrompt({
+  check,
+}: {
+  check: { placeId: string; slug: string; name: string };
+}) {
+  const storageKey = `om:visit-check:${check.placeId}`;
+  const [closed, setClosed] = useState(false);
+  const [answered, setAnswered] = useState(false);
+
+  // localStorage is an external store, so it is read through the API meant for
+  // one. The server snapshot is `true` (already answered), so nothing renders
+  // during SSR and the client's real value cannot mismatch the hydrated markup.
+  const persisted = useSyncExternalStore(
+    noopSubscribe,
+    () => {
+      try {
+        return window.localStorage.getItem(storageKey) === "1";
+      } catch {
+        return false;
+      }
+    },
+    () => true,
+  );
+
+  function remember() {
+    try {
+      window.localStorage.setItem(storageKey, "1");
+    } catch {
+      // Private mode - it will ask once more. Harmless.
+    }
+  }
+
+  if (persisted || closed) return null;
+
+  if (answered) {
+    return (
+      <p className="mt-2 text-xs text-ink-dim">
+        Good - that tells me more than a hundred taps.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-card border border-line bg-surface p-3">
+      <p className="text-sm text-ink">Did you make it to {check.name}?</p>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setAnswered(true);
+            remember();
+            void fetch("/api/interactions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "visit", placeId: check.placeId }),
+            }).catch(() => {});
+          }}
+          className="rounded-full bg-accent px-4 py-1.5 text-sm text-night transition-opacity hover:opacity-90"
+        >
+          I went
+        </button>
+        {/* Not going is not disliking, so this logs nothing at all - it just
+            stops asking. Recording a negative here would teach the loop that
+            a busy week is a bad recommendation. */}
+        <button
+          type="button"
+          onClick={() => {
+            remember();
+            setClosed(true);
+          }}
+          className="rounded-full border border-line px-4 py-1.5 text-sm text-ink-dim transition-colors hover:text-ink"
+        >
+          Not yet
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** No cross-tab sync needed: the prompt is read once when the pane mounts. */
+function noopSubscribe() {
+  return () => {};
+}
+
 function Dot({ delay }: { delay: string }) {
   return (
     <span
@@ -539,60 +638,89 @@ function Dot({ delay }: { delay: string }) {
 
 function PickCard({ pick }: { pick: ChatPickCard }) {
   const img = publicMediaUrl("place-images", pick.image_path);
+  const [dismissed, setDismissed] = useState(false);
 
-  function logClick() {
-    // Fire-and-forget learning signal; navigation proceeds regardless. The
-    // answerId ties this click to the exact answer served (#120 accept-rate).
+  function log(action: "chat_pick_click" | "dismiss") {
+    // Fire-and-forget learning signal; the click still navigates and the
+    // dismiss still hides the card regardless of whether this lands.
     void fetch("/api/interactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "chat_pick_click",
+        action,
         placeId: pick.id,
-        answerId: pick.answerId,
+        // answerId ties the action to the exact answer served, and the route
+        // reads it as an acceptance (#120 accept-rate). A dismiss is the
+        // opposite of accepting, so it must not carry one.
+        ...(action === "chat_pick_click" ? { answerId: pick.answerId } : {}),
       }),
     }).catch(() => {});
   }
 
+  if (dismissed) {
+    return (
+      <p className="rounded-card border border-line/70 px-3 py-2 text-xs text-ink-dim">
+        Noted - fewer like {pick.name}.
+      </p>
+    );
+  }
+
   return (
-    <Link
-      href={`/map?place=${encodeURIComponent(pick.slug)}`}
-      onClick={logClick}
-      className="flex gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-accent/50"
-    >
-      {img ? (
-        <Image
-          src={img}
-          alt=""
-          width={64}
-          height={64}
-          sizes="64px"
-          className="size-16 shrink-0 rounded-xl object-cover"
-        />
-      ) : (
-        <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-raise font-display text-lg italic text-accent">
-          {pick.name.charAt(0)}
-        </div>
-      )}
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-ink">{pick.name}</p>
-        {pick.area && <p className="text-xs text-ink-dim">{pick.area}</p>}
-        {pick.reason && (
-          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-dim">
-            {/* Only a reason the model wrote for this user reads as "why for
-                you"; an editor-note fallback is honestly labeled as the
-                house note (also covers picks saved before reasonSource). */}
-            {pick.reasonSource === "model" ? (
-              pick.reason
-            ) : (
-              <>
-                <span className="text-ink-dim/80">From our notes: </span>
-                {pick.reason}
-              </>
-            )}
-          </p>
+    // The dismiss control is a sibling of the link, not a child: a button
+    // inside an anchor is not valid, and nesting it makes the whole card
+    // ambiguous to a keyboard or a screen reader.
+    <div className="relative">
+      <Link
+        href={`/map?place=${encodeURIComponent(pick.slug)}`}
+        onClick={() => log("chat_pick_click")}
+        className="flex gap-3 rounded-card border border-line bg-surface p-3 transition-colors hover:border-accent/50"
+      >
+        {img ? (
+          <Image
+            src={img}
+            alt=""
+            width={64}
+            height={64}
+            sizes="64px"
+            className="size-16 shrink-0 rounded-xl object-cover"
+          />
+        ) : (
+          <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-raise font-display text-lg italic text-accent">
+            {pick.name.charAt(0)}
+          </div>
         )}
-      </div>
-    </Link>
+        <div className="min-w-0 pr-6">
+          <p className="truncate text-sm font-medium text-ink">{pick.name}</p>
+          {pick.area && <p className="text-xs text-ink-dim">{pick.area}</p>}
+          {pick.reason && (
+            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-dim">
+              {/* Only a reason the model wrote for this user reads as "why for
+                  you"; an editor-note fallback is honestly labeled as the
+                  house note (also covers picks saved before reasonSource). */}
+              {pick.reasonSource === "model" ? (
+                pick.reason
+              ) : (
+                <>
+                  <span className="text-ink-dim/80">From our notes: </span>
+                  {pick.reason}
+                </>
+              )}
+            </p>
+          )}
+        </div>
+      </Link>
+      <button
+        type="button"
+        aria-label={`Not ${pick.name}`}
+        title="Not this"
+        onClick={() => {
+          setDismissed(true);
+          log("dismiss");
+        }}
+        className="absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-raise hover:text-ink"
+      >
+        <X className="size-3.5" />
+      </button>
+    </div>
   );
 }
