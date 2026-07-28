@@ -65,6 +65,12 @@ function fakeSupabase(
     messageError?: string;
     /** Rows the quest_stops lookup (prior plans' stops) returns. */
     questStops?: unknown[];
+    /** DPDP consent flag on the profile. */
+    personalizationEnabled?: boolean;
+    /** The taste_profiles row, if this member has one. */
+    taste?: unknown;
+    /** Rows the bucket lookup returns, for the persona's recent saves. */
+    savedPlaces?: unknown[];
   } = {},
 ) {
   const table = (
@@ -89,7 +95,17 @@ function fakeSupabase(
   return {
     from: (name: string) => {
       if (name === "profiles") {
-        return table({ personalization_enabled: true, home_city: "delhi" });
+        return table({
+          personalization_enabled: opts.personalizationEnabled ?? true,
+          home_city: "delhi",
+          display_name: "Rehan Malik",
+        });
+      }
+      if (name === "taste_profiles") {
+        return table(opts.taste ?? null);
+      }
+      if (name === "saved_places") {
+        return table(opts.savedPlaces ?? null);
       }
       if (name === "chat_threads") {
         return table({ id: "t-1" }, (p) => opts.threadUpdates?.push(p));
@@ -442,5 +458,91 @@ describe("honest degradation", () => {
     const { runChatTurn } = await import("@/lib/chat/engine");
     const result = await runChatTurn(fakeSupabase(), "u1", { message: "crispy" });
     expect(result.degraded).toBeUndefined();
+  });
+});
+
+/**
+ * The persona block reaching the model is the whole point of plan step A: the
+ * taste profile has always been loaded on this path and handed only to the
+ * toolbox, so a turn where the model skipped `get_user_behavior` was written
+ * for a stranger.
+ */
+describe("runChatTurn - the member in the prompt", () => {
+  const TASTE = {
+    taste_summary: "You eat late and you eat standing up.",
+    embedding: null,
+    learned_signals: {
+      event_count: 40,
+      top_vibes: [{ tag: "late-night", score: 20 }],
+      avoid_vibes: [{ tag: "fine-dining", score: -3 }],
+      top_areas: ["Old Delhi"],
+      active_hours: { morning: 0, afternoon: 1, evening: 4, late_night: 35 },
+    },
+    quiz_answers: {
+      dimensions: {
+        adventurousness: 0.8,
+        budget_band: 1,
+        social_energy: "solo",
+        preferred_times: ["late-night"],
+        cuisine_leanings: ["kebab"],
+        vibe_keywords: ["hole-in-the-wall", "late-night"],
+        areas: ["Old Delhi"],
+        anchors: ["eats standing up and prefers it that way"],
+      },
+    },
+  };
+
+  /** Runs a turn and returns the system prompt the model was actually given. */
+  async function systemPromptFor(supabase: SupabaseClient<Database>) {
+    let system = "";
+    runToolsImpl = async ({ messages }) => {
+      system = String(messages.find((m) => m.role === "system")?.content ?? "");
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(supabase, "u1", { message: "something crispy" });
+    return system;
+  }
+
+  it("puts the member's profile in front of the model", async () => {
+    const system = await systemPromptFor(
+      fakeSupabase({ taste: TASTE, savedPlaces: [{ places: { name: "Karim's" } }] }),
+    );
+
+    expect(system).toContain("<member_profile>");
+    expect(system).toContain("Rehan.");
+    expect(system).toContain("late-night");
+    expect(system).toContain("Old Delhi");
+    expect(system).toContain("eats standing up and prefers it that way");
+    expect(system).toContain("Recently saved: Karim's.");
+    // And it no longer sends the model off to fetch what it already has.
+    expect(system).toContain("You already have their profile above");
+  });
+
+  it("sends nothing personal when the member opted out", async () => {
+    // The DPDP gate, end to end: consent off means the taste row is never even
+    // read, so there is nothing to leak into the prompt by accident.
+    const system = await systemPromptFor(
+      fakeSupabase({ taste: TASTE, personalizationEnabled: false }),
+    );
+
+    expect(system).not.toContain("<member_profile>");
+    expect(system).not.toContain("Rehan");
+    expect(system).not.toContain("Old Delhi");
+    expect(system).not.toContain("eats standing up");
+    expect(system).toContain("Personalization is off for this user");
+  });
+
+  it("never puts the taste summary in the prompt", async () => {
+    // It is second-person prose about the member and would be handed straight
+    // back to them. It stays behind get_user_behavior.
+    const system = await systemPromptFor(fakeSupabase({ taste: TASTE }));
+    expect(system).not.toContain("You eat late and you eat standing up");
+  });
+
+  it("falls back cleanly for a member with no taste profile yet", async () => {
+    const system = await systemPromptFor(fakeSupabase());
+    expect(system).not.toContain("<member_profile>");
+    expect(system).toContain("Consult get_user_behavior to personalize");
   });
 });

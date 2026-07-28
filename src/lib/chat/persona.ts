@@ -5,7 +5,6 @@ import {
   deriveAdventurousness,
   type Posture,
 } from "@/lib/chat/adventurousness";
-import { TasteDimensionsSchema } from "@/lib/taste/profile";
 import type { Database, Json } from "@/types/database";
 
 /**
@@ -54,9 +53,31 @@ export interface Persona {
   eventCount: number;
 }
 
-const StoredQuizSchema = z.object({
-  dimensions: TasteDimensionsSchema.optional(),
-});
+/**
+ * A lenient read of the stored quiz dimensions - deliberately NOT
+ * `TasteDimensionsSchema`.
+ *
+ * That schema is the right one for *writing* a profile: it enforces "at least
+ * three vibe keywords, one to four anchors" so the extraction step cannot
+ * produce something vague. Reading a stored row back is a different job. It is
+ * all-or-nothing, so a single out-of-range field - a v1 row, a hand-edited row,
+ * an extraction that drifted - drops the entire dimensions object and the
+ * member vanishes from their own prompt. That is precisely the silently-generic
+ * failure this block exists to fix, so here every field stands or falls alone.
+ */
+const StoredDimensionsSchema = z
+  .object({
+    budget_band: z.number().int().min(1).max(4).optional().catch(undefined),
+    social_energy: z.string().optional().catch(undefined),
+    preferred_times: z.array(z.string()).optional().catch(undefined),
+    cuisine_leanings: z.array(z.string()).optional().catch(undefined),
+    anchors: z.array(z.string()).optional().catch(undefined),
+  })
+  .passthrough();
+
+const StoredQuizSchema = z
+  .object({ dimensions: StoredDimensionsSchema.optional().catch(undefined) })
+  .passthrough();
 
 const LearnedSignalsSchema = z
   .object({
@@ -290,6 +311,34 @@ async function recentPasses(
  * second-person truths are the most quotable strings in the system. They are
  * rendered as constraints to respect, never as observations about the person.
  */
+/**
+ * Is there anything here worth spending prompt on?
+ *
+ * A member who signed up and did nothing has a name and a default explore dial,
+ * and nothing else. Rendering a block for them costs ~700 characters to say "we
+ * know nothing about this person", and the coaching that comes with it is
+ * advice about a profile that isn't there. Better to emit nothing and let the
+ * prompt fall back to its no-profile wording.
+ *
+ * A cold-start member who *did* answer the quiz is a different case - anchors
+ * and a budget band are real signal, so they get a block.
+ */
+function hasSignal(p: Persona): boolean {
+  return (
+    p.anchors.length > 0 ||
+    p.vibes.length > 0 ||
+    p.avoidVibes.length > 0 ||
+    p.areas.length > 0 ||
+    p.cuisines.length > 0 ||
+    p.savedRecently.length > 0 ||
+    p.passedRecently.length > 0 ||
+    p.preferredTimes.length > 0 ||
+    p.activeHours !== null ||
+    p.budgetBand > 0 ||
+    p.social !== ""
+  );
+}
+
 function personaLines(p: Persona): string[] {
   const lines: string[] = [];
   const facts: string[] = [];
@@ -357,7 +406,7 @@ function personaLines(p: Persona): string[] {
  * without emitting a stray blank section.
  */
 export function renderPersona(persona: Persona | null): string {
-  if (!persona) return "";
+  if (!persona || !hasSignal(persona)) return "";
 
   const name = persona.firstName ? `${persona.firstName}. ` : "";
   const body = personaLines(persona).join("\n");

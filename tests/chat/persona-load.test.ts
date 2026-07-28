@@ -157,6 +157,55 @@ describe("loadPersona", () => {
     expect(persona!.firstName).toBe("Ira");
   });
 
+  it("keeps the fields it can read when the stored row fails strict validation", async () => {
+    // The regression this pins: reading with TasteDimensionsSchema is
+    // all-or-nothing, so one out-of-range field - a v1 row, a hand-edit, an
+    // extraction that drifted - dropped the whole dimensions object and the
+    // member vanished from their own prompt. Exactly the silently-generic
+    // failure the block exists to fix.
+    const { client } = fakeSupabase({ saved_places: [], interaction_events: [] });
+
+    const persona = await loadPersona(client, "u1", true, {
+      displayName: "Rehan",
+      quizAnswers: {
+        dimensions: {
+          // Would fail the write-time schema: two vibe keywords, not three.
+          vibe_keywords: ["hole-in-the-wall", "late-night"],
+          budget_band: 1,
+          anchors: ["eats standing up and prefers it that way"],
+          cuisine_leanings: ["kebab"],
+          social_energy: "solo",
+          preferred_times: ["late-night"],
+        },
+      },
+      learnedSignals: SIGNALS,
+    });
+
+    expect(persona!.anchors).toEqual(["eats standing up and prefers it that way"]);
+    expect(persona!.budgetBand).toBe(1);
+    expect(persona!.cuisines).toEqual(["kebab"]);
+  });
+
+  it("drops only the field that is malformed, not its neighbours", async () => {
+    const { client } = fakeSupabase({ saved_places: [], interaction_events: [] });
+
+    const persona = await loadPersona(client, "u1", true, {
+      displayName: "Rehan",
+      quizAnswers: {
+        dimensions: {
+          budget_band: 99, // out of range
+          anchors: ["still perfectly readable"],
+          social_energy: "solo",
+        },
+      },
+      learnedSignals: SIGNALS,
+    });
+
+    expect(persona!.budgetBand).toBe(0); // dropped
+    expect(persona!.anchors).toEqual(["still perfectly readable"]); // kept
+    expect(persona!.social).toBe("solo"); // kept
+  });
+
   it("survives a failing history query", async () => {
     const { client } = fakeSupabase(
       { interaction_events: [] },

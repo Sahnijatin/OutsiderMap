@@ -8,6 +8,7 @@ import { resolveCity } from "@/lib/cities";
 import { nowInIST } from "@/lib/places/hours";
 import { keywordSearch, parseStoredEmbedding } from "@/lib/catalog/search";
 import { agentSystem } from "@/lib/chat/prompts";
+import { loadPersona, renderPersona } from "@/lib/chat/persona";
 import { extractRupees } from "@/lib/chat/budget";
 import { detectRegister } from "@/lib/chat/language";
 import { sanitizeReply } from "@/lib/chat/sanitize";
@@ -142,10 +143,10 @@ export async function runChatTurn(
 ): Promise<ChatTurnResult> {
   const ai = getAI();
 
-  // Profile decides city + personalization consent.
+  // Profile decides city + personalization consent, and names the member.
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("personalization_enabled, home_city")
+    .select("personalization_enabled, home_city, display_name")
     .eq("id", userId)
     .maybeSingle();
   const personalize = profileRow?.personalization_enabled !== false;
@@ -241,14 +242,25 @@ export async function runChatTurn(
     logPersistFailure("user_message", userMsgError, { userId, threadId });
   }
 
-  // Taste + learned behaviour (consent-gated) for the behaviour tool.
+  // Taste + learned behaviour (consent-gated) for the behaviour tool and the
+  // persona block. `quiz_answers` carries the anchors the block leans on.
   const { data: tasteRow } = personalize
     ? await supabase
         .from("taste_profiles")
-        .select("taste_summary, embedding, learned_signals")
+        .select("taste_summary, embedding, learned_signals, quiz_answers")
         .eq("user_id", userId)
         .maybeSingle()
     : { data: null };
+
+  // Who the model is talking to, in the prompt itself rather than behind a tool
+  // call it may never make. Costs one round trip (two queries in parallel) on a
+  // turn budgeted at 55s, and saves a loop step whenever the model would have
+  // reached for get_user_behavior just to find out who this is.
+  const persona = await loadPersona(supabase, userId, personalize, {
+    displayName: profileRow?.display_name ?? null,
+    quizAnswers: tasteRow?.quiz_answers ?? null,
+    learnedSignals: tasteRow?.learned_signals ?? null,
+  });
 
   const collector = new ChatToolCollector();
   const toolCtx: ChatToolContext = {
@@ -272,6 +284,7 @@ export async function runChatTurn(
         timeLabel: timeLabel(),
         questionsAsked: intentState.questions_asked,
         personalize,
+        persona: renderPersona(persona),
         replyHint: detectRegister(input.message).replyHint,
         budgetRupees: extractRupees(input.message),
         shownEarlier: [...shownEarlier.values()],
