@@ -18,17 +18,25 @@ cd scout-engine
 npm install
 
 # Dry run, no keys, no network - exercises the full pipeline on sample data:
-npm run scout -- --state delhi --cities delhi --sources mock
+node src/cli.js --state delhi --cities delhi --sources mock
 
 # Real run (needs GOOGLE_MAPS_API_KEY with "Places API (New)" enabled):
-GOOGLE_MAPS_API_KEY=... npm run scout -- \
+# Mac/Linux:
+GOOGLE_MAPS_API_KEY=... node src/cli.js \
   --state delhi --cities delhi,gurgaon \
   --categories cafe,restaurant,bakery \
   --min-rating 4.3 --min-reviews 300
+# Windows PowerShell:
+#   $env:GOOGLE_MAPS_API_KEY="..."
+#   node src/cli.js --state delhi --cities delhi,gurgaon --categories cafe,restaurant
 
-npm run scout -- --list     # see all states / cities / categories
-npm run scout -- --help
+node src/cli.js --list     # see all states / cities / categories
+node src/cli.js --help
 ```
+
+> Invoke via `node src/cli.js` directly. `npm run scout -- --state ...` works
+> on Mac/Linux, but npm on Windows strips the `--flags` after `--` and the CLI
+> receives bare words (it now detects that and tells you the fix).
 
 Output: `out/<state>-<date>.xlsx` with three sheets:
 
