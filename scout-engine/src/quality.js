@@ -11,7 +11,17 @@ const CHAIN_MARKERS = [
   "ovenstory", "la pino", "third wave coffee", "theobroma", "krispy kreme",
   "dunkin", "taco bell", "burger singh", "biryani blues", "biryani by kilo",
   "moti mahal delux", "sagar ratna", "pind balluchi", "berco",
+  // Caught slipping through real Delhi/Gurugram harvests:
+  "coffeeshop company", "nothing before coffee", "7th heaven",
+  "keventers", "frozen bottle", "mad over donuts", "giani",
 ];
+
+/**
+ * SEO-stuffed listing names ("New Sky Coffee, Best Cafe in Chittaranjan
+ * Park Delhi") signal a place gaming Google rather than earning word of
+ * mouth - penalized, not banned, so the reviewer still sees them low down.
+ */
+const SEO_NAME_NOISE = /\b(best|top|no\.?\s?1|famous)\b.*\b(in|of)\b/i;
 
 /** Marks obvious multi-outlet noise in the name itself ("... - Sector 18"). */
 const OUTLET_NOISE = /( - |, )(sector|phase|block|dlf|mall|branch)\b/i;
@@ -41,6 +51,7 @@ export function qualityScore(place) {
   // Story evidence found in reviews/descriptions - the whole point.
   score += Math.min(12, place.storySignals.length * 3);
   if (OUTLET_NOISE.test(place.name)) score -= 10;
+  if (SEO_NAME_NOISE.test(place.name)) score -= 12;
   return Math.round(Math.max(0, Math.min(100, score)));
 }
 
