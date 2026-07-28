@@ -11,6 +11,7 @@ import {
   getExperiment,
   getExperimentConfig,
   getFunnel,
+  getReasonSource,
   getRetention,
 } from "@/lib/metrics/queries";
 import { ratePct, funnelShares, FUNNEL_LABELS } from "@/lib/metrics/format";
@@ -32,11 +33,22 @@ export default async function MetricsPage() {
   await requireAdmin();
   const supabase = await createClient();
 
-  const [answer, accept, activation, daily, funnel, retention, expConfig, expRows] =
+  const [
+    answer,
+    accept,
+    activation,
+    reasons,
+    daily,
+    funnel,
+    retention,
+    expConfig,
+    expRows,
+  ] =
     await Promise.all([
       getAnswerAcceptRate(supabase, 7),
       getAcceptRate(supabase, 7),
       getActivation(supabase, 30),
+      getReasonSource(supabase, 7),
       getDaily(supabase, 30),
       getFunnel(supabase, 30),
       getRetention(supabase, 8),
@@ -48,6 +60,13 @@ export default async function MetricsPage() {
   const answerPct = answer.served > 0 ? ratePct(answer.accepted, answer.served) : null;
   const activationPct =
     activation.served > 0 ? ratePct(activation.accepted, activation.served) : null;
+  // The complement - the editor-note share - is how often members were served
+  // the same blurb as everyone else. Degraded picks are excluded from both:
+  // their reasons are static by construction, so counting them would let a
+  // provider outage read as a personalization regression.
+  const reasonTotal = reasons.model + reasons.editorNote;
+  const ownReasonPct =
+    reasonTotal > 0 ? ratePct(reasons.model, reasonTotal) : null;
   const ttfa =
     activation.avgTtfaSeconds != null
       ? activation.avgTtfaSeconds < 90
@@ -112,6 +131,18 @@ export default async function MetricsPage() {
           value={ttfa}
           sub={ttfa === "-" ? "awaiting activations" : "avg onboarding→answer"}
           muted={ttfa === "-"}
+        />
+        <Tile
+          label="Own-reason rate · 7d"
+          value={ownReasonPct !== null ? `${ownReasonPct}%` : "-"}
+          sub={
+            ownReasonPct !== null
+              ? `${reasons.model}/${reasonTotal} picks${
+                  reasons.degraded > 0 ? ` · ${reasons.degraded} degraded` : ""
+                }`
+              : "awaiting picks"
+          }
+          muted={ownReasonPct === null}
         />
         <Tile
           label="Stretch-success-rate"

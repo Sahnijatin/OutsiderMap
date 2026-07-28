@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import type { PersonaSource } from "@/lib/chat/persona";
 import type { TasteDimensions } from "@/lib/taste/profile";
+import type { Json } from "@/types/database";
 
 /**
  * Synthetic members for the personalization eval (plan step 1).
@@ -327,6 +329,22 @@ export function personaTokens(persona: EvalPersona): string[] {
  */
 export function personaEmail(persona: EvalPersona): string {
   return `eval-${persona.id}@outsidermap.invalid`;
+}
+
+/**
+ * The persona as `loadPersona` reads it from the database.
+ *
+ * Lets the deterministic half of the eval build a real prompt for a fixture
+ * without a database: paired with `{ includeHistory: false }`, `loadPersona`
+ * issues no queries at all, so the prompt-divergence gate runs in CI with no
+ * keys, no Supabase, and no model.
+ */
+export function personaSourceFor(persona: EvalPersona): PersonaSource {
+  return {
+    displayName: persona.displayName,
+    quizAnswers: { version: 2, dimensions: persona.dimensions } as Json,
+    learnedSignals: (persona.learnedSignals ?? {}) as Json,
+  };
 }
 
 /** Namespace for deterministic persona user ids. Changing it orphans old rows. */

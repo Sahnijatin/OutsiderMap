@@ -2005,6 +2005,10 @@ export type Database = {
           avg_ttfa_seconds: number | null;
         }[];
       };
+      metrics_reason_source: {
+        Args: { p_days?: number };
+        Returns: { model: number; editor_note: number; degraded: number }[];
+      };
       active_experiments: {
         Args: Record<PropertyKey, never>;
         Returns: { key: string; variants: string[] }[];

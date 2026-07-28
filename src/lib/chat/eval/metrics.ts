@@ -58,15 +58,8 @@ export interface OverlapResult {
   skippedEmpty: number;
 }
 
-export function pickOverlap(runs: readonly PersonaRun[]): OverlapResult {
-  const nonEmpty = runs.filter((r) => r.slugs.length > 0);
-  const skippedEmpty = runs.length - nonEmpty.length;
-
-  if (nonEmpty.length < 2) {
-    return { overlap: null, comparedPersonas: nonEmpty.length, skippedEmpty };
-  }
-
-  const sets = nonEmpty.map((r) => new Set(r.slugs));
+/** Mean Jaccard overlap over every unordered pair. Assumes 2+ non-empty sets. */
+function meanPairwiseJaccard(sets: readonly Set<string>[]): number {
   let total = 0;
   let pairs = 0;
   for (let i = 0; i < sets.length; i += 1) {
@@ -74,17 +67,131 @@ export function pickOverlap(runs: readonly PersonaRun[]): OverlapResult {
       const a = sets[i];
       const b = sets[j];
       let intersection = 0;
-      for (const slug of a) if (b.has(slug)) intersection += 1;
+      for (const item of a) if (b.has(item)) intersection += 1;
       total += intersection / (a.size + b.size - intersection);
       pairs += 1;
     }
   }
+  return total / pairs;
+}
+
+/** Shared shape for the two overlap metrics, so they cannot drift apart. */
+function overlapOf(
+  groups: readonly { id: string; items: readonly string[] }[],
+): OverlapResult {
+  const nonEmpty = groups.filter((g) => g.items.length > 0);
+  const skippedEmpty = groups.length - nonEmpty.length;
+
+  if (nonEmpty.length < 2) {
+    return { overlap: null, comparedPersonas: nonEmpty.length, skippedEmpty };
+  }
 
   return {
-    overlap: total / pairs,
+    overlap: meanPairwiseJaccard(nonEmpty.map((g) => new Set(g.items))),
     comparedPersonas: nonEmpty.length,
     skippedEmpty,
   };
+}
+
+export function pickOverlap(runs: readonly PersonaRun[]): OverlapResult {
+  return overlapOf(runs.map((r) => ({ id: r.personaId, items: r.slugs })));
+}
+
+// ---------------------------------------------------------------------------
+// Prompt divergence - the half of the eval that needs no model
+// ---------------------------------------------------------------------------
+
+/**
+ * Structural words the member profile block always contains.
+ *
+ * They are constant by construction, so leaving them in would add a fixed
+ * overlap floor that has nothing to do with how different two members are.
+ * Dropping them makes the number mean what it says: how much *taste
+ * vocabulary* two prompts share.
+ */
+const BLOCK_BOILERPLATE = new Set([
+  "member_profile",
+  "rewards",
+  "avoids",
+  "actually",
+  "goes",
+  "budget",
+  "band",
+  "company",
+  "food",
+  "says",
+  "hold",
+  "recently",
+  "saved",
+  "passed",
+  "stretch",
+  "only",
+  "logged",
+  "action",
+  "actions",
+  "behaviour",
+  "read",
+  "thin",
+  "lean",
+  "with",
+  "them",
+  "they",
+  "their",
+  "that",
+  "this",
+  "from",
+  "have",
+  "into",
+  "than",
+  "will",
+  "your",
+  "there",
+  "about",
+  "which",
+  "where",
+  "when",
+]);
+
+/** The member profile block inside a rendered system prompt, if it has one. */
+export function profileBlockOf(prompt: string): string | null {
+  const match = prompt.match(/<member_profile>([\s\S]*?)<\/member_profile>/);
+  return match ? match[1].trim() : null;
+}
+
+function contentTokens(text: string): string[] {
+  return [
+    ...new Set(
+      text
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}-]+/u)
+        .filter((w) => w.length >= 4 && !BLOCK_BOILERPLATE.has(w)),
+    ),
+  ];
+}
+
+/**
+ * How much taste vocabulary two members' prompts share.
+ *
+ * Scoped to the member profile block rather than the whole prompt: every prompt
+ * carries the same ~8000 characters of routing, guardrails and voice rules, so
+ * whole-prompt overlap would sit near 1.0 for any two members and measure
+ * nothing.
+ *
+ * This is the half of the personalization eval that needs no model, no database
+ * and no keys - it measures the *input* to the model, which is exactly what
+ * putting the persona in the prompt changed. It cannot tell you whether the
+ * answers differ; if this is low and pick overlap later comes back high, that
+ * isolates the failure to ranking and retrieval rather than context.
+ */
+export function promptOverlap(
+  prompts: readonly { personaId: string; prompt: string }[],
+): OverlapResult {
+  return overlapOf(
+    prompts.map((p) => ({
+      id: p.personaId,
+      items: contentTokens(profileBlockOf(p.prompt) ?? ""),
+    })),
+  );
 }
 
 // ---------------------------------------------------------------------------
