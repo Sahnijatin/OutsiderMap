@@ -37,8 +37,10 @@ Env:
   AIRTABLE_API_KEY / AIRTABLE_BASE_ID / AIRTABLE_TABLE   For --airtable
 `;
 
-const { values } = parseArgs({
-  options: {
+let parsed;
+try {
+  parsed = parseArgs({
+    options: {
     state: { type: "string" },
     cities: { type: "string" },
     categories: { type: "string", default: "cafe,restaurant" },
@@ -50,10 +52,31 @@ const { values } = parseArgs({
     "max-per-query": { type: "string", default: "40" },
     out: { type: "string" },
     airtable: { type: "boolean", default: false },
-    list: { type: "boolean", default: false },
-    help: { type: "boolean", default: false },
-  },
-});
+      list: { type: "boolean", default: false },
+      help: { type: "boolean", default: false },
+    },
+  });
+} catch (err) {
+  if (err?.code === "ERR_PARSE_ARGS_UNEXPECTED_POSITIONAL") {
+    // The classic Windows/PowerShell trap: `npm run scout -- --state delhi`
+    // arrives here as bare positionals because npm swallowed the flags.
+    console.error(
+      [
+        `Got a bare argument ("${err.message.match(/'([^']+)'/)?.[1] ?? "?"}") where a --flag was expected.`,
+        "",
+        "If you ran this through `npm run scout -- ...` on Windows, npm likely",
+        "stripped the flags. Run node directly instead:",
+        "",
+        "  node src/cli.js --state delhi --cities delhi,gurgaon --categories cafe,restaurant",
+        "",
+        "See --help for all flags.",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+  throw err;
+}
+const { values } = parsed;
 
 if (values.help) {
   console.log(HELP);
