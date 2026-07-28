@@ -279,19 +279,22 @@ export default async function AdminHarvestPage({
           {/* Filters: every run stays reviewable side by side. */}
           <div className="mt-3 flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-1.5">
-              <FilterChip href={href({ run: null })} active={!runFilter}>
+              <FilterChip href={href({ run: null })} active={!runFilter} clearable={false}>
                 all runs
               </FilterChip>
               {(runs ?? []).map((r) => (
                 <FilterChip
                   key={r.id}
-                  href={href({ run: r.id })}
+                  href={href({ run: runFilter === r.id ? null : r.id })}
                   active={runFilter === r.id}
                 >
                   {geography[r.state]?.name ?? r.state} ·{" "}
-                  {new Date(r.created_at).toLocaleDateString("en-IN", {
+                  {new Date(r.created_at).toLocaleString("en-IN", {
                     day: "numeric",
                     month: "short",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    timeZone: "Asia/Kolkata",
                   })}
                   {r.status === "active" ? " · sweeping" : ""}
                 </FilterChip>
@@ -299,13 +302,13 @@ export default async function AdminHarvestPage({
             </div>
             {cityFacets.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <FilterChip href={href({ city: null })} active={!filters.city}>
+                <FilterChip href={href({ city: null })} active={!filters.city} clearable={false}>
                   all cities
                 </FilterChip>
                 {cityFacets.map(([slug, name]) => (
                   <FilterChip
                     key={slug}
-                    href={href({ city: slug })}
+                    href={href({ city: filters.city === slug ? null : slug })}
                     active={filters.city === slug}
                   >
                     {name}
@@ -315,13 +318,13 @@ export default async function AdminHarvestPage({
             )}
             {categoryFacets.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <FilterChip href={href({ category: null })} active={!filters.category}>
+                <FilterChip href={href({ category: null })} active={!filters.category} clearable={false}>
                   all categories
                 </FilterChip>
                 {categoryFacets.map((cat) => (
                   <FilterChip
                     key={cat}
-                    href={href({ category: cat })}
+                    href={href({ category: filters.category === cat ? null : cat })}
                     active={filters.category === cat}
                   >
                     {cat}
@@ -373,13 +376,19 @@ export default async function AdminHarvestPage({
   );
 }
 
+/**
+ * A selected chip links to its own removal (tap again = clear), and wears a
+ * small x to say so. The "all ..." chips clear their whole dimension.
+ */
 function FilterChip({
   href,
   active,
+  clearable = true,
   children,
 }: {
   href: string;
   active: boolean;
+  clearable?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -392,6 +401,7 @@ function FilterChip({
       }`}
     >
       {children}
+      {active && clearable && <span aria-hidden> ✕</span>}
     </Link>
   );
 }
