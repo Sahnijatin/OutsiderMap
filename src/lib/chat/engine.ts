@@ -10,6 +10,7 @@ import { keywordSearch, parseStoredEmbedding } from "@/lib/catalog/search";
 import { agentSystem } from "@/lib/chat/prompts";
 import { extractRupees } from "@/lib/chat/budget";
 import { detectRegister } from "@/lib/chat/language";
+import { sanitizeReply } from "@/lib/chat/sanitize";
 import {
   buildChatTools,
   ChatToolCollector,
@@ -191,11 +192,13 @@ export async function runChatTurn(
     .order("created_at", { ascending: false })
     .limit(HISTORY_LIMIT);
   const shownEarlier = new Map<string, string>(); // slug -> name
+  const priorPlanIds: string[] = [];
   const history: AIMessage[] = (historyRows ?? [])
     .reverse()
     .map((m) => {
       const picks = parseHistoryPicks(m.picks);
       for (const p of picks) shownEarlier.set(p.slug, p.name);
+      if (m.plan_id) priorPlanIds.push(m.plan_id);
       // Inline what the user actually saw with that message - pick cards and
       // any built plan - so the transcript the model reads matches the
       // conversation the user had. The plan_id note is what lets a later
@@ -212,6 +215,22 @@ export async function runChatTurn(
         notes.length > 0 ? `${m.content}\n${notes.join("\n")}` : m.content;
       return { role: m.role, content };
     });
+
+  // Stops from plans built earlier in this thread count as "already
+  // recommended" too: without this, a second plan freely reuses the first
+  // plan's stops (the two-near-identical-plans complaint). Plan stops aren't
+  // in `picks`, so they're resolved from the persisted plan ids.
+  if (priorPlanIds.length > 0) {
+    const { data: planStops } = await supabase
+      .from("quest_stops")
+      .select("places(slug, name)")
+      .in("quest_id", priorPlanIds);
+    for (const s of planStops ?? []) {
+      if (s.places?.slug && !shownEarlier.has(s.places.slug)) {
+        shownEarlier.set(s.places.slug, s.places.name);
+      }
+    }
+  }
 
   const { error: userMsgError } = await supabase.from("chat_messages").insert({
     thread_id: threadId,
@@ -281,7 +300,9 @@ export async function runChatTurn(
           }
         : undefined,
     });
-    text = result.text.trim();
+    // Deterministic cleanup: the UI renders plain text, so markdown or em
+    // dashes that slip past the voice rules would show as literal noise.
+    text = sanitizeReply(result.text);
   } catch (err) {
     logStepDegraded("agent", err, { userId, threadId });
     degraded = true;

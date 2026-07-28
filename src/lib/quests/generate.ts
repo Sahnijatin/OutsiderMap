@@ -7,6 +7,7 @@ import {
   parseStoredEmbedding,
   searchCatalog,
 } from "@/lib/catalog/search";
+import { filterByAreas, resolveAreaFilter } from "@/lib/catalog/regions";
 import type { Database, Json } from "@/types/database";
 
 /**
@@ -24,12 +25,27 @@ export const QuestBriefSchema = z.object({
   brief: z.string().trim().max(400).optional(),
   budget_max: z.number().int().min(1).max(4).optional(),
   /**
-   * Neighbourhood to anchor the day in, when the user named one. Filters
-   * candidate retrieval (with searchCatalog's city-wide relax if it
-   * over-constrains) so "south delhi" stops being a hope buried in prose.
+   * Neighbourhood or region ("Khan Market", "south delhi") to anchor the day
+   * in, when the user named one. Resolved via resolveAreaFilter so regions
+   * expand to their neighbourhoods instead of silently filtering nothing.
    */
   area: z.string().trim().max(60).optional(),
+  /**
+   * Catalog slugs to keep out of this plan - places already recommended or
+   * used by an earlier plan in the same conversation. Ignored when honoring
+   * it would starve the candidate pool.
+   */
+  avoid_slugs: z.array(z.string().trim().min(1)).max(60).optional(),
 });
+
+/** How the requested area actually applied - callers must be able to be honest. */
+export type AreaOutcome = {
+  requested: string | null;
+  /** "area" = one neighbourhood, "region" = expanded set, "none" = no/unknown area. */
+  applied: "area" | "region" | "none";
+  /** True when the filter existed but starved the pool and was dropped. */
+  relaxed: boolean;
+};
 export type QuestBrief = z.infer<typeof QuestBriefSchema>;
 
 export const CaptureGuideSchema = z.object({
@@ -123,16 +139,52 @@ export async function generateQuest(
     .join("\n");
   const [queryEmbedding] = await getEmbeddings().embed([searchText]);
 
-  const candidates = await searchCatalog(supabase, {
+  // Resolve the stated area before retrieval: single neighbourhoods filter in
+  // SQL; regions ("south delhi") retrieve city-wide then post-filter to their
+  // member neighbourhoods; unknown asks apply nothing - and every one of those
+  // outcomes is reported back so the reply can be honest about it.
+  const areaFilter = resolveAreaFilter(brief.area, city.areas);
+  let candidates = await searchCatalog(supabase, {
     city,
     queryEmbedding,
     tasteEmbedding: personalize
       ? parseStoredEmbedding(taste?.embedding)
       : null,
-    area: brief.area ?? null,
+    area: areaFilter.kind === "area" ? areaFilter.area : null,
     budgetMax: brief.budget_max ?? null,
     count: 30,
   });
+  const areaOutcome: AreaOutcome = {
+    requested: brief.area ?? null,
+    applied:
+      areaFilter.kind === "area"
+        ? "area"
+        : areaFilter.kind === "region"
+          ? "region"
+          : "none",
+    relaxed: false,
+  };
+  if (areaFilter.kind === "region") {
+    const filtered = filterByAreas(candidates, areaFilter.areas);
+    candidates = filtered.candidates;
+    areaOutcome.relaxed = filtered.relaxed;
+  } else if (areaFilter.kind === "area") {
+    // searchCatalog retries city-wide when a single area over-constrains;
+    // detect that relax so it stops being silent.
+    areaOutcome.relaxed = candidates.some(
+      (c) => c.area?.toLowerCase() !== areaFilter.area.toLowerCase(),
+    );
+  }
+
+  // Keep places this conversation already used out of the pool - a fresh plan
+  // reusing last plan's stops is the repetition users complain about. Skipped
+  // when it would starve the quest below its 3-stop minimum.
+  const avoid = new Set(brief.avoid_slugs ?? []);
+  if (avoid.size > 0) {
+    const fresh = candidates.filter((c) => !avoid.has(c.slug));
+    if (fresh.length >= 3) candidates = fresh;
+  }
+
   if (candidates.length < 3) {
     throw new Error(
       `Not enough places in the ${city.name} catalog to build a quest yet.`,
@@ -221,7 +273,13 @@ export async function generateQuest(
     // re-explained as an evening in Greater Kailash.
     stopList: stops.map((s) => {
       const place = bySlug.get(s.place_slug)!;
-      return { name: place.name, area: place.area, note: s.note };
+      return {
+        slug: s.place_slug,
+        name: place.name,
+        area: place.area,
+        note: s.note,
+      };
     }),
+    areaOutcome,
   };
 }

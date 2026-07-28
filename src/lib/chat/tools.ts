@@ -12,6 +12,7 @@ import {
   searchCatalog,
   type CatalogCandidate,
 } from "@/lib/catalog/search";
+import { filterByAreas, resolveAreaFilter } from "@/lib/catalog/regions";
 import { openStatusLabel } from "@/lib/places/hours";
 import { generateQuest } from "@/lib/quests/generate";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -167,6 +168,12 @@ export function buildChatTools(
     inputSchema: SearchInput,
     handler: async (input) => {
       const budgetMax = effectiveTier(input.budget_max, input.budget_rupees);
+      // Regions ("south delhi") expand to their neighbourhoods; single areas
+      // canonicalize case; anything unknown applies NO filter - and the model
+      // is told so, because a silently-dropped filter is how city-wide picks
+      // got sold as "in West Delhi".
+      const areaFilter = resolveAreaFilter(input.area, ctx.city.areas);
+      const sqlArea = areaFilter.kind === "area" ? areaFilter.area : null;
       let candidates: CatalogCandidate[];
       try {
         const [embedding] = await getEmbeddings().embed([input.query]);
@@ -174,7 +181,7 @@ export function buildChatTools(
           city: ctx.city,
           queryEmbedding: embedding,
           tasteEmbedding: ctx.personalize ? ctx.tasteEmbedding : null,
-          area: input.area ?? null,
+          area: sqlArea,
           budgetMax,
         });
       } catch {
@@ -182,9 +189,19 @@ export function buildChatTools(
         candidates = await keywordSearch(ctx.supabase, {
           city: ctx.city,
           terms: [input.query],
-          area: input.area ?? null,
+          area: sqlArea,
           budgetMax,
         });
+      }
+      let areaNote: string | null = null;
+      if (areaFilter.kind === "region") {
+        const filtered = filterByAreas(candidates, areaFilter.areas);
+        candidates = filtered.candidates;
+        areaNote = filtered.relaxed
+          ? `Too little in ${areaFilter.label} fits - results are CITY-WIDE. Say so; never present them as ${areaFilter.label}.`
+          : `Results filtered to ${areaFilter.label}.`;
+      } else if (areaFilter.kind === "unmatched") {
+        areaNote = `"${areaFilter.requested}" isn't a neighbourhood or region we know - results are CITY-WIDE. Be upfront about where each pick actually is.`;
       }
       const pool = preferOpen(candidates).slice(0, 12);
       for (const c of pool) {
@@ -198,14 +215,15 @@ export function buildChatTools(
       }
       collector.trace.push({
         tool: "search_places",
-        summary: `"${input.query}" -> ${pool.length} places`,
+        summary: `"${input.query}" -> ${pool.length} places${
+          areaNote ? " (area note)" : ""
+        }`,
       });
       if (pool.length === 0) {
         return "No catalog places match that. Tell the user honestly; do not invent places.";
       }
-      return JSON.stringify(
-        pool.map((c) => compactCandidate(c, ctx.shownEarlier)),
-      );
+      const places = pool.map((c) => compactCandidate(c, ctx.shownEarlier));
+      return JSON.stringify(areaNote ? { area_note: areaNote, places } : places);
     },
   });
 
@@ -336,6 +354,9 @@ export function buildChatTools(
           city: ctx.city.slug,
           first_time: false,
           area: input.area ?? undefined,
+          // A fresh plan must not recycle what this conversation already
+          // recommended (picks and earlier plans' stops alike).
+          avoid_slugs: [...(ctx.shownEarlier ?? [])],
         });
         collector.planId = result.questId;
         collector.planTitle = result.title;
@@ -343,10 +364,22 @@ export function buildChatTools(
           tool: "build_plan",
           summary: `"${result.title}" (${result.stops} stops)`,
         });
+        // When the asked-for area could not actually be honored, say so in
+        // terms the model must relay - the stops' REAL areas, not the ask's.
+        const { areaOutcome } = result;
+        const stopAreas = [
+          ...new Set(result.stopList.map((s) => s.area).filter(Boolean)),
+        ].join(", ");
+        const areaNote =
+          areaOutcome.requested &&
+          (areaOutcome.applied === "none" || areaOutcome.relaxed)
+            ? `The catalog couldn't fill this plan in "${areaOutcome.requested}" - these stops are actually in: ${stopAreas || "various areas"}. Your reply MUST say that plainly; never label the plan with "${areaOutcome.requested}".`
+            : null;
         return JSON.stringify({
           title: result.title,
           stops: result.stopList,
-          note: "Plan saved - the user gets a 'View plan' button on your reply automatically. Describe it ONLY from the stops above: name each place in order with a short line on why. Never invent a stop, area, or price, and never mention a plan id.",
+          ...(areaNote ? { area_note: areaNote } : {}),
+          note: "Plan saved - the user gets a 'View plan' button on your reply automatically. Describe it ONLY from the stops above, as flowing prose (no markdown, no numbered list): name each place in order with a short line on why. Never invent a stop, area, or price, and never mention a plan id.",
         });
       } catch (error) {
         collector.trace.push({
