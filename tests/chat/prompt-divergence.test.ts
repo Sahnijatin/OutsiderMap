@@ -80,10 +80,12 @@ describe("prompt divergence across members", () => {
     expect(comparedPersonas).toBe(EVAL_PERSONAS.length);
     expect(overlap).not.toBeNull();
 
-    // Measured at 0.10 when the block first shipped. Most of that residue is
-    // the explore/exploit guidance, which has only three possible values, so
-    // two members who land on the same posture genuinely share a sentence -
-    // counted rather than excluded, which makes the gate conservative.
+    // Measured at 0.10 when the block first shipped, then 0.07 once the dial
+    // stopped handing every new member the same default and started reading
+    // their quiz answer. Most of the residue is the explore/exploit guidance,
+    // which has only three possible values, so two members who land on the same
+    // posture genuinely share a sentence - counted rather than excluded, which
+    // makes the gate conservative.
     //
     // The threshold sits at roughly twice the measurement: loose enough that
     // ordinary fixture edits do not trip it, tight enough that a prompt change

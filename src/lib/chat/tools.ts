@@ -4,7 +4,10 @@ import { z } from "zod";
 import { getEmbeddings } from "@/lib/ai";
 import { defineTool } from "@/lib/ai/tool-loop";
 import type { AITool } from "@/lib/ai/types";
-import { deriveAdventurousness } from "@/lib/chat/adventurousness";
+import {
+  deriveAdventurousness,
+  type AdventurousnessPrior,
+} from "@/lib/chat/adventurousness";
 import { effectiveTier } from "@/lib/chat/budget";
 import {
   keywordSearch,
@@ -48,6 +51,12 @@ export interface ChatToolContext {
   tasteEmbedding: number[] | null;
   tasteSummary: string | null;
   learnedSignals: Json | null;
+  /**
+   * Quiz-derived prior for the explore/exploit dial, used while behaviour is
+   * too thin to compute one. Optional so existing call sites and tests keep
+   * working; missing means "fall back to the no-prior default".
+   */
+  quizPrior?: AdventurousnessPrior | null;
   /**
    * Slugs already recommended earlier in this thread. Search results carry an
    * `already_shown` flag for these so the agent stops re-serving the same
@@ -294,7 +303,7 @@ export function buildChatTools(
         collector.trace.push({ tool: "get_user_behavior", summary: "off" });
         return "Personalization is off for this user - recommend from the ask alone, don't reference past behaviour.";
       }
-      const dial = deriveAdventurousness(ctx.learnedSignals);
+      const dial = deriveAdventurousness(ctx.learnedSignals, ctx.quizPrior);
       collector.trace.push({
         tool: "get_user_behavior",
         summary: `posture=${dial.posture}`,

@@ -30,8 +30,22 @@ export interface AdventurousnessDial {
   guidance: string;
 }
 
-/** Below this many logged events we don't know the taste well enough to exploit. */
+/** Below this many logged events, behaviour is too thin to compute a dial from. */
 const COLD_START_EVENTS = 8;
+
+/**
+ * The dial's prior, taken from the onboarding quiz.
+ *
+ * `adventurousness` is extracted on the same 0-1 axis this dial uses ("0 =
+ * strict comfort-zone, 1 = actively hunts the unknown"), so it seeds the score
+ * directly rather than through a formula.
+ */
+export interface AdventurousnessPrior {
+  adventurousness?: number;
+}
+
+/** Used when a member has neither behaviour nor a usable quiz answer. */
+const NO_PRIOR_SCORE = 0.65;
 
 const GUIDANCE: Record<Posture, string> = {
   exploit:
@@ -49,19 +63,38 @@ function postureFor(score: number): Posture {
 }
 
 /**
- * Compute the dial from learned_signals. Cold-start users lean explore (we're
- * still learning their taste). Established users tilt toward exploit when their
- * taste is concentrated (one vibe dominates, one area) and toward explore when
- * it's broad.
+ * Compute the dial from learned_signals, falling back to the quiz while
+ * behaviour is thin. Established users tilt toward exploit when their taste is
+ * concentrated (one vibe dominates, one area) and toward explore when it's
+ * broad.
+ *
+ * Before there is behaviour to read, the dial used to hand every member the
+ * same 0.65/explore - so the period when someone is most likely to judge the
+ * product as generic was exactly the period it treated them as a default. The
+ * quiz already asked the question directly, on the same 0-1 axis, so the prior
+ * seeds the score when it is available.
+ *
+ * Note the discontinuity at the threshold is unchanged: the last quiz-driven
+ * turn and the first behaviour-driven one can disagree. Smoothing that would
+ * mean blending the two across the boundary, which changes established members'
+ * dials as well - not worth doing without a measurement to check it against.
  */
-export function deriveAdventurousness(rawSignals: unknown): AdventurousnessDial {
+export function deriveAdventurousness(
+  rawSignals: unknown,
+  prior?: AdventurousnessPrior | null,
+): AdventurousnessDial {
   const parsed = LearnedSignalsSchema.safeParse(rawSignals);
   const signals = parsed.success ? parsed.data : {};
   const eventCount = signals.event_count ?? 0;
 
   if (eventCount < COLD_START_EVENTS) {
-    const score = 0.65;
-    return { score, posture: postureFor(score), guidance: GUIDANCE.explore };
+    const quiz = prior?.adventurousness;
+    const score =
+      typeof quiz === "number" && Number.isFinite(quiz)
+        ? Math.min(1, Math.max(0, quiz))
+        : NO_PRIOR_SCORE;
+    const posture = postureFor(score);
+    return { score: Number(score.toFixed(2)), posture, guidance: GUIDANCE[posture] };
   }
 
   const vibes = signals.top_vibes ?? [];

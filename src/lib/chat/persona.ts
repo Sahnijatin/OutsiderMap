@@ -51,6 +51,12 @@ export interface Persona {
   savedRecently: string[];
   passedRecently: string[];
   eventCount: number;
+  /**
+   * The quiz's own explore/exploit answer, kept so the toolbox can seed the
+   * dial from the same prior the block used - two different dials for one
+   * member on one turn would be worse than none.
+   */
+  quizAdventurousness?: number;
 }
 
 /**
@@ -67,6 +73,7 @@ export interface Persona {
  */
 const StoredDimensionsSchema = z
   .object({
+    adventurousness: z.number().min(0).max(1).optional().catch(undefined),
     budget_band: z.number().int().min(1).max(4).optional().catch(undefined),
     social_energy: z.string().optional().catch(undefined),
     preferred_times: z.array(z.string()).optional().catch(undefined),
@@ -202,7 +209,11 @@ export async function loadPersona(
           recentPasses(supabase, userId),
         ]);
 
-  const dial = deriveAdventurousness(source.learnedSignals);
+  // The quiz seeds the dial while behaviour is too thin to compute one, so a
+  // brand-new member is not handed the same default as every other new member.
+  const dial = deriveAdventurousness(source.learnedSignals, {
+    adventurousness: parsedDimensions?.adventurousness,
+  });
 
   return {
     firstName: firstNameOf(source.displayName),
@@ -222,6 +233,7 @@ export async function loadPersona(
     savedRecently,
     passedRecently,
     eventCount: parsedSignals.event_count ?? 0,
+    quizAdventurousness: parsedDimensions?.adventurousness,
   };
 }
 

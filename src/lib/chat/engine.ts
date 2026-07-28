@@ -271,6 +271,9 @@ export async function runChatTurn(
     tasteEmbedding: personalize ? parseStoredEmbedding(tasteRow?.embedding) : null,
     tasteSummary: tasteRow?.taste_summary ?? null,
     learnedSignals: tasteRow?.learned_signals ?? null,
+    // Same prior the persona block used, so the tool and the block cannot
+    // report two different dials for the same member on the same turn.
+    quizPrior: persona ? { adventurousness: persona.quizAdventurousness } : null,
     shownEarlier: new Set(shownEarlier.keys()),
   };
   const tools = buildChatTools(toolCtx, collector);

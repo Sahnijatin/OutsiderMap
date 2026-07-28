@@ -107,6 +107,7 @@ export async function runMapSearch(
     tasteEmbedding,
     tasteSummary,
     learnedSignals,
+    quizPrior: persona ? { adventurousness: persona.quizAdventurousness } : null,
   };
   // Reduced toolbox: find + show only.
   const tools = buildChatTools(ctx, collector).filter(
