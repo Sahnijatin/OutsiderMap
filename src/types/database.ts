@@ -221,6 +221,52 @@ export type Database = {
         };
         Relationships: [];
       };
+      harvest_cities: {
+        Row: {
+          id: string;
+          state_slug: string;
+          state_name: string;
+          slug: string;
+          name: string;
+          lat: number;
+          lng: number;
+          radius_m: number;
+          product_city: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          state_slug: string;
+          state_name: string;
+          slug: string;
+          name: string;
+          lat: number;
+          lng: number;
+          radius_m?: number;
+          product_city?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          state_slug?: string;
+          state_name?: string;
+          name?: string;
+          lat?: number;
+          lng?: number;
+          radius_m?: number;
+          product_city?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "harvest_cities_product_city_fkey";
+            columns: ["product_city"];
+            isOneToOne: false;
+            referencedRelation: "cities";
+            referencedColumns: ["slug"];
+          },
+        ];
+      };
       place_claims: {
         Row: {
           id: string;

@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAI, getEmbeddings } from "@/lib/ai";
-import { HARVEST_CATEGORIES, harvestCityBySlug } from "@/lib/harvest/registry";
+import { HARVEST_CATEGORIES, harvestProductCity } from "@/lib/harvest/registry";
 import type { StorySignal } from "@/lib/harvest/story";
 import type { Database, Json, PlaceKind } from "@/types/database";
 
@@ -80,8 +80,7 @@ export async function approveCandidate(
     throw new Error("Not reviewable (already handled or missing).");
   }
 
-  const city = harvestCityBySlug(candidate.city_slug);
-  const productCity = city?.productCity;
+  const productCity = await harvestProductCity(admin, candidate.city_slug);
   if (!productCity) {
     throw new Error(
       `${candidate.city_name} isn't a live product city yet - harvest is fine, publishing needs the city to launch first.`,
