@@ -6,14 +6,19 @@
  * which routes them to manual triage instead of the bin).
  */
 
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
-
 /**
  * Overpass is a free, donated service that rate-limits rapid-fire clients
  * (429) and sheds load under pressure (504). Etiquette: space queries out
  * and back off patiently instead of hammering - a scouting run is a batch
- * job, it can afford to be slow.
+ * job, it can afford to be slow. The final retry moves to a community
+ * mirror, because a 504 on the main instance often means "this server is
+ * drowning right now", not "the query is wrong".
  */
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
 const MIN_GAP_MS = 8_000;
 const RETRY_DELAYS_MS = [20_000, 45_000];
 let lastCallAt = 0;
@@ -26,16 +31,33 @@ async function politePause() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export function createOsmSource({ timeoutS = 30 } = {}) {
+export function createOsmSource({ timeoutS = 55 } = {}) {
   return {
     name: "osm",
     async discover(city, categoryKey, categoryDef) {
-      const amenities = categoryDef.osm.join("|");
+      // Eat-in venues live under amenity=*, retail food under shop=* -
+      // query whichever lists the category defines (bakery is shop-only).
+      const around = `(around:${city.radiusM},${city.lat},${city.lng})`;
+      const selectors = [];
+      if (categoryDef.osm?.length) {
+        const amenities = categoryDef.osm.join("|");
+        selectors.push(
+          `node["amenity"~"^(${amenities})$"]["name"]${around};`,
+          `way["amenity"~"^(${amenities})$"]["name"]${around};`,
+        );
+      }
+      if (categoryDef.osmShop?.length) {
+        const shops = categoryDef.osmShop.join("|");
+        selectors.push(
+          `node["shop"~"^(${shops})$"]["name"]${around};`,
+          `way["shop"~"^(${shops})$"]["name"]${around};`,
+        );
+      }
+      if (selectors.length === 0) return [];
       const query = `
         [out:json][timeout:${timeoutS}];
         (
-          node["amenity"~"^(${amenities})$"]["name"](around:${city.radiusM},${city.lat},${city.lng});
-          way["amenity"~"^(${amenities})$"]["name"](around:${city.radiusM},${city.lat},${city.lng});
+          ${selectors.join("\n          ")}
         );
         out center 500;
       `;
@@ -45,9 +67,11 @@ export function createOsmSource({ timeoutS = 30 } = {}) {
       let data;
       for (let attempt = 0; ; attempt++) {
         await politePause();
+        const endpoint =
+          OVERPASS_ENDPOINTS[Math.min(attempt, OVERPASS_ENDPOINTS.length - 1)];
         let res;
         try {
-          res = await fetch(OVERPASS_URL, {
+          res = await fetch(endpoint, {
             method: "POST",
             headers: {
               "Content-Type": "application/x-www-form-urlencoded",
