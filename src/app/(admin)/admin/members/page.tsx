@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatOutsiderNumber } from "@/lib/identity/username";
+import { grantAdmin, revokeAdmin } from "./actions";
 
 export const metadata: Metadata = { title: "Members · Admin" };
 
@@ -22,6 +24,7 @@ export default async function AdminMembersPage({
 }: {
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
+  const self = await requireAdmin();
   const { q: rawQ, page: rawPage } = await searchParams;
   const q = escapeQuery(rawQ ?? "");
   const page = Math.max(1, Number.parseInt(rawPage ?? "1", 10) || 1);
@@ -32,7 +35,7 @@ export default async function AdminMembersPage({
   let query = admin
     .from("profiles")
     .select(
-      "id, outsider_number, username, display_name, home_city, onboarding_completed_at, created_at",
+      "id, outsider_number, username, display_name, home_city, onboarding_completed_at, is_admin, created_at",
       { count: "exact" },
     )
     .order("outsider_number", { ascending: true, nullsFirst: false })
@@ -96,6 +99,7 @@ export default async function AdminMembersPage({
               <th className="px-4 py-3 font-normal">Onboarded</th>
               <th className="px-4 py-3 font-normal">Quests</th>
               <th className="px-4 py-3 font-normal">Joined</th>
+              <th className="px-4 py-3 font-normal">Role</th>
             </tr>
           </thead>
           <tbody>
@@ -127,6 +131,38 @@ export default async function AdminMembersPage({
                       year: "2-digit",
                       timeZone: "Asia/Kolkata",
                     })}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {m.is_admin ? (
+                      <span className="mr-2 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
+                        admin
+                      </span>
+                    ) : null}
+                    {m.is_admin ? (
+                      m.id === self.id ? (
+                        <span className="text-xs text-ink-dim">(you)</span>
+                      ) : (
+                        <form action={revokeAdmin} className="inline">
+                          <input type="hidden" name="id" value={m.id} />
+                          <button
+                            type="submit"
+                            className="rounded-full border border-danger/40 px-3 py-1 text-xs text-danger transition-colors hover:bg-danger/10"
+                          >
+                            Remove admin
+                          </button>
+                        </form>
+                      )
+                    ) : (
+                      <form action={grantAdmin} className="inline">
+                        <input type="hidden" name="id" value={m.id} />
+                        <button
+                          type="submit"
+                          className="rounded-full border border-line px-3 py-1 text-xs text-ink-dim transition-colors hover:text-ink"
+                        >
+                          Make admin
+                        </button>
+                      </form>
+                    )}
                   </td>
                 </tr>
               );

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { HARVEST_CATEGORIES, HARVEST_STATES } from "@/lib/harvest/registry";
+import { HARVEST_CATEGORIES, loadHarvestGeography } from "@/lib/harvest/registry";
 import type { StorySignal } from "@/lib/harvest/story";
 import { publicMediaUrl } from "@/lib/media/url";
 import { Badge } from "@/components/ui/badge";
@@ -10,12 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   addCandidateEmbed,
+  addHarvestCity,
   approveHarvestCandidate,
   markNeedsVisit,
   rejectHarvestCandidate,
+  removeHarvestCity,
   startHarvest,
   uploadCandidatePhoto,
 } from "./actions";
+import { GeoPicker, type GeoPickerState } from "./geo-picker";
 import { HarvestProgress } from "./harvest-progress";
 
 export const metadata: Metadata = { title: "Harvest · Admin" };
@@ -97,7 +100,26 @@ export default async function AdminHarvestPage() {
     };
   }
 
-  const delhi = HARVEST_STATES.delhi;
+  const geography = await loadHarvestGeography(admin);
+  // Delhi first (home turf), then the rest of India alphabetically.
+  const pickerStates: GeoPickerState[] = Object.entries(geography)
+    .sort(([a, sa], [b, sb]) =>
+      a === "delhi" ? -1 : b === "delhi" ? 1 : sa.name.localeCompare(sb.name),
+    )
+    .map(([slug, state]) => ({
+      slug,
+      name: state.name,
+      cities: state.cities.map((c) => ({
+        slug: c.slug,
+        name: c.name,
+        custom: c.custom,
+      })),
+    }));
+
+  const { data: customCities } = await admin
+    .from("harvest_cities")
+    .select("id, name, state_name, lat, lng, radius_m")
+    .order("created_at", { ascending: false });
 
   return (
     <div className="flex flex-col gap-10">
@@ -109,23 +131,7 @@ export default async function AdminHarvestPage() {
           review - approve is what publishes.
         </p>
         <form action={startHarvest} className="mt-4 flex flex-col gap-4">
-          <input type="hidden" name="state" value="delhi" />
-          <div>
-            <p className="voice">cities · {delhi.name}</p>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {delhi.cities.map((c) => (
-                <label key={c.slug} className="flex items-center gap-1.5 text-sm">
-                  <input
-                    type="checkbox"
-                    name="cities"
-                    value={c.slug}
-                    defaultChecked={c.slug === "delhi"}
-                  />
-                  {c.name}
-                </label>
-              ))}
-            </div>
-          </div>
+          <GeoPicker states={pickerStates} />
           <div>
             <p className="voice">categories</p>
             <div className="mt-2 flex flex-wrap gap-3">
@@ -158,6 +164,52 @@ export default async function AdminHarvestPage() {
             <Button type="submit" size="sm">Start harvest</Button>
           </div>
         </form>
+      </section>
+
+      <section>
+        <h3 className="font-display text-xl italic">Add a city</h3>
+        <p className="mt-1 max-w-xl text-sm text-ink-dim">
+          Anywhere in India. Name it and we locate it (leave lat/lng blank);
+          it joins its state in the picker above immediately.
+        </p>
+        <form action={addHarvestCity} className="mt-3 flex flex-wrap items-end gap-3 text-sm">
+          <label className="flex flex-col gap-1">
+            <span className="voice">state</span>
+            <input name="stateName" required placeholder="e.g. Kerala" className="w-40 rounded-card border border-line bg-surface px-3 py-2" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="voice">city / town</span>
+            <input name="cityName" required placeholder="e.g. Fort Kochi" className="w-44 rounded-card border border-line bg-surface px-3 py-2" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="voice">radius km</span>
+            <input type="number" name="radiusKm" defaultValue="10" min="1" max="50" className="w-24 rounded-card border border-line bg-surface px-3 py-2" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="voice">lat (optional)</span>
+            <input type="number" name="lat" step="any" placeholder="auto" className="w-28 rounded-card border border-line bg-surface px-3 py-2" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="voice">lng (optional)</span>
+            <input type="number" name="lng" step="any" placeholder="auto" className="w-28 rounded-card border border-line bg-surface px-3 py-2" />
+          </label>
+          <Button type="submit" size="sm" variant="secondary">Add city</Button>
+        </form>
+        {(customCities ?? []).length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {customCities!.map((c) => (
+              <form key={c.id} action={removeHarvestCity} className="flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs">
+                <input type="hidden" name="id" value={c.id} />
+                <span>
+                  {c.name} · {c.state_name} · {Math.round(c.radius_m / 1000)}km
+                </span>
+                <button type="submit" aria-label={`Remove ${c.name}`} className="text-ink-dim transition-colors hover:text-danger">
+                  ✕
+                </button>
+              </form>
+            ))}
+          </div>
+        )}
       </section>
 
       {progress && <HarvestProgress initial={progress} />}

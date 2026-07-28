@@ -48,16 +48,25 @@ export async function GET(
     }
   }
 
-  const [{ data: follow }, { data: rawPosts }] = await Promise.all([
-    ctx.supabase.rpc("follow_state", { target: profile.id }),
-    ctx.supabase
-      .from("posts")
-      .select(CARD_FIELDS)
-      .eq("author_id", profile.id)
-      .eq("status", "approved")
-      .order("created_at", { ascending: false })
-      .limit(30),
-  ]);
+  const [{ data: follow }, { data: rawPosts }, { data: contributions }] =
+    await Promise.all([
+      ctx.supabase.rpc("follow_state", { target: profile.id }),
+      ctx.supabase
+        .from("posts")
+        .select(CARD_FIELDS)
+        .eq("author_id", profile.id)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(30),
+      // Their scout footprint: places they put on the map that made it live.
+      ctx.supabase
+        .from("places")
+        .select("slug, name, area")
+        .eq("submitted_by", profile.id)
+        .eq("is_published", true)
+        .order("created_at", { ascending: false })
+        .limit(12),
+    ]);
 
   const postRows = rawPosts ?? [];
   const mediaByPost = new Map<string, PostCard["media"]>();
@@ -88,6 +97,7 @@ export async function GET(
     avatar_url: profile.avatar_url,
     outsider_number: profile.outsider_number,
   };
+  const profileWithBio = { ...author, bio: profile.bio ?? null };
   const posts: PostCard[] = postRows.map((p) => ({
     id: p.id,
     author_id: p.author_id,
@@ -109,9 +119,10 @@ export async function GET(
   }));
 
   return NextResponse.json({
-    profile: author,
+    profile: profileWithBio,
     follow: normalizeFollowState(follow?.[0]),
     isSelf: profile.id === ctx.user.id,
     posts,
+    contributions: contributions ?? [],
   });
 }

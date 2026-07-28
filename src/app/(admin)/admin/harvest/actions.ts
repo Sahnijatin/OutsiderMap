@@ -8,10 +8,13 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createHarvestRun, processScoutTasks } from "@/lib/harvest/runner";
 import { approveCandidate } from "@/lib/harvest/approve";
-import { HARVEST_CATEGORIES, HARVEST_STATES } from "@/lib/harvest/registry";
+import { geocodeCity } from "@/lib/harvest/geocode";
+import { HARVEST_CATEGORIES, harvestCityBySlug } from "@/lib/harvest/registry";
 
 const RunSchema = z.object({
-  state: z.string().refine((s) => s in HARVEST_STATES, "unknown state"),
+  // Validated against the merged geography (static + console-added) inside
+  // createHarvestRun - unknown states throw there with a clear message.
+  state: z.string().min(1).max(80),
   cities: z.array(z.string()).min(1),
   categories: z
     .array(z.string().refine((c) => c in HARVEST_CATEGORIES, "unknown category"))
@@ -40,6 +43,100 @@ export async function startHarvest(formData: FormData) {
       console.error("[harvest] initial tick failed", err);
     }
   });
+  revalidatePath("/admin/harvest");
+}
+
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+const AddCitySchema = z.object({
+  stateName: z.string().trim().min(2).max(60),
+  cityName: z.string().trim().min(2).max(60),
+  lat: z.coerce.number().min(6).max(38).optional(),
+  lng: z.coerce.number().min(66).max(98).optional(),
+  radiusKm: z.coerce.number().min(1).max(50),
+});
+
+/**
+ * Console-added harvest geography: any city in any state, geocoded on entry
+ * (Google Places when the key is set, Nominatim otherwise) unless the admin
+ * pins coordinates by hand. If the catalog already has a live product city
+ * with the same slug, approvals publish straight into it.
+ */
+export async function addHarvestCity(formData: FormData) {
+  const profile = await requireAdmin();
+  const input = AddCitySchema.parse({
+    stateName: formData.get("stateName"),
+    cityName: formData.get("cityName"),
+    lat: formData.get("lat") || undefined,
+    lng: formData.get("lng") || undefined,
+    radiusKm: formData.get("radiusKm") || 10,
+  });
+
+  const citySlug = slugify(input.cityName);
+  const stateSlug = slugify(input.stateName);
+  if (!citySlug || !stateSlug) throw new Error("Name didn't survive slugging - use plain letters.");
+  if (harvestCityBySlug(citySlug)) {
+    throw new Error(`${input.cityName} is already in the built-in list - pick it from its state.`);
+  }
+
+  let lat = input.lat;
+  let lng = input.lng;
+  if (lat == null || lng == null) {
+    const hit = await geocodeCity(input.cityName, input.stateName);
+    if (!hit) {
+      throw new Error(
+        `Couldn't locate "${input.cityName}, ${input.stateName}" - check the spelling or enter lat/lng by hand.`,
+      );
+    }
+    lat = hit.lat;
+    lng = hit.lng;
+  }
+
+  const admin = createAdminClient();
+  // If the catalog already runs a product city under this slug, wire the
+  // mapping now so approvals publish straight into it.
+  const { data: productCity } = await admin
+    .from("cities")
+    .select("slug")
+    .eq("slug", citySlug)
+    .maybeSingle();
+
+  const { error } = await admin.from("harvest_cities").insert({
+    state_slug: stateSlug,
+    state_name: input.stateName,
+    slug: citySlug,
+    name: input.cityName,
+    lat,
+    lng,
+    radius_m: Math.round(input.radiusKm * 1000),
+    product_city: productCity?.slug ?? null,
+    created_by: profile.id,
+  });
+  if (error) {
+    throw new Error(
+      error.message.includes("duplicate")
+        ? `${input.cityName} is already added.`
+        : error.message,
+    );
+  }
+  revalidatePath("/admin/harvest");
+}
+
+export async function removeHarvestCity(formData: FormData) {
+  await requireAdmin();
+  const id = z.string().uuid().parse(formData.get("id"));
+  const admin = createAdminClient();
+  // Tasks carry their own geometry, so removing a city never breaks a run
+  // that's already sweeping it.
+  await admin.from("harvest_cities").delete().eq("id", id);
   revalidatePath("/admin/harvest");
 }
 

@@ -2,8 +2,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   HARVEST_CATEGORIES,
+  loadHarvestGeography,
   resolveHarvestCities,
-  harvestCityBySlug,
 } from "@/lib/harvest/registry";
 import { gateReason, qualityScore } from "@/lib/harvest/quality";
 import { extractStorySignals, mergeKey, type Passage } from "@/lib/harvest/story";
@@ -34,7 +34,8 @@ export async function createHarvestRun(
     maxPerQuery: number;
   },
 ) {
-  const cities = resolveHarvestCities(input.state, input.cities);
+  const geography = await loadHarvestGeography(admin);
+  const cities = resolveHarvestCities(geography, input.state, input.cities);
   const categories = input.categories.filter((c) => HARVEST_CATEGORIES[c]);
   if (categories.length === 0) throw new Error("No valid categories selected.");
 
@@ -248,9 +249,16 @@ export async function processScoutTasks(admin: SupabaseClient<Database>) {
       if (!claimed?.length) continue;
 
       try {
-        const city = harvestCityBySlug(task.city_slug);
-        if (!city) throw new Error(`unknown harvest city ${task.city_slug}`);
-        const cityForTask = { ...city, radiusM: task.radius_m };
+        // The task carries its own geometry, so a run keeps working even if
+        // the city was console-added (or removed) after the run started.
+        const cityForTask = {
+          slug: task.city_slug,
+          name: task.city_name,
+          lat: task.lat,
+          lng: task.lng,
+          radiusM: task.radius_m,
+          productCity: null,
+        };
         const sightings =
           task.source === "google"
             ? await googleDiscover(cityForTask, task.category, run.max_per_query)

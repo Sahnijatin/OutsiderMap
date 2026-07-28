@@ -21,6 +21,8 @@ const MEMBER_SURFACES = [
   "/admin",
   // Revived as the street-easy drop-a-spot flow (link or name + comment).
   "/submit",
+  // Owners claim and manage their places - signed-in members only.
+  "/business",
 ];
 
 const RETIRED = ["/onboarding", "/reels", "/join", "/thank-you"];
