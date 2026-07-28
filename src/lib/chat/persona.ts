@@ -5,6 +5,7 @@ import {
   deriveAdventurousness,
   type Posture,
 } from "@/lib/chat/adventurousness";
+import { loadMemories, type MemoryFact } from "@/lib/chat/memory";
 import type { Database, Json } from "@/types/database";
 
 /**
@@ -66,6 +67,13 @@ export interface Persona {
   savedVibes: Record<string, number>;
   /** Vibe tag -> how many places the member explicitly PASSED ON carry it. */
   passedVibes: Record<string, number>;
+  /**
+   * Durable facts the member stated about themselves - the things a tag
+   * histogram cannot hold. Required rather than optional: an omitted field
+   * would silently render a member who has told us they are vegetarian as one
+   * who has not, and that failure looks exactly like the feature working.
+   */
+  memories: MemoryFact[];
   eventCount: number;
   /**
    * The quiz's own explore/exploit answer, kept so the toolbox can seed the
@@ -217,13 +225,15 @@ export async function loadPersona(
   const signals = LearnedSignalsSchema.safeParse(source.learnedSignals);
   const parsedSignals = signals.success ? signals.data : {};
 
-  const [saved, passed] =
+  // Memory is loaded even when history is not: map search skips saves and
+  // passes because it never explains a pick, but a hard constraint still has to
+  // reach it - surfacing a steakhouse to a vegetarian is wrong on a map too.
+  const [[saved, passed], memories] = await Promise.all([
     opts.includeHistory === false
-      ? [emptyHistory(), emptyHistory()]
-      : await Promise.all([
-          recentSaves(supabase, userId),
-          recentPasses(supabase, userId),
-        ]);
+      ? Promise.resolve([emptyHistory(), emptyHistory()] as const)
+      : Promise.all([recentSaves(supabase, userId), recentPasses(supabase, userId)]),
+    loadMemories(supabase, userId, personalize),
+  ]);
 
   // The quiz seeds the dial while behaviour is too thin to compute one, so a
   // brand-new member is not handed the same default as every other new member.
@@ -250,6 +260,7 @@ export async function loadPersona(
     passedRecently: passed.names,
     savedVibes: saved.vibeCounts,
     passedVibes: passed.vibeCounts,
+    memories,
     eventCount: parsedSignals.event_count ?? 0,
     quizAdventurousness: parsedDimensions?.adventurousness,
   };
@@ -408,7 +419,8 @@ function hasSignal(p: Persona): boolean {
     p.preferredTimes.length > 0 ||
     p.activeHours !== null ||
     p.budgetBand > 0 ||
-    p.social !== ""
+    p.social !== "" ||
+    p.memories.length > 0
   );
 }
 
@@ -448,6 +460,20 @@ function personaLines(p: Persona): string[] {
 
   if (p.anchors.length > 0) {
     lines.push(`Hold to: ${p.anchors.join(" | ")}`);
+  }
+
+  // Remembered facts, split by what a violation costs. A vegetarian sent to a
+  // kebab house has been failed in a way no amount of good atmosphere repairs,
+  // so constraints get their own line and their own word; everything else is
+  // context to pick with. Both are still subject to the don't-recite rule below
+  // - "since you're vegetarian" is the same failure wearing a fact.
+  const hard = p.memories.filter((m) => m.kind === "constraint");
+  const soft = p.memories.filter((m) => m.kind !== "constraint");
+  if (hard.length > 0) {
+    lines.push(`Never break: ${hard.map((m) => m.text).join("; ")}.`);
+  }
+  if (soft.length > 0) {
+    lines.push(`They have told you: ${soft.map((m) => m.text).join(" | ")}`);
   }
 
   const history: string[] = [];
@@ -511,7 +537,22 @@ export function renderPersonaCompact(persona: Persona | null): string {
   if (persona.vibes.length > 0) parts.push(persona.vibes.slice(0, 6).join(", "));
   if (persona.areas.length > 0)
     parts.push(`usually around ${persona.areas.slice(0, 3).join(", ")}`);
-  if (parts.length === 0) return "";
 
-  return `This member's taste runs to: ${parts.join("; ")}. Use it to rank what you surface - never mention it.`;
+  // Hard constraints are the one memory kind that earns its tokens even here.
+  // Ranking is not explaining, but a map that surfaces a steakhouse to someone
+  // who told us they are vegetarian is wrong in the same way chat would be.
+  const hard = persona.memories
+    .filter((m) => m.kind === "constraint")
+    .map((m) => m.text);
+
+  if (parts.length === 0 && hard.length === 0) return "";
+
+  const taste =
+    parts.length > 0
+      ? `This member's taste runs to: ${parts.join("; ")}. `
+      : "";
+  const constraints =
+    hard.length > 0 ? `Hard constraints: ${hard.join("; ")}. ` : "";
+
+  return `${taste}${constraints}Use it to rank what you surface - never mention it.`;
 }

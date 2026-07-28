@@ -27,6 +27,9 @@ const READER: Persona = {
   passedRecently: [],
   savedVibes: {},
   passedVibes: {},
+  // forYou reads places against tags, areas and budget only - remembered facts
+  // are the model's job to weigh, not this function's.
+  memories: [],
   eventCount: 51,
 };
 

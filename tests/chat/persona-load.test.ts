@@ -238,4 +238,80 @@ describe("loadPersona", () => {
     expect(persona!.activeHours).toBeNull();
     expect(persona!.posture).toBe("explore");
   });
+
+  it("carries the durable facts the member has stated", async () => {
+    const { client } = fakeSupabase({
+      saved_places: [],
+      interaction_events: [],
+      member_memory: [
+        {
+          id: "m1",
+          kind: "constraint",
+          text: "vegetarian",
+          confidence: 0.9,
+          expires_at: null,
+        },
+      ],
+    });
+
+    const persona = await loadPersona(client, "u1", true, {
+      displayName: "Rehan",
+      quizAnswers: { dimensions: DIMENSIONS },
+      learnedSignals: SIGNALS,
+    });
+
+    expect(persona!.memories).toEqual([
+      { id: "m1", kind: "constraint", text: "vegetarian", confidence: 0.9 },
+    ]);
+  });
+
+  it("loads memory even for the surface that skips history", async () => {
+    // Map search opts out of saves and passes because it never explains a pick.
+    // A hard constraint is a different kind of thing: surfacing a steakhouse
+    // pin to someone who told us they are vegetarian is wrong on a map too.
+    const { client, queried } = fakeSupabase({
+      member_memory: [
+        {
+          id: "m1",
+          kind: "constraint",
+          text: "vegetarian",
+          confidence: 0.9,
+          expires_at: null,
+        },
+      ],
+    });
+
+    const persona = await loadPersona(
+      client,
+      "u1",
+      true,
+      {
+        displayName: "Rehan",
+        quizAnswers: { dimensions: DIMENSIONS },
+        learnedSignals: SIGNALS,
+      },
+      { includeHistory: false },
+    );
+
+    expect(persona!.memories).toHaveLength(1);
+    expect(persona!.savedRecently).toEqual([]);
+    // And still costs exactly one query, not three.
+    expect(queried).toEqual(["member_memory"]);
+  });
+
+  it("survives a failing memory query", async () => {
+    const { client } = fakeSupabase(
+      { saved_places: [], interaction_events: [] },
+      "member_memory",
+    );
+
+    const persona = await loadPersona(client, "u1", true, {
+      displayName: "Rehan",
+      quizAnswers: { dimensions: DIMENSIONS },
+      learnedSignals: SIGNALS,
+    });
+
+    expect(persona!.memories).toEqual([]);
+    expect(persona!.anchors).toEqual(DIMENSIONS.anchors);
+  });
 });

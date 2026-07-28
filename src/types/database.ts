@@ -26,6 +26,20 @@ export type PlaceKind =
   | "cultural"
   | "event";
 
+/**
+ * Kinds of durable fact the concierge may remember (see member_memory).
+ *
+ * Closed on purpose: `constraint` is the only one the prompt renders as
+ * unbreakable, so the set has to stay small enough to reason about.
+ */
+export type MemoryKind =
+  | "constraint"
+  | "dislike"
+  | "company"
+  | "occasion"
+  | "budget"
+  | "access";
+
 /** Interaction taxonomy feeding the learning loop (see interaction_events). */
 export type InteractionEventType =
   | "query"
@@ -744,6 +758,50 @@ export type Database = {
             columns: ["market_run_id"];
             isOneToOne: false;
             referencedRelation: "market_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_memory: {
+        Row: {
+          id: string;
+          user_id: string;
+          kind: MemoryKind;
+          text: string;
+          confidence: number;
+          source_message_id: string | null;
+          created_at: string;
+          updated_at: string;
+          expires_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          kind: MemoryKind;
+          text: string;
+          confidence?: number;
+          source_message_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          expires_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          kind?: MemoryKind;
+          text?: string;
+          confidence?: number;
+          source_message_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          expires_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_memory_source_message_id_fkey";
+            columns: ["source_message_id"];
+            isOneToOne: false;
+            referencedRelation: "chat_messages";
             referencedColumns: ["id"];
           },
         ];

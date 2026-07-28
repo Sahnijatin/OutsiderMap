@@ -38,6 +38,7 @@ const FULL: Persona = {
   passedRecently: ["Some Rooftop"],
   savedVibes: {},
   passedVibes: {},
+  memories: [],
   eventCount: 64,
 };
 
@@ -176,11 +177,99 @@ describe("renderPersona", () => {
     expect(bodyOf(coldStart).length).toBeLessThan(bodyOf(persona()).length);
   });
 
+  it("renders a hard constraint as unbreakable, in its own line", () => {
+    // A vegetarian sent to a kebab house has been failed in a way no amount of
+    // good atmosphere repairs. Constraints are the one thing here that is not
+    // a preference to weigh, so they do not get folded in with the tags.
+    const rendered = renderPersona(
+      persona({
+        memories: [
+          { id: "a", kind: "constraint", text: "vegetarian, no egg", confidence: 0.9 },
+        ],
+      }),
+    );
+    expect(rendered).toContain("Never break: vegetarian, no egg.");
+  });
+
+  it("keeps softer facts separate from constraints", () => {
+    const rendered = renderPersona(
+      persona({
+        memories: [
+          { id: "a", kind: "constraint", text: "does not drink", confidence: 0.9 },
+          { id: "b", kind: "dislike", text: "hates rooftops", confidence: 0.8 },
+          { id: "c", kind: "company", text: "usually with their partner", confidence: 0.7 },
+        ],
+      }),
+    );
+    expect(rendered).toContain("Never break: does not drink.");
+    expect(rendered).toContain(
+      "They have told you: hates rooftops | usually with their partner",
+    );
+    // The soft line must not swallow the constraint.
+    expect(rendered).not.toContain("They have told you: does not drink");
+  });
+
+  it("says nothing about memory when there is none", () => {
+    const rendered = renderPersona(persona({ memories: [] }));
+    expect(rendered).not.toContain("Never break:");
+    expect(rendered).not.toContain("They have told you:");
+  });
+
+  it("still leaves remembered facts subject to the don't-recite rule", () => {
+    // Memories are the most quotable strings in the block - short, true,
+    // first-hand. "Since you're vegetarian, ..." is the same failure the whole
+    // format is built to avoid, just wearing a fact instead of a tag.
+    const rendered = renderPersona(
+      persona({
+        memories: [{ id: "a", kind: "constraint", text: "vegetarian", confidence: 0.9 }],
+      }),
+    );
+    expect(rendered).toContain("never something you say back to them");
+  });
+
+  it("renders a block for someone we know nothing about except one fact", () => {
+    // Someone who opted out of the quiz and has done nothing still gets a block
+    // if they told the concierge they do not eat meat. That single fact is
+    // worth more than every tag on a member who never said anything.
+    const blank = persona({
+      anchors: [],
+      cuisines: [],
+      vibes: [],
+      avoidVibes: [],
+      areas: [],
+      preferredTimes: [],
+      savedRecently: [],
+      passedRecently: [],
+      activeHours: null,
+      budgetBand: 0,
+      social: "",
+      memories: [{ id: "a", kind: "constraint", text: "vegetarian", confidence: 0.9 }],
+    });
+    expect(renderPersona(blank)).toContain("Never break: vegetarian.");
+  });
+
   it("stays compact enough to afford on every turn", () => {
     // Rough token proxy. The whole point of an always-on block is that it is
     // cheap enough to never need a tool call to fetch.
     const rendered = renderPersona(persona());
     expect(rendered.length).toBeLessThan(1600);
+  });
+
+  it("stays affordable even with a full memory", () => {
+    // Memory is the one part of the block with no natural ceiling, so the
+    // budget is pinned against the worst case the loader can produce: six
+    // facts at the column's 120-character limit.
+    const full = renderPersona(
+      persona({
+        memories: Array.from({ length: 6 }, (_, i) => ({
+          id: `m${i}`,
+          kind: i === 0 ? ("constraint" as const) : ("dislike" as const),
+          text: "x".repeat(120),
+          confidence: 0.9,
+        })),
+      }),
+    );
+    expect(full.length).toBeLessThan(2500);
   });
 
   it("addresses the member by first name only", () => {
@@ -220,5 +309,37 @@ describe("renderPersonaCompact", () => {
   it("is empty when there is no vocabulary to rank with", () => {
     expect(renderPersonaCompact(persona({ vibes: [], areas: [] }))).toBe("");
     expect(renderPersonaCompact(null)).toBe("");
+  });
+
+  it("carries hard constraints, because a map can break one too", () => {
+    // Ranking is not explaining, so map search skips almost everything the
+    // full block carries. A steakhouse pin surfaced to someone who said they
+    // are vegetarian is wrong in exactly the way chat would be.
+    const rendered = renderPersonaCompact(
+      persona({
+        memories: [
+          { id: "a", kind: "constraint", text: "vegetarian", confidence: 0.9 },
+          { id: "b", kind: "occasion", text: "Friday date night", confidence: 0.8 },
+        ],
+      }),
+    );
+    expect(rendered).toContain("Hard constraints: vegetarian.");
+    // Everything else stays out - this surface writes no reasons, so an
+    // occasion is tokens spent on nothing.
+    expect(rendered).not.toContain("Friday");
+  });
+
+  it("renders for a member whose only signal is a constraint", () => {
+    expect(
+      renderPersonaCompact(
+        persona({
+          vibes: [],
+          areas: [],
+          memories: [
+            { id: "a", kind: "constraint", text: "no alcohol", confidence: 0.9 },
+          ],
+        }),
+      ),
+    ).toBe("Hard constraints: no alcohol. Use it to rank what you surface - never mention it.");
   });
 });
