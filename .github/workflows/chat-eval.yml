@@ -1,0 +1,99 @@
+# The live personalization eval: does the concierge give members with opposite
+# taste different answers?
+#
+# The deterministic half of this question already runs on every PR inside
+# ci.yml's `npm test` - prompt divergence, the persona renderer, the scoring
+# functions. All of that needs no keys and no database, so it gates commits.
+#
+# This workflow is the other half: the one that can only be answered by running
+# real agent turns against a real catalog. It is nightly rather than
+# per-commit because a full matrix is `personas x scenarios` model calls, and
+# because it needs a database it is allowed to write to.
+#
+# ## It creates auth users
+#
+# Personas need rows in taste_profiles, which foreign-keys through profiles to
+# auth.users, so there is no way to evaluate the real engine without them.
+# Every account uses a reserved @outsidermap.invalid address (RFC 2606) and a
+# user id derived deterministically from the persona, so re-runs update the same
+# rows instead of accumulating junk. Point CHAT_EVAL_SUPABASE_URL at staging.
+# Never at production.
+#
+# ## Required repo secrets
+#
+#   CHAT_EVAL_SUPABASE_URL          staging Supabase project URL
+#   CHAT_EVAL_SERVICE_ROLE_KEY      its service-role key (creates users)
+#   CHAT_EVAL_ANTHROPIC_API_KEY     runs the agent turns
+#   CHAT_EVAL_OPENAI_API_KEY        embeddings (needed even on Anthropic)
+#
+# Deliberately distinct names from the production env vars: a workflow that
+# writes users should not be one misconfigured secret away from doing it to
+# real members.
+
+name: chat-eval
+
+on:
+  schedule:
+    # 03:20 UTC ≈ 08:50 IST, after the nightly recompute cron has settled.
+    - cron: "20 3 * * *"
+  workflow_dispatch:
+    inputs:
+      concurrency:
+        description: "Concurrent agent turns (default 4)"
+        required: false
+
+concurrency:
+  group: chat-eval
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    # Without the secrets this job cannot say anything true, so it should not
+    # run at all rather than fail nightly and train everyone to ignore it.
+    if: ${{ vars.CHAT_EVAL_ENABLED == 'true' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Run the personalization matrix
+        run: npx vitest run tests/chat/eval.live.test.ts
+        env:
+          CHAT_EVAL_LIVE: "1"
+          CHAT_EVAL_REPORT: eval-report/chat-eval.txt
+          CHAT_EVAL_CONCURRENCY: ${{ inputs.concurrency }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.CHAT_EVAL_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: unused-by-the-harness
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CHAT_EVAL_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.CHAT_EVAL_ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.CHAT_EVAL_OPENAI_API_KEY }}
+
+      # Uploaded even on failure: a matrix that errored halfway still says
+      # something, and the report is the only durable record of the run.
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chat-eval-report
+          path: eval-report/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f eval-report/chat-eval.txt ]; then
+            {
+              echo '```'
+              cat eval-report/chat-eval.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'No report produced - the matrix failed before summarizing.' \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi

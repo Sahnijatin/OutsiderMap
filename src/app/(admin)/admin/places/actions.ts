@@ -10,6 +10,8 @@ import {
   embedPlaceRows,
   type EmbeddableRow,
 } from "@/lib/admin/embed-sweep";
+import { PUBLISH_BATCH } from "@/lib/catalog/inventory";
+import { isReadyToPublish } from "@/lib/catalog/readiness";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadExperienceMedia } from "@/lib/media/experience";
 import { serverEnv } from "@/lib/env";
@@ -297,6 +299,86 @@ export async function bulkPublishPlaces(formData: FormData) {
       ? `Published ${published}. ${failedIds.size} left as drafts because their embedding failed (${firstError ?? "unknown error"}).`
       : `Published ${published} place${published === 1 ? "" : "s"}, embeddings included.`;
   redirect(bulkReturnPath(formData, notice));
+}
+
+/**
+ * Publish the ready drafts in one go, oldest first.
+ *
+ * The page's checkbox flow tops out at one 50-row page, which is a fine tool
+ * for triaging a handful and a useless one for the backlog that actually caps
+ * personalization. This is the same operation aimed at the whole queue.
+ *
+ * Two things it will not do. It never publishes a row that fails
+ * `isReadyToPublish` - the SQL filter narrows, and then the pure rule decides,
+ * so a filter that drifts can only ever let through *fewer* places than it
+ * should, never a thin one. And it never publishes without an embedding, for
+ * the same reason the selected-rows action does not: `match_places` filters
+ * `embedding is not null`, so that would produce a row live on the map and
+ * invisible to everything that matters.
+ */
+export async function publishReadyDrafts(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  if (!serverEnv().OPENAI_API_KEY) {
+    redirect(
+      bulkReturnPath(
+        formData,
+        "Nothing was published. Publishing embeds every place first and that needs OPENAI_API_KEY - set it in Vercel and redeploy.",
+      ),
+    );
+  }
+
+  // Oldest first, so repeated runs walk the queue instead of re-reading the
+  // same head of it. `embedding` is never selected: 150 rows x 1536 floats to
+  // decide a boolean is a payload nobody needs.
+  const { data: candidates, error } = await admin
+    .from("places")
+    .select(`${EMBEDDABLE_COLUMNS}, lat, lng, is_chain`)
+    .eq("is_published", false)
+    .eq("is_chain", false)
+    .order("updated_at", { ascending: true })
+    .limit(PUBLISH_BATCH);
+  if (error) throw new Error(error.message);
+
+  const ready = (candidates ?? []).filter((row) => isReadyToPublish(row));
+  if (ready.length === 0) {
+    redirect(
+      bulkReturnPath(
+        formData,
+        `Nothing published: none of the ${candidates?.length ?? 0} oldest drafts clear the readiness bar. They need an area, coordinates, vibe tags and a real description first.`,
+      ),
+    );
+  }
+
+  const result = await embedPlaceRows(admin, ready as EmbeddableRow[]);
+  const failed = new Set(result.failures.map((f) => f.id));
+  const toPublish = ready.filter((r) => !failed.has(r.id)).map((r) => r.id);
+
+  let published = 0;
+  if (toPublish.length > 0) {
+    const { data, error: publishError } = await admin
+      .from("places")
+      .update({ is_published: true, updated_at: new Date().toISOString() })
+      .in("id", toPublish)
+      .select("id");
+    if (publishError) throw new Error(publishError.message);
+    published = data?.length ?? 0;
+  }
+
+  revalidatePath("/admin/places");
+  revalidatePath("/admin/metrics");
+
+  const parts = [`Published ${published}, embeddings included.`];
+  if (failed.size > 0) {
+    parts.push(
+      `${failed.size} left as drafts because their embedding failed (${result.failures[0]?.error ?? "unknown error"}).`,
+    );
+  }
+  if (ready.length === PUBLISH_BATCH) {
+    parts.push("That was one batch - run it again for the next.");
+  }
+  redirect(bulkReturnPath(formData, parts.join(" ")));
 }
 
 /** Pull the selected places back to draft. Embeddings are kept - republishing later is instant. */

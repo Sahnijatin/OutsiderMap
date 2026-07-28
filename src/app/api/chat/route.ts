@@ -1,8 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, after, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
-import { runChatTurn } from "@/lib/chat/engine";
+import { runChatTurn, type ChatTurnResult } from "@/lib/chat/engine";
+import { rememberFromTurn } from "@/lib/chat/memory";
+import { AskContextSchema } from "@/lib/chat/ask-context";
 import { describeError, withTimeout, TimeoutError } from "@/lib/ai/retry";
 
 /**
@@ -24,6 +26,13 @@ const TURN_BUDGET_MS = 55_000;
 const BodySchema = z.object({
   threadId: z.string().uuid().optional(),
   message: z.string().trim().min(1).max(600),
+  /**
+   * What the member is doing when they ask: the city on screen, a cached
+   * position, the place the ask started from. All optional - every existing
+   * client keeps working unchanged, and a turn without any of it behaves
+   * exactly as before.
+   */
+  context: AskContextSchema.optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -46,6 +55,26 @@ export async function POST(request: NextRequest) {
   }
 
   const startedAt = Date.now();
+
+  // Long-term memory runs after the response, never inside it: it is a second
+  // LLM call, and chat's whole complaint is latency. `after` is registered here
+  // in plain handler scope rather than inside the stream, where the request
+  // context it depends on is a subtlety nobody should have to remember. The
+  // stream resolves `turn` when it finishes; the callback waits on it.
+  let turnDone: (result: ChatTurnResult | null) => void = () => {};
+  const turn = new Promise<ChatTurnResult | null>((resolve) => {
+    turnDone = resolve;
+  });
+  after(async () => {
+    const result = await turn;
+    if (!result) return;
+    await rememberFromTurn(ctx.supabase, ctx.user.id, {
+      threadId: result.threadId,
+      message: parsed.data.message,
+      reply: result.text,
+      degraded: result.degraded,
+    });
+  });
 
   // Streaming path: the client sends `Accept: text/event-stream` and gets the
   // reply token-by-token (masking the multi-step agent latency), a `reset` at
@@ -88,6 +117,7 @@ export async function POST(request: NextRequest) {
             "chat turn",
           );
           send("done", result);
+          turnDone(result);
         } catch (err) {
           const timedOut = err instanceof TimeoutError;
           console.error(
@@ -108,6 +138,10 @@ export async function POST(request: NextRequest) {
               : "Lost my train of thought - say that again?",
           });
         } finally {
+          // Idempotent: a resolved promise ignores this. Unconditional so a
+          // failed turn releases the `after` callback instead of leaving it
+          // awaiting a promise that never settles.
+          turnDone(null);
           clearInterval(heartbeat);
           closed = true;
           try {
@@ -133,8 +167,10 @@ export async function POST(request: NextRequest) {
       TURN_BUDGET_MS,
       "chat turn",
     );
+    turnDone(result);
     return NextResponse.json(result);
   } catch (err) {
+    turnDone(null);
     const elapsedMs = Date.now() - startedAt;
     const timedOut = err instanceof TimeoutError;
     const info = describeError(err);

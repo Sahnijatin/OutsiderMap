@@ -17,6 +17,7 @@ import {
   PersonalizationToggle,
   SignOutForm,
 } from "./settings-cards";
+import { MemoryCard } from "./memory-card";
 import { TasteCardShare } from "./taste-card-share";
 import { IdentityCard } from "./identity-card";
 import { StatsRow } from "./stats-row";
@@ -57,6 +58,7 @@ export default async function ProfilePage({
     { count: followerCount },
     { count: followingCount },
     city,
+    { data: memories },
   ] = await Promise.all([
     supabase
       .from("taste_profiles")
@@ -86,6 +88,16 @@ export default async function ProfilePage({
       .select("followee", { count: "exact", head: true })
       .eq("follower", profile.id),
     resolveCity(supabase, profile.home_city),
+    // Everything the concierge has written down, including anything expired -
+    // a fact that has quietly aged out is still something the member should be
+    // able to see was once recorded and strike off for good.
+    supabase
+      .from("member_memory")
+      .select("id, kind, text")
+      .eq("user_id", profile.id)
+      .order("confidence", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(50),
   ]);
 
   const parsed = StoredAnswersSchema.safeParse(taste?.quiz_answers);
@@ -287,6 +299,8 @@ export default async function ProfilePage({
       </div>
 
       <FeelCard />
+
+      <MemoryCard initial={memories ?? []} />
 
       <PersonalizationToggle
         initial={profile.personalization_enabled !== false}

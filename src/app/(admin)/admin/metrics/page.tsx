@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -11,9 +12,20 @@ import {
   getExperiment,
   getExperimentConfig,
   getFunnel,
+  getReasonSource,
   getRetention,
 } from "@/lib/metrics/queries";
-import { ratePct, funnelShares, FUNNEL_LABELS } from "@/lib/metrics/format";
+import {
+  catalogInventory,
+  daysToClearInvisible,
+  type CatalogInventory,
+} from "@/lib/catalog/inventory";
+import {
+  ratePct,
+  funnelShares,
+  reasonSourceTile,
+  FUNNEL_LABELS,
+} from "@/lib/metrics/format";
 import { ONE_ANSWER_VS_LIST } from "@/lib/experiments/server";
 import { toggleExperiment } from "./actions";
 
@@ -32,22 +44,56 @@ export default async function MetricsPage() {
   await requireAdmin();
   const supabase = await createClient();
 
-  const [answer, accept, activation, daily, funnel, retention, expConfig, expRows] =
+  const [
+    answer,
+    accept,
+    activation,
+    reasons,
+    daily,
+    funnel,
+    retention,
+    expConfig,
+    expRows,
+    inventory,
+  ] =
     await Promise.all([
       getAnswerAcceptRate(supabase, 7),
       getAcceptRate(supabase, 7),
       getActivation(supabase, 30),
+      // Guarded because `metrics_reason_source` is new in this branch and its
+      // migration may not be applied yet. Without this the whole dashboard
+      // 500s on any deploy where code lands before migrations - including the
+      // inventory panel below, which is where you would go to find out what is
+      // wrong. The older RPCs are deliberately left unguarded: they have
+      // shipped, so an error from one of them is a real fault worth surfacing
+      // loudly rather than a deploy-ordering artefact.
+      getReasonSource(supabase, 7).catch((err): null => {
+        console.error("reason-source metric unavailable", err);
+        return null;
+      }),
       getDaily(supabase, 30),
       getFunnel(supabase, 30),
       getRetention(supabase, 8),
       getExperimentConfig(supabase, ONE_ANSWER_VS_LIST),
       getExperiment(supabase, ONE_ANSWER_VS_LIST, 14),
+      // Nine head-count queries. Worth its own failure path: inventory is the
+      // newest thing on this page and the rest of the dashboard should not go
+      // dark if one of its filters turns out to be wrong.
+      catalogInventory(supabase).catch((err): CatalogInventory | null => {
+        console.error("catalog inventory failed", err);
+        return null;
+      }),
     ]);
 
   const acceptPct = ratePct(accept.accepts, accept.asks);
   const answerPct = answer.served > 0 ? ratePct(answer.accepted, answer.served) : null;
   const activationPct =
     activation.served > 0 ? ratePct(activation.accepted, activation.served) : null;
+  // The complement - the editor-note share - is how often members were served
+  // the same blurb as everyone else. Degraded picks are excluded from both:
+  // their reasons are static by construction, so counting them would let a
+  // provider outage read as a personalization regression.
+  const ownReason = reasonSourceTile(reasons);
   const ttfa =
     activation.avgTtfaSeconds != null
       ? activation.avgTtfaSeconds < 90
@@ -114,11 +160,82 @@ export default async function MetricsPage() {
           muted={ttfa === "-"}
         />
         <Tile
+          label="Own-reason rate · 7d"
+          value={ownReason.value}
+          sub={ownReason.sub}
+          muted={ownReason.muted}
+        />
+        <Tile
           label="Stretch-success-rate"
           value="-"
           sub="pending the dial (#126)"
           muted
         />
+      </section>
+
+      {/*
+        Inventory. Every tile above measures how well the product uses what it
+        has; this measures how much it has, and caps all of them. searchCatalog
+        pulls 24 and narrows to 12, so below a certain retrievable count two
+        members with opposite taste get overlapping picks by arithmetic and no
+        ranking change can help.
+      */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="voice">inventory · the ceiling on everything above</h2>
+          <Link
+            href="/admin/places?status=draft"
+            className="text-xs text-ink-dim transition-colors hover:text-ink"
+          >
+            Triage drafts
+          </Link>
+        </div>
+        {inventory ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Tile
+                label="Retrievable places"
+                value={inventory.retrievable}
+                sub="published, not a chain, embedded"
+              />
+              <Tile
+                label="Published but invisible"
+                value={inventory.invisible}
+                sub={
+                  daysToClearInvisible(inventory.invisible) !== null
+                    ? `${daysToClearInvisible(inventory.invisible)}d for the sweep to clear`
+                    : "nothing waiting"
+                }
+                muted={inventory.invisible === 0}
+              />
+              <Tile
+                label="Drafts ready to publish"
+                value={inventory.readyDrafts}
+                sub="clear the readiness bar today"
+                muted={inventory.readyDrafts === 0}
+              />
+              <Tile
+                label="Drafts blocked"
+                value={inventory.blockedDrafts}
+                sub="need editing first"
+                muted={inventory.blockedDrafts === 0}
+              />
+            </div>
+            {inventory.gaps.length > 0 && (
+              <p className="text-xs text-ink-dim">
+                What is blocking them:{" "}
+                {inventory.gaps
+                  .map((g) => `${g.label.toLowerCase()} (${g.count})`)
+                  .join(", ")}
+                .
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-ink-dim">
+            Inventory counts unavailable - see the server log.
+          </p>
+        )}
       </section>
 
       {/* Experiment: one answer vs a list (#120 part 2b) */}

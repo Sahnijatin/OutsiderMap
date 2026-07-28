@@ -17,6 +17,9 @@ export type CatalogCandidate = MatchedPlace & {
   image_path: string | null;
   open: boolean | null;
   openLabel: string | null;
+  /** Coordinates, so callers can answer "how far is that from me?". */
+  lat: number | null;
+  lng: number | null;
 };
 
 export function combineEmbeddings(
@@ -105,7 +108,7 @@ export async function searchCatalog(
   // hours/images for the shortlist separately.
   const { data: details } = await supabase
     .from("places")
-    .select("id, hours, image_path")
+    .select("id, hours, image_path, lat, lng")
     .in(
       "id",
       candidates.map((c) => c.id),
@@ -118,6 +121,8 @@ export async function searchCatalog(
       ...c,
       hours: detail?.hours ?? null,
       image_path: detail?.image_path ?? null,
+      lat: detail?.lat ?? null,
+      lng: detail?.lng ?? null,
       open: isOpenNow(detail?.hours ?? null),
       openLabel: openStatusLabel(detail?.hours ?? null),
     };
@@ -134,7 +139,7 @@ export function preferOpen(candidates: CatalogCandidate[], min = 6) {
 }
 
 const KEYWORD_COLUMNS =
-  "id, slug, name, area, category, price_level, vibe_tags, description, editor_note, hours, image_path";
+  "id, slug, name, area, category, price_level, vibe_tags, description, editor_note, hours, image_path, lat, lng";
 
 /**
  * Embedding-free retrieval used when the embeddings provider is unavailable, so
@@ -210,6 +215,8 @@ export async function keywordSearch(
     similarity: 0,
     hours: r.hours ?? null,
     image_path: r.image_path ?? null,
+    lat: r.lat ?? null,
+    lng: r.lng ?? null,
     open: isOpenNow(r.hours ?? null),
     openLabel: openStatusLabel(r.hours ?? null),
   }));

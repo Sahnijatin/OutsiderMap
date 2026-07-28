@@ -11,7 +11,10 @@ const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   AI_PROVIDER: z.enum(["anthropic", "openai"]).default("anthropic"),
   AI_MODEL: z.string().min(1).optional(),
-  /** Cheaper/faster model for latency-critical steps (chat decisions). */
+  /**
+   * Cheap model for small background jobs - memory extraction after a chat
+   * turn. Unset falls back to AI_MODEL rather than disabling the feature.
+   */
   AI_FAST_MODEL: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),

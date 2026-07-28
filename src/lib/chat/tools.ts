@@ -4,8 +4,15 @@ import { z } from "zod";
 import { getEmbeddings } from "@/lib/ai";
 import { defineTool } from "@/lib/ai/tool-loop";
 import type { AITool } from "@/lib/ai/types";
-import { deriveAdventurousness } from "@/lib/chat/adventurousness";
+import {
+  deriveAdventurousness,
+  type AdventurousnessPrior,
+} from "@/lib/chat/adventurousness";
 import { effectiveTier } from "@/lib/chat/budget";
+import { forYou } from "@/lib/chat/for-you";
+import type { Origin } from "@/lib/chat/ask-context";
+import { distanceMeters } from "@/lib/scout/geo";
+import type { Persona } from "@/lib/chat/persona";
 import {
   keywordSearch,
   preferOpen,
@@ -45,9 +52,24 @@ export interface ChatToolContext {
   city: City;
   /** Consent-gated personalization. When false, taste/behaviour stay out. */
   personalize: boolean;
-  tasteEmbedding: number[] | null;
   tasteSummary: string | null;
   learnedSignals: Json | null;
+  /**
+   * Quiz-derived prior for the explore/exploit dial, used while behaviour is
+   * too thin to compute one. Optional so existing call sites and tests keep
+   * working; missing means "fall back to the no-prior default".
+   */
+  quizPrior?: AdventurousnessPrior | null;
+  /**
+   * The member, for per-candidate evidence. Optional so existing call sites and
+   * tests keep working; missing means search results carry no `for_you`.
+   */
+  persona?: Persona | null;
+  /**
+   * Where the member is, when the client had a cached position. Turns "is this
+   * close?" from something the model has to guess into something it can read.
+   */
+  origin?: Origin | null;
   /**
    * Slugs already recommended earlier in this thread. Search results carry an
    * `already_shown` flag for these so the agent stops re-serving the same
@@ -102,7 +124,27 @@ export class ChatToolCollector {
   }
 }
 
-function compactCandidate(c: CatalogCandidate, shownEarlier?: Set<string>) {
+/**
+ * Rounded to 100m: the position is a cached fix that can be a week old, so
+ * anything finer would be false precision - and a concierge says "ten minutes
+ * away", never "1.83km".
+ */
+function kmAway(c: CatalogCandidate, origin: Origin | null): number | null {
+  if (!origin || c.lat === null || c.lng === null) return null;
+  const metres = distanceMeters(origin.lat, origin.lng, c.lat, c.lng);
+  return Math.round(metres / 100) / 10;
+}
+
+function compactCandidate(
+  c: CatalogCandidate,
+  opts: {
+    shownEarlier?: Set<string>;
+    persona?: Persona | null;
+    origin?: Origin | null;
+  } = {},
+) {
+  const evidence = forYou(c, opts.persona ?? null);
+  const km = kmAway(c, opts.origin ?? null);
   return {
     slug: c.slug,
     name: c.name,
@@ -113,13 +155,21 @@ function compactCandidate(c: CatalogCandidate, shownEarlier?: Set<string>) {
     about: c.description,
     editor_note: c.editor_note,
     open: c.open === null ? "unknown" : c.open,
-    // Blended relevance (the ask + this user's taste profile) from retrieval,
-    // 0-1. Zero means keyword fallback ran and there is no semantic signal -
-    // omit rather than imply "no fit".
-    ...(c.similarity > 0 ? { fit: Math.round(c.similarity * 100) / 100 } : {}),
+    // How well the place answers THE ASK, 0-1 - and only the ask. It used to be
+    // a blend of the ask and the member's taste vector, which meant the model
+    // could not tell "matches what you asked for" apart from "matches you".
+    // The personal half now arrives separately, as `for_you`. Zero means
+    // keyword fallback ran and there is no semantic signal - omit rather than
+    // imply "no fit".
+    ...(c.similarity > 0 ? { ask_fit: Math.round(c.similarity * 100) / 100 } : {}),
+    // Named, quotable evidence about THIS member. Absent when there is nothing
+    // to say, so its presence always means something.
+    ...(evidence ? { for_you: evidence } : {}),
+    // Straight-line km from where the member is, when we know where that is.
+    ...(km !== null ? { km_away: km } : {}),
     // Flag repeats instead of hiding them: the user may be asking about a
     // known place again, and only the agent can tell that apart from a rut.
-    ...(shownEarlier?.has(c.slug) ? { already_shown: true } : {}),
+    ...(opts.shownEarlier?.has(c.slug) ? { already_shown: true } : {}),
   };
 }
 
@@ -180,7 +230,12 @@ export function buildChatTools(
         candidates = await searchCatalog(ctx.supabase, {
           city: ctx.city,
           queryEmbedding: embedding,
-          tasteEmbedding: ctx.personalize ? ctx.tasteEmbedding : null,
+          // Retrieve on the ask ALONE. Blending the taste vector in here
+          // perturbed the query itself - "crispy late-night" drifted toward the
+          // member's centroid, so retrieval answered a question nobody asked -
+          // and fused two signals into one score the model could not take
+          // apart. Taste now arrives per candidate as `for_you`, where it is
+          // separable and sayable.
           area: sqlArea,
           budgetMax,
         });
@@ -222,7 +277,13 @@ export function buildChatTools(
       if (pool.length === 0) {
         return "No catalog places match that. Tell the user honestly; do not invent places.";
       }
-      const places = pool.map((c) => compactCandidate(c, ctx.shownEarlier));
+      const places = pool.map((c) =>
+        compactCandidate(c, {
+          shownEarlier: ctx.shownEarlier,
+          persona: ctx.personalize ? ctx.persona : null,
+          origin: ctx.origin,
+        }),
+      );
       return JSON.stringify(areaNote ? { area_note: areaNote, places } : places);
     },
   });
@@ -287,21 +348,23 @@ export function buildChatTools(
   const get_user_behavior = defineTool({
     name: "get_user_behavior",
     description:
-      "Read what this person's past behaviour says about their taste (learned signals + taste summary) and the explore/exploit dial telling you how far to stretch them vs. play it safe. Use it to personalize. Returns nothing personal when personalization is off.",
+      "A deeper read of this person than your instructions already carry: their taste summary in full prose, the raw learned-signal counts and scores, and the explore/exploit dial. Your instructions already tell you who this person is - do NOT call this just to find out. Call it when a turn genuinely needs the detail: an ambiguous ask where the summary would settle it, or a judgement about how far to stretch them. Returns nothing personal when personalization is off.",
     inputSchema: z.object({}),
     handler: () => {
       if (!ctx.personalize) {
         collector.trace.push({ tool: "get_user_behavior", summary: "off" });
         return "Personalization is off for this user - recommend from the ask alone, don't reference past behaviour.";
       }
-      const dial = deriveAdventurousness(ctx.learnedSignals);
+      const dial = deriveAdventurousness(ctx.learnedSignals, ctx.quizPrior);
       collector.trace.push({
         tool: "get_user_behavior",
         summary: `posture=${dial.posture}`,
       });
+      // Embedded as an object, not a stringified one: nesting JSON inside JSON
+      // handed the model an escape-littered string to read through.
       const signals =
         ctx.learnedSignals && typeof ctx.learnedSignals === "object"
-          ? JSON.stringify(ctx.learnedSignals)
+          ? ctx.learnedSignals
           : "none yet";
       return JSON.stringify({
         taste_summary: ctx.tasteSummary ?? "none yet",

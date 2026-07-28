@@ -14,7 +14,20 @@ const PAGE_SIZE = 20;
  * the thread list and which conversation is open; the pane itself remounts
  * per conversation via chatKey.
  */
-export function ChatShell({ displayName }: { displayName: string | null }) {
+export function ChatShell({
+  displayName,
+  viewing,
+  visitCheck,
+  openers,
+}: {
+  displayName: string | null;
+  /** The place this conversation was opened from, if any (`/chat?place=`). */
+  viewing?: { slug: string; name: string } | null;
+  /** A pick they clicked a day or two ago that we have not heard back about. */
+  visitCheck?: { placeId: string; slug: string; name: string } | null;
+  /** Empty-state suggestions, built server-side from this member's vocabulary. */
+  openers?: string[];
+}) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [listError, setListError] = useState(false);
@@ -218,6 +231,9 @@ export function ChatShell({ displayName }: { displayName: string | null }) {
         <ChatThread
           key={chatKey}
           displayName={displayName}
+          viewing={viewing}
+          visitCheck={visitCheck}
+          openers={openers}
           threadId={activeId ?? undefined}
           initialMessages={initialMessages}
           onThreadCreated={onThreadCreated}

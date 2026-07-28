@@ -42,7 +42,6 @@ function makeCtx(over: Partial<ChatToolContext> = {}): ChatToolContext {
     userId: "u1",
     city: CITY,
     personalize: true,
-    tasteEmbedding: null,
     tasteSummary: "quiet, older places",
     learnedSignals: { top: "cafes" },
     ...over,
@@ -339,5 +338,30 @@ describe("get_user_behavior consent", () => {
     expect(String(out)).toContain("quiet, older places");
     // The explore/exploit dial rides along so the agent knows how far to stretch.
     expect(String(out)).toContain("posture");
+  });
+
+  it("sells itself as depth, not as the way to find out who this is", async () => {
+    // With the profile in the prompt, a model that calls this to learn who it
+    // is serving spends one of six steps re-fetching what it already has.
+    const tools = buildChatTools(makeCtx(), new ChatToolCollector());
+    const { description } = byName(tools, "get_user_behavior");
+    expect(description).toContain("do NOT call this just to find out");
+    expect(description).toContain("deeper read");
+  });
+
+  it("hands back readable signals, not JSON nested inside JSON", async () => {
+    const tools = buildChatTools(
+      makeCtx({ learnedSignals: { top_vibes: [{ tag: "chai", score: 4 }] } }),
+      new ChatToolCollector(),
+    );
+    const out = String(await byName(tools, "get_user_behavior").handler({}));
+
+    // Double-encoding handed the model an escape-littered string to read
+    // through; the object should survive one parse.
+    expect(out).not.toContain('\\"');
+    const parsed = JSON.parse(out) as { learned_signals: unknown };
+    expect(parsed.learned_signals).toEqual({
+      top_vibes: [{ tag: "chai", score: 4 }],
+    });
   });
 });

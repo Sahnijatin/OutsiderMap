@@ -65,6 +65,14 @@ function fakeSupabase(
     messageError?: string;
     /** Rows the quest_stops lookup (prior plans' stops) returns. */
     questStops?: unknown[];
+    /** DPDP consent flag on the profile. */
+    personalizationEnabled?: boolean;
+    /** The taste_profiles row, if this member has one. */
+    taste?: unknown;
+    /** Rows the bucket lookup returns, for the persona's recent saves. */
+    savedPlaces?: unknown[];
+    /** Override the places table - `null` models a lookup that finds nothing. */
+    placesRows?: unknown;
   } = {},
 ) {
   const table = (
@@ -80,7 +88,11 @@ function fakeSupabase(
       onUpdate?.(payload);
       return chain;
     };
-    chain.maybeSingle = () => Promise.resolve({ data: rows, error: null });
+    chain.maybeSingle = () =>
+      Promise.resolve({
+        data: Array.isArray(rows) ? (rows[0] ?? null) : rows,
+        error: null,
+      });
     chain.single = () => Promise.resolve({ data: rows, error: null });
     chain.then = (resolve: (v: unknown) => unknown) =>
       Promise.resolve({ data: error ? null : rows, error }).then(resolve);
@@ -89,7 +101,17 @@ function fakeSupabase(
   return {
     from: (name: string) => {
       if (name === "profiles") {
-        return table({ personalization_enabled: true, home_city: "delhi" });
+        return table({
+          personalization_enabled: opts.personalizationEnabled ?? true,
+          home_city: "delhi",
+          display_name: "Rehan Malik",
+        });
+      }
+      if (name === "taste_profiles") {
+        return table(opts.taste ?? null);
+      }
+      if (name === "saved_places") {
+        return table(opts.savedPlaces ?? null);
       }
       if (name === "chat_threads") {
         return table({ id: "t-1" }, (p) => opts.threadUpdates?.push(p));
@@ -105,9 +127,18 @@ function fakeSupabase(
         return table(opts.questStops ?? null);
       }
       if (name === "places") {
-        // The pick-assembly detail query (lat/lng + the static editor note).
+        // Serves both the pick-assembly detail query (lat/lng + editor note)
+        // and the single-row lookup for the place an ask started from.
+        if ("placesRows" in opts) return table(opts.placesRows);
         return table([
-          { slug: "spot-1", lat: 28.5, lng: 77.1, editor_note: "A classic editor blurb" },
+          {
+            slug: "spot-1",
+            name: "Spot One",
+            area: "GK",
+            lat: 28.5,
+            lng: 77.1,
+            editor_note: "A classic editor blurb",
+          },
         ]);
       }
       return table(null);
@@ -442,5 +473,216 @@ describe("honest degradation", () => {
     const { runChatTurn } = await import("@/lib/chat/engine");
     const result = await runChatTurn(fakeSupabase(), "u1", { message: "crispy" });
     expect(result.degraded).toBeUndefined();
+  });
+});
+
+/**
+ * The persona block reaching the model is the whole point of plan step A: the
+ * taste profile has always been loaded on this path and handed only to the
+ * toolbox, so a turn where the model skipped `get_user_behavior` was written
+ * for a stranger.
+ */
+describe("runChatTurn - the member in the prompt", () => {
+  const TASTE = {
+    taste_summary: "You eat late and you eat standing up.",
+    embedding: null,
+    learned_signals: {
+      event_count: 40,
+      top_vibes: [{ tag: "late-night", score: 20 }],
+      avoid_vibes: [{ tag: "fine-dining", score: -3 }],
+      top_areas: ["Old Delhi"],
+      active_hours: { morning: 0, afternoon: 1, evening: 4, late_night: 35 },
+    },
+    quiz_answers: {
+      dimensions: {
+        adventurousness: 0.8,
+        budget_band: 1,
+        social_energy: "solo",
+        preferred_times: ["late-night"],
+        cuisine_leanings: ["kebab"],
+        vibe_keywords: ["hole-in-the-wall", "late-night"],
+        areas: ["Old Delhi"],
+        anchors: ["eats standing up and prefers it that way"],
+      },
+    },
+  };
+
+  /** Runs a turn and returns the system prompt the model was actually given. */
+  async function systemPromptFor(supabase: SupabaseClient<Database>) {
+    let system = "";
+    runToolsImpl = async ({ messages }) => {
+      system = String(messages.find((m) => m.role === "system")?.content ?? "");
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(supabase, "u1", { message: "something crispy" });
+    return system;
+  }
+
+  it("puts the member's profile in front of the model", async () => {
+    const system = await systemPromptFor(
+      fakeSupabase({ taste: TASTE, savedPlaces: [{ places: { name: "Karim's" } }] }),
+    );
+
+    expect(system).toContain("<member_profile>");
+    expect(system).toContain("Rehan.");
+    expect(system).toContain("late-night");
+    expect(system).toContain("Old Delhi");
+    expect(system).toContain("eats standing up and prefers it that way");
+    expect(system).toContain("Recently saved: Karim's.");
+    // And it no longer sends the model off to fetch what it already has.
+    expect(system).toContain("You already have their profile above");
+  });
+
+  it("sends nothing personal when the member opted out", async () => {
+    // The DPDP gate, end to end: consent off means the taste row is never even
+    // read, so there is nothing to leak into the prompt by accident.
+    const system = await systemPromptFor(
+      fakeSupabase({ taste: TASTE, personalizationEnabled: false }),
+    );
+
+    expect(system).not.toContain("<member_profile>");
+    expect(system).not.toContain("Rehan");
+    expect(system).not.toContain("Old Delhi");
+    expect(system).not.toContain("eats standing up");
+    expect(system).toContain("Personalization is off for this user");
+  });
+
+  it("never puts the taste summary in the prompt", async () => {
+    // It is second-person prose about the member and would be handed straight
+    // back to them. It stays behind get_user_behavior.
+    const system = await systemPromptFor(fakeSupabase({ taste: TASTE }));
+    expect(system).not.toContain("You eat late and you eat standing up");
+  });
+
+  it("falls back cleanly for a member with no taste profile yet", async () => {
+    const system = await systemPromptFor(fakeSupabase());
+    expect(system).not.toContain("<member_profile>");
+    expect(system).toContain("Consult get_user_behavior to personalize");
+  });
+});
+
+/**
+ * Search results used to carry one number - `fit` - produced by blending the
+ * member's taste vector into the query before retrieval. That perturbed the ask
+ * and fused two signals into one scalar the model could not take apart, so a
+ * reason could only ever paraphrase the editorial copy.
+ */
+describe("runChatTurn - separated ask and member signals", () => {
+  const TASTE_GK = {
+    taste_summary: "quiet corners",
+    learned_signals: {
+      event_count: 40,
+      top_vibes: [{ tag: "study-spot", score: 20 }],
+      avoid_vibes: [],
+      top_areas: ["GK"],
+      active_hours: { morning: 20, afternoon: 20, evening: 1, late_night: 0 },
+    },
+    quiz_answers: { dimensions: { budget_band: 2, anchors: ["reads and stays"] } },
+  };
+
+  /** Runs a turn and returns what search_places handed back to the model. */
+  async function searchOutputFor(supabase: SupabaseClient<Database>) {
+    let out = "";
+    runToolsImpl = async ({ tools }) => {
+      out = String(await find(tools, "search_places").handler({ query: "quiet" }));
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(supabase, "u1", { message: "somewhere quiet" });
+    return out;
+  }
+
+  it("reports how well a place answers the ask, on its own", async () => {
+    const out = await searchOutputFor(fakeSupabase({ taste: TASTE_GK }));
+    expect(out).toContain("ask_fit");
+    // The old blended name is gone; leaving it would tell the model the number
+    // still means something it no longer means.
+    expect(out).not.toContain('"fit"');
+  });
+
+  it("attaches the member's own evidence alongside it", async () => {
+    const out = await searchOutputFor(fakeSupabase({ taste: TASTE_GK }));
+    // The mocked candidate sits in GK, which is where this member actually goes.
+    expect(out).toContain("for_you");
+    expect(out).toContain("their_area");
+  });
+
+  it("attaches nothing personal when the member opted out", async () => {
+    const out = await searchOutputFor(
+      fakeSupabase({ taste: TASTE_GK, personalizationEnabled: false }),
+    );
+    expect(out).toContain("ask_fit");
+    expect(out).not.toContain("for_you");
+  });
+});
+
+/**
+ * Chat was the only surface with no idea what the member was doing when they
+ * asked: the city came from their profile regardless of what they were looking
+ * at, and location never entered the picture at all - in a product that
+ * promises to answer "it's 3am, I'm in GK2, surprise me".
+ */
+describe("runChatTurn - context at the point of asking", () => {
+  async function systemAndSearch(
+    supabase: SupabaseClient<Database>,
+    context?: Record<string, unknown>,
+  ) {
+    let system = "";
+    let search = "";
+    runToolsImpl = async ({ messages, tools }) => {
+      system = String(messages.find((m) => m.role === "system")?.content ?? "");
+      search = String(await find(tools, "search_places").handler({ query: "x" }));
+      return { text: "ok", usage: { inputTokens: 1, outputTokens: 1 }, steps: 1, stoppedAtStepCap: false };
+    };
+    const { runChatTurn } = await import("@/lib/chat/engine");
+    await runChatTurn(supabase, "u1", { message: "something good", context });
+    return { system, search };
+  }
+
+  it("measures distance from where the member is", async () => {
+    // The mocked candidate sits at 28.5/77.1; this position is ~11km off.
+    const { system, search } = await systemAndSearch(fakeSupabase(), {
+      lat: 28.6,
+      lng: 77.2,
+    });
+    expect(search).toContain("km_away");
+    expect(system).toContain("Results carry km_away");
+  });
+
+  it("says nothing about distance when it has no position", async () => {
+    const { system, search } = await systemAndSearch(fakeSupabase());
+    expect(search).not.toContain("km_away");
+    expect(system).toContain("You do NOT know where they are");
+  });
+
+  it("ignores a half-sent position rather than guessing the other half", async () => {
+    const { search } = await systemAndSearch(fakeSupabase(), { lat: 28.6 });
+    expect(search).not.toContain("km_away");
+  });
+
+  it("ignores null island", async () => {
+    // Taking (0, 0) at face value would put every Delhi place ~7000km away.
+    const { search } = await systemAndSearch(fakeSupabase(), { lat: 0, lng: 0 });
+    expect(search).not.toContain("km_away");
+  });
+
+  it("knows the place an ask started from", async () => {
+    const { system } = await systemAndSearch(fakeSupabase(), {
+      placeSlug: "spot-1",
+    });
+    // The client sends a slug; the name is resolved server-side, so an
+    // unpublished place or a chain can never become describable by routing
+    // around search.
+    expect(system).toContain("They opened this from Spot One in GK");
+  });
+
+  it("says nothing when the slug resolves to no place", async () => {
+    const { system } = await systemAndSearch(
+      fakeSupabase({ placesRows: null }),
+      { placeSlug: "not-a-real-place" },
+    );
+    expect(system).not.toContain("They opened this from");
+    expect(system).not.toContain("undefined");
   });
 });

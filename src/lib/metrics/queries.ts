@@ -77,6 +77,43 @@ export async function getActivation(
   };
 }
 
+export type ReasonSource = {
+  /** Picks whose reason the agent wrote for this member and this ask. */
+  model: number;
+  /** Picks that fell back to the static editor note every member sees. */
+  editorNote: number;
+  /** Picks served by a degraded turn - excluded from the two counts above. */
+  degraded: number;
+};
+
+/**
+ * How often the concierge writes a real reason versus falling back to the
+ * shared editor note (migration 49).
+ *
+ * The most direct read available on how often members are served generic copy,
+ * and it needs no new instrumentation: `engine.ts` has been stamping
+ * `reasonSource` on every pick since real per-pick reasons landed.
+ *
+ * Degraded turns are reported separately, not folded in. Their picks carry
+ * editor notes by construction, so counting them would let a provider outage
+ * read as a personalization regression.
+ */
+export async function getReasonSource(
+  supabase: SupabaseClient<Database>,
+  days = 7,
+): Promise<ReasonSource> {
+  const { data, error } = await supabase.rpc("metrics_reason_source", {
+    p_days: days,
+  });
+  if (error) throw new Error(error.message);
+  const row = data?.[0];
+  return {
+    model: row?.model ?? 0,
+    editorNote: row?.editor_note ?? 0,
+    degraded: row?.degraded ?? 0,
+  };
+}
+
 export type ExperimentConfig = {
   key: string;
   description: string | null;

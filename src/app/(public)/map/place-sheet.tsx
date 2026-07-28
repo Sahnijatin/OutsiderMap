@@ -1,7 +1,14 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowUpRight, Bookmark, BookmarkCheck, Navigation, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  Bookmark,
+  BookmarkCheck,
+  MessageCircle,
+  Navigation,
+  X,
+} from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -322,9 +329,19 @@ export function PlaceSheet({
             </Button>
           </div>
 
+          {/* The concierge already knows which place this is, so an ask that
+              starts here doesn't have to name it again. */}
+          <ButtonLink
+            href={`/chat?place=${encodeURIComponent(place.slug)}`}
+            variant="secondary"
+            className="mt-2 w-full"
+          >
+            <MessageCircle className="size-4" /> Ask about this
+          </ButtonLink>
+
           <ButtonLink
             href={`/place/${place.slug}`}
-            variant="secondary"
+            variant="ghost"
             className="mt-2 w-full"
           >
             View more <ArrowUpRight className="size-4" />
