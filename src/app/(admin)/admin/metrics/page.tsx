@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,11 @@ import {
   getReasonSource,
   getRetention,
 } from "@/lib/metrics/queries";
+import {
+  catalogInventory,
+  daysToClearInvisible,
+  type CatalogInventory,
+} from "@/lib/catalog/inventory";
 import { ratePct, funnelShares, FUNNEL_LABELS } from "@/lib/metrics/format";
 import { ONE_ANSWER_VS_LIST } from "@/lib/experiments/server";
 import { toggleExperiment } from "./actions";
@@ -43,6 +49,7 @@ export default async function MetricsPage() {
     retention,
     expConfig,
     expRows,
+    inventory,
   ] =
     await Promise.all([
       getAnswerAcceptRate(supabase, 7),
@@ -54,6 +61,13 @@ export default async function MetricsPage() {
       getRetention(supabase, 8),
       getExperimentConfig(supabase, ONE_ANSWER_VS_LIST),
       getExperiment(supabase, ONE_ANSWER_VS_LIST, 14),
+      // Nine head-count queries. Worth its own failure path: inventory is the
+      // newest thing on this page and the rest of the dashboard should not go
+      // dark if one of its filters turns out to be wrong.
+      catalogInventory(supabase).catch((err): CatalogInventory | null => {
+        console.error("catalog inventory failed", err);
+        return null;
+      }),
     ]);
 
   const acceptPct = ratePct(accept.accepts, accept.asks);
@@ -150,6 +164,71 @@ export default async function MetricsPage() {
           sub="pending the dial (#126)"
           muted
         />
+      </section>
+
+      {/*
+        Inventory. Every tile above measures how well the product uses what it
+        has; this measures how much it has, and caps all of them. searchCatalog
+        pulls 24 and narrows to 12, so below a certain retrievable count two
+        members with opposite taste get overlapping picks by arithmetic and no
+        ranking change can help.
+      */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="voice">inventory · the ceiling on everything above</h2>
+          <Link
+            href="/admin/places?status=draft"
+            className="text-xs text-ink-dim transition-colors hover:text-ink"
+          >
+            Triage drafts
+          </Link>
+        </div>
+        {inventory ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Tile
+                label="Retrievable places"
+                value={inventory.retrievable}
+                sub="published, not a chain, embedded"
+              />
+              <Tile
+                label="Published but invisible"
+                value={inventory.invisible}
+                sub={
+                  daysToClearInvisible(inventory.invisible) !== null
+                    ? `${daysToClearInvisible(inventory.invisible)}d for the sweep to clear`
+                    : "nothing waiting"
+                }
+                muted={inventory.invisible === 0}
+              />
+              <Tile
+                label="Drafts ready to publish"
+                value={inventory.readyDrafts}
+                sub="clear the readiness bar today"
+                muted={inventory.readyDrafts === 0}
+              />
+              <Tile
+                label="Drafts blocked"
+                value={inventory.blockedDrafts}
+                sub="need editing first"
+                muted={inventory.blockedDrafts === 0}
+              />
+            </div>
+            {inventory.gaps.length > 0 && (
+              <p className="text-xs text-ink-dim">
+                What is blocking them:{" "}
+                {inventory.gaps
+                  .map((g) => `${g.label.toLowerCase()} (${g.count})`)
+                  .join(", ")}
+                .
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-ink-dim">
+            Inventory counts unavailable - see the server log.
+          </p>
+        )}
       </section>
 
       {/* Experiment: one answer vs a list (#120 part 2b) */}

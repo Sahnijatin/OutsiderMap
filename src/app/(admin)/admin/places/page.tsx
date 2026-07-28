@@ -5,7 +5,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { priceGlyph } from "@/lib/utils";
-import { bulkPublishPlaces, bulkUnpublishPlaces } from "./actions";
+import { catalogInventory, PUBLISH_BATCH } from "@/lib/catalog/inventory";
+import {
+  bulkPublishPlaces,
+  bulkUnpublishPlaces,
+  publishReadyDrafts,
+} from "./actions";
 import { SelectAllCheckbox } from "./select-all";
 
 export const metadata: Metadata = {
@@ -115,7 +120,7 @@ export default async function AdminPlacesPage({
     return q;
   }
 
-  const [{ data: places, count }, publishedCount, draftCount] =
+  const [{ data: places, count }, publishedCount, draftCount, inventory] =
     await Promise.all([
       applyFilters(
         admin
@@ -136,6 +141,10 @@ export default async function AdminPlacesPage({
         admin.from("places").select("id", { count: "exact", head: true }),
         "draft",
       ),
+      // Deliberately ignores the current filter: this is the size of the whole
+      // queue, not of the view. "Publish 150 of 1,847 ready" has to mean the
+      // same thing regardless of what someone typed in the search box.
+      catalogInventory(admin).catch(() => null),
     ]);
 
   const rows = places ?? [];
@@ -274,7 +283,22 @@ export default async function AdminPlacesPage({
             Select page
           </label>
           <div className="ml-auto flex gap-2">
-            <Button formAction={bulkPublishPlaces} size="sm" variant="primary">
+            {/*
+              The backlog button, shown only when there is a backlog. The
+              checkbox flow above tops out at one 50-row page, which is the
+              right tool for triaging a few and useless against the thousands
+              of drafts that actually cap what chat can retrieve. Readiness is
+              re-checked per row inside the action, so this can only ever
+              publish places that would pass the bar one at a time.
+            */}
+            {inventory && inventory.readyDrafts > 0 && (
+              <Button formAction={publishReadyDrafts} size="sm" variant="primary">
+                Publish{" "}
+                {Math.min(PUBLISH_BATCH, inventory.readyDrafts).toLocaleString()}{" "}
+                of {inventory.readyDrafts.toLocaleString()} ready
+              </Button>
+            )}
+            <Button formAction={bulkPublishPlaces} size="sm" variant="secondary">
               Publish selected
             </Button>
             <Button
