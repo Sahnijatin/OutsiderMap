@@ -36,6 +36,8 @@ const FULL: Persona = {
     "They have a clear, narrow taste - lead with places squarely in it.",
   savedRecently: ["Karim's"],
   passedRecently: ["Some Rooftop"],
+  savedVibes: {},
+  passedVibes: {},
   eventCount: 64,
 };
 

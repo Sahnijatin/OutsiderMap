@@ -25,6 +25,8 @@ const READER: Persona = {
   guidance: "Lead with places squarely in it.",
   savedRecently: ["Cafe Lota"],
   passedRecently: [],
+  savedVibes: {},
+  passedVibes: {},
   eventCount: 51,
 };
 
@@ -73,6 +75,42 @@ describe("forYou", () => {
     expect(forYou(place({ vibe_tags: ["Study-Spot"] }), READER)?.matches).toEqual([
       "Study-Spot",
     ]);
+  });
+
+  it("counts a pattern in what they save", () => {
+    // "The third study-spot you've saved" is the most specific thing the
+    // concierge can say - and unlike `matches`, which is a nightly aggregate
+    // score, it is countable and current.
+    const evidence = forYou(place(), {
+      ...READER,
+      savedVibes: { "study-spot": 3, cozy: 1 },
+    });
+    expect(evidence?.echoes_saves).toEqual({ tag: "study-spot", count: 3 });
+  });
+
+  it("needs a habit, not a coincidence", () => {
+    // One shared tag with one saved place says nothing. Reporting it would be
+    // confident noise, which is worse than silence.
+    expect(
+      forYou(place(), { ...READER, savedVibes: { "study-spot": 1 } })
+        ?.echoes_saves,
+    ).toBeUndefined();
+  });
+
+  it("picks the strongest pattern when several qualify", () => {
+    const evidence = forYou(place(), {
+      ...READER,
+      savedVibes: { "study-spot": 2, cozy: 5 },
+    });
+    expect(evidence?.echoes_saves).toEqual({ tag: "cozy", count: 5 });
+  });
+
+  it("counts what they keep passing on too", () => {
+    const evidence = forYou(place(), {
+      ...READER,
+      passedVibes: { cozy: 4 },
+    });
+    expect(evidence?.echoes_passes).toEqual({ tag: "cozy", count: 4 });
   });
 
   it("returns null when there is nothing personal to say", () => {

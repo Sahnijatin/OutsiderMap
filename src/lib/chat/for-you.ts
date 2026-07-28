@@ -46,6 +46,39 @@ export interface ForYou {
   above_budget?: true;
   /** True when they have saved somewhere by this name before. */
   saved_before?: true;
+  /**
+   * A pattern in what they save: "the third study-spot you've saved". Only set
+   * when the count is high enough to be a habit rather than a coincidence.
+   */
+  echoes_saves?: { tag: string; count: number };
+  /** The same, for places they explicitly passed on. */
+  echoes_passes?: { tag: string; count: number };
+}
+
+/**
+ * How many past saves (or passes) a tag needs before it counts as a pattern.
+ *
+ * Two, not one. One shared tag between this place and one saved place is a
+ * coincidence, and "you saved a study-spot once" is not worth a sentence -
+ * while "the third study-spot you've saved" is the kind of specific a concierge
+ * earns trust with. Getting this wrong in the loose direction produces
+ * confident noise, which is worse than saying nothing.
+ */
+const PATTERN_MIN = 2;
+
+/** The tag this place shares most often with a slice of the member's history. */
+function strongestPattern(
+  tags: readonly string[],
+  counts: Record<string, number>,
+): { tag: string; count: number } | undefined {
+  let best: { tag: string; count: number } | undefined;
+  for (const tag of tags) {
+    const count = counts[tag] ?? 0;
+    if (count >= PATTERN_MIN && (!best || count > best.count)) {
+      best = { tag, count };
+    }
+  }
+  return best;
 }
 
 function overlap(tags: readonly string[], against: readonly string[]): string[] {
@@ -102,6 +135,18 @@ export function forYou(
   if (savedNames.has(candidate.name.toLowerCase())) {
     evidence.saved_before = true;
   }
+
+  // Countable and current, where `matches` is a nightly aggregate score. The
+  // difference is what the concierge can say: "matches your taste" versus "the
+  // third one like this you've saved".
+  const echoesSaves = strongestPattern(candidate.vibe_tags, persona.savedVibes);
+  if (echoesSaves) evidence.echoes_saves = echoesSaves;
+
+  const echoesPasses = strongestPattern(
+    candidate.vibe_tags,
+    persona.passedVibes,
+  );
+  if (echoesPasses) evidence.echoes_passes = echoesPasses;
 
   return Object.keys(evidence).length > 0 ? evidence : null;
 }

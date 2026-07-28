@@ -21,8 +21,15 @@ import type { Database, Json } from "@/types/database";
  * personalization is switched off (see {@link loadPersona}).
  */
 
-/** How many recent saves / passes are worth carrying. Enough for a pattern. */
+/** How many recent saves / passes to name in the block. */
 const RECENT_LIMIT = 5;
+
+/**
+ * How far back to look when counting what a member's history has in common.
+ * Wider than the naming limit: "the third study-spot you've saved" needs enough
+ * history to be a pattern rather than a coincidence, and it is the same query.
+ */
+const PATTERN_LIMIT = 20;
 
 /** Below this many events we know too little to describe behaviour honestly. */
 const COLD_START_EVENTS = 8;
@@ -50,6 +57,15 @@ export interface Persona {
   guidance: string;
   savedRecently: string[];
   passedRecently: string[];
+  /**
+   * Vibe tag -> how many places the member SAVED carry it. Distinct from
+   * `vibes`, which is a nightly aggregate score: this is countable and current,
+   * so it turns "matches your taste" into "the third one like this you've
+   * saved".
+   */
+  savedVibes: Record<string, number>;
+  /** Vibe tag -> how many places the member explicitly PASSED ON carry it. */
+  passedVibes: Record<string, number>;
   eventCount: number;
   /**
    * The quiz's own explore/exploit answer, kept so the toolbox can seed the
@@ -201,9 +217,9 @@ export async function loadPersona(
   const signals = LearnedSignalsSchema.safeParse(source.learnedSignals);
   const parsedSignals = signals.success ? signals.data : {};
 
-  const [savedRecently, passedRecently] =
+  const [saved, passed] =
     opts.includeHistory === false
-      ? [[], []]
+      ? [emptyHistory(), emptyHistory()]
       : await Promise.all([
           recentSaves(supabase, userId),
           recentPasses(supabase, userId),
@@ -230,11 +246,39 @@ export async function loadPersona(
     activeHours: dominantHours(parsedSignals.active_hours),
     posture: dial.posture,
     guidance: dial.guidance,
-    savedRecently,
-    passedRecently,
+    savedRecently: saved.names,
+    passedRecently: passed.names,
+    savedVibes: saved.vibeCounts,
+    passedVibes: passed.vibeCounts,
     eventCount: parsedSignals.event_count ?? 0,
     quizAdventurousness: parsedDimensions?.adventurousness,
   };
+}
+
+/**
+ * A slice of the member's own history: what to name, and what it has in common.
+ */
+interface HistoryPattern {
+  /** Most recent place names, for the profile block. */
+  names: string[];
+  /** Vibe tag -> how many places in this slice carry it. */
+  vibeCounts: Record<string, number>;
+}
+
+function emptyHistory(): HistoryPattern {
+  return { names: [], vibeCounts: {} };
+}
+
+function countVibes(
+  rows: readonly { name: string; vibe_tags: readonly string[] | null }[],
+): HistoryPattern {
+  const vibeCounts: Record<string, number> = {};
+  for (const row of rows) {
+    for (const tag of row.vibe_tags ?? []) {
+      vibeCounts[tag] = (vibeCounts[tag] ?? 0) + 1;
+    }
+  }
+  return { names: rows.slice(0, RECENT_LIMIT).map((r) => r.name), vibeCounts };
 }
 
 /**
@@ -244,19 +288,21 @@ export async function loadPersona(
 async function recentSaves(
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<string[]> {
+): Promise<HistoryPattern> {
   try {
     const { data } = await supabase
       .from("saved_places")
-      .select("places(name)")
+      .select("places(name, vibe_tags)")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(RECENT_LIMIT);
-    return (data ?? [])
-      .map((row) => row.places?.name)
-      .filter((name): name is string => Boolean(name));
+      .limit(PATTERN_LIMIT);
+    return countVibes(
+      (data ?? [])
+        .map((row) => row.places)
+        .filter((p): p is { name: string; vibe_tags: string[] } => Boolean(p)),
+    );
   } catch {
-    return [];
+    return emptyHistory();
   }
 }
 
@@ -274,7 +320,7 @@ async function recentSaves(
 async function recentPasses(
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<string[]> {
+): Promise<HistoryPattern> {
   try {
     const { data: events } = await supabase
       .from("interaction_events")
@@ -283,25 +329,29 @@ async function recentPasses(
       .eq("event_type", "dismiss")
       .not("place_id", "is", null)
       .order("created_at", { ascending: false })
-      .limit(RECENT_LIMIT);
+      .limit(PATTERN_LIMIT);
 
     const ids = (events ?? [])
       .map((e) => e.place_id)
       .filter((id): id is string => Boolean(id));
-    if (ids.length === 0) return [];
+    if (ids.length === 0) return emptyHistory();
 
     const { data: places } = await supabase
       .from("places")
-      .select("id, name")
+      .select("id, name, vibe_tags")
       .in("id", ids);
 
     // Preserve recency order; the `in` lookup does not guarantee it.
-    const nameById = new Map((places ?? []).map((p) => [p.id, p.name]));
-    return ids
-      .map((id) => nameById.get(id))
-      .filter((name): name is string => Boolean(name));
+    const byId = new Map((places ?? []).map((p) => [p.id, p]));
+    return countVibes(
+      ids
+        .map((id) => byId.get(id))
+        .filter((p): p is { id: string; name: string; vibe_tags: string[] } =>
+          Boolean(p),
+        ),
+    );
   } catch {
-    return [];
+    return emptyHistory();
   }
 }
 

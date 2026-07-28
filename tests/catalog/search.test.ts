@@ -67,6 +67,8 @@ function candidate(open: boolean | null): CatalogCandidate {
     image_path: null,
     open,
     openLabel: null,
+    lat: null,
+    lng: null,
   };
 }
 
