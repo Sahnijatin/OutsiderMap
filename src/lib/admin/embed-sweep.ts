@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import { getEmbeddings } from "@/lib/ai";
-import { placeEmbeddingText } from "@/lib/places/embedding";
+import { isEmbeddable, placeEmbeddingText } from "@/lib/places/embedding";
 import { serverEnv } from "@/lib/env";
 
 /**
@@ -48,7 +48,22 @@ export type EmbedRunResult = {
   embedded: number;
   failed: number;
   failures: EmbedFailure[];
+  /**
+   * Rows refused by the quality floor, not attempted.
+   *
+   * Named "refused" rather than "skipped" because it is a decision, not an
+   * accident - and because `EmbedSweepReport.skipped` already means something
+   * else entirely (the whole sweep did not run). Counted apart from `failed`
+   * for the same reason: a failure may work on the next attempt, a refusal
+   * will not until someone writes a description or tags the place.
+   */
+  refused: number;
+  /** A few refused ids, so a report can point at real rows. */
+  refusedSample: string[];
 };
+
+/** Enough to go and look at, few enough to fit in a job report. */
+const REFUSED_SAMPLE = 5;
 
 export function chunk<T>(rows: T[], size: number): T[][] {
   if (size <= 0) throw new Error(`chunk size must be positive, got ${size}`);
@@ -74,7 +89,15 @@ export async function embedRowsInBatches(
   let embedded = 0;
   const failures: EmbedFailure[] = [];
 
-  for (const batch of chunk(rows, batchSize)) {
+  // The quality floor, applied before anything is spent. A row with nothing to
+  // match on would embed to near the same vector as every other such row and
+  // then compete for shortlist slots against places that can actually answer
+  // the question - so it is refused here rather than ranked around later.
+  // Filtering first also means the stubs cost no tokens.
+  const refusedIds = rows.filter((r) => !isEmbeddable(r)).map((r) => r.id);
+  const embeddable = rows.filter((r) => isEmbeddable(r));
+
+  for (const batch of chunk(embeddable, batchSize)) {
     let vectors: number[][];
     try {
       vectors = await opts.embedTexts(batch.map((r) => placeEmbeddingText(r)));
@@ -102,7 +125,13 @@ export async function embedRowsInBatches(
     }
   }
 
-  return { embedded, failed: failures.length, failures };
+  return {
+    embedded,
+    failed: failures.length,
+    failures,
+    refused: refusedIds.length,
+    refusedSample: refusedIds.slice(0, REFUSED_SAMPLE),
+  };
 }
 
 /** Wire `embedRowsInBatches` to the real embeddings API and places table. */
@@ -125,9 +154,26 @@ export async function embedPlaceRows(
 export type EmbedSweepReport = {
   embedded: number;
   failed: number;
+  /** Refused by the quality floor within the window this run scanned. */
+  refused: number;
   /** Set when the sweep could not run at all (no OPENAI_API_KEY). */
   skipped?: string;
 };
+
+/**
+ * How many rows to look at per unit of work actually done.
+ *
+ * Without this the sweep starves itself. Refused rows keep their null
+ * embedding, so tomorrow's run selects the same ones, refuses them again, and
+ * never reaches the good rows sitting behind them - a few hundred stubs at the
+ * head of the queue would stop the net working at all, silently, while
+ * reporting a cheerful zero failures every night.
+ *
+ * Overscanning is a mitigation, not a cure: if refusals outnumber the scan
+ * window the backlog still needs enrichment rather than more sweeping, which
+ * is what the refused count in the report is for.
+ */
+const SWEEP_OVERSCAN = 4;
 
 /**
  * The cron safety net: find published places with no embedding and give them
@@ -139,7 +185,7 @@ export async function sweepPublishedWithoutEmbeddings(
   limit = 50,
 ): Promise<EmbedSweepReport> {
   if (!serverEnv().OPENAI_API_KEY) {
-    return { embedded: 0, failed: 0, skipped: "no OPENAI_API_KEY" };
+    return { embedded: 0, failed: 0, refused: 0, skipped: "no OPENAI_API_KEY" };
   }
 
   const { data, error } = await admin
@@ -148,18 +194,40 @@ export async function sweepPublishedWithoutEmbeddings(
     .eq("is_published", true)
     .is("embedding", null)
     .order("updated_at", { ascending: true })
-    .limit(limit);
+    .limit(limit * SWEEP_OVERSCAN);
   if (error) throw new Error(error.message);
 
-  const rows = (data ?? []) as EmbeddableRow[];
-  if (rows.length === 0) return { embedded: 0, failed: 0 };
+  const scanned = (data ?? []) as EmbeddableRow[];
+  if (scanned.length === 0) return { embedded: 0, failed: 0, refused: 0 };
 
-  const result = await embedPlaceRows(admin, rows);
+  // Split here rather than inside embedPlaceRows so the row cap applies to
+  // work actually done: `limit` means "embed up to fifty", not "look at fifty
+  // and embed whichever of them happened to be usable".
+  const refused = scanned.filter((r) => !isEmbeddable(r));
+  const embeddable = scanned.filter((r) => isEmbeddable(r)).slice(0, limit);
+
+  const result =
+    embeddable.length > 0
+      ? await embedPlaceRows(admin, embeddable)
+      : { embedded: 0, failed: 0, failures: [] as EmbedFailure[] };
+
   if (result.failures.length > 0) {
     console.error(
       "Embed sweep failures:",
       result.failures.slice(0, 5).map((f) => `${f.id}: ${f.error}`),
     );
   }
-  return { embedded: result.embedded, failed: result.failed };
+  if (refused.length > 0) {
+    // Loud on purpose: these are published places invisible to chat and search
+    // that no amount of sweeping will fix. They need words, not another run.
+    console.warn(
+      `Embed sweep refused ${refused.length} place(s) with nothing to match on:`,
+      refused.slice(0, REFUSED_SAMPLE).map((r) => `${r.id} (${r.name})`),
+    );
+  }
+  return {
+    embedded: result.embedded,
+    failed: result.failed,
+    refused: refused.length,
+  };
 }

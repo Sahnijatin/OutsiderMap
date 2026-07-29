@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAI, getEmbeddings } from "@/lib/ai";
+import { isEmbeddable } from "@/lib/places/embedding";
 import { HARVEST_CATEGORIES, harvestProductCity } from "@/lib/harvest/registry";
 import type { StorySignal } from "@/lib/harvest/story";
 import type { Database, Json, PlaceKind } from "@/types/database";
@@ -123,16 +124,46 @@ export async function approveCandidate(
     .slice(0, 60);
   const slug = `${slugBase}-${candidateId.slice(0, 4)}`;
 
-  const [embedding] = await getEmbeddings().embed([
-    [
-      `${candidate.name} - ${candidate.category} in ${candidate.city_name}.`,
-      copy.vibe_tags.length > 0 && `Vibe: ${copy.vibe_tags.join(", ")}.`,
-      copy.description,
-      copy.editor_note,
-    ]
-      .filter(Boolean)
-      .join("\n"),
-  ]);
+  // The quality floor. When copy generation fell back above, `copy` is the
+  // skeleton restated - "<name> - a <category> in <city>." with no tags - which
+  // embeds to nearly the same vector as every other fallback row and then
+  // competes for shortlist slots against places that can actually answer a
+  // question. Approve still publishes, because the reviewer's judgement about
+  // whether the place is real is not ours to override; it just goes live as a
+  // map pin rather than a chat answer, and the nightly sweep will give it a
+  // vector the moment someone gives it words.
+  const embeddable = isEmbeddable({
+    name: candidate.name,
+    category: candidate.category,
+    area: candidate.city_name,
+    vibe_tags: copy.vibe_tags,
+    description: copy.description,
+    editor_note: copy.editor_note,
+    best_for: null,
+    price_level: candidate.price_level,
+  });
+
+  const embedding = embeddable
+    ? (
+        await getEmbeddings().embed([
+          [
+            `${candidate.name} - ${candidate.category} in ${candidate.city_name}.`,
+            copy.vibe_tags.length > 0 && `Vibe: ${copy.vibe_tags.join(", ")}.`,
+            copy.description,
+            copy.editor_note,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        ])
+      )[0]
+    : null;
+
+  if (!embeddable) {
+    console.warn(
+      "[harvest] published without an embedding - copy is too thin to match on",
+      JSON.stringify({ candidateId, name: candidate.name }),
+    );
+  }
 
   const images = (media ?? []).filter((m) => m.kind === "image" && m.storage_path);
   const embeds = (media ?? []).filter((m) => m.kind === "embed" && m.source_url);
@@ -154,7 +185,7 @@ export async function approveCandidate(
       lng: candidate.lng,
       ...(candidate.google_place_id ? { google_place_id: candidate.google_place_id } : {}),
       image_path: images[0]?.storage_path ?? null,
-      embedding: JSON.stringify(embedding),
+      embedding: embedding ? JSON.stringify(embedding) : null,
       // The reviewer's Approve IS the editorial go-live decision.
       is_published: true,
       source: "ingested",

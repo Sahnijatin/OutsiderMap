@@ -4,6 +4,7 @@ import { serverEnv } from "@/lib/env";
 import { overtureImportStatus } from "@/lib/admin/jobs";
 import { JobRunner } from "./job-runner";
 import {
+  enrichBlockedAction,
   enrichDraftsAction,
   importOvertureAction,
   resolvePlaceIdsAction,
@@ -58,12 +59,22 @@ export default async function AdminDataPage() {
   const hasGoogleKey = Boolean(env.GOOGLE_MAPS_API_KEY);
   const hasAiKey = Boolean(env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY);
 
-  const { count: thinDrafts } = await admin
-    .from("places")
-    .select("id", { count: "exact", head: true })
-    .eq("is_published", false)
-    .eq("geo_source", "overture")
-    .is("description", null);
+  const [{ count: thinDrafts }, { count: untagged }] = await Promise.all([
+    admin
+      .from("places")
+      .select("id", { count: "exact", head: true })
+      .eq("is_published", false)
+      .eq("geo_source", "overture")
+      .is("description", null),
+    // The candidate population for the floor: every refused row has no tags,
+    // because a single tag is enough to pass. An upper bound rather than an
+    // exact count - some of these carry real prose and are fine - but it is the
+    // number that shrinks as the job runs, which is what an operator watches.
+    admin
+      .from("places")
+      .select("id", { count: "exact", head: true })
+      .eq("vibe_tags", []),
+  ]);
 
   return (
     <div>
@@ -142,6 +153,33 @@ export default async function AdminDataPage() {
           />
           <p className="mt-2 text-xs text-ink-dim">
             {(thinDrafts ?? 0).toLocaleString()} drafts have no description yet.
+          </p>
+        </div>
+      </section>
+
+      <section className="rounded-card border border-line bg-surface p-5">
+        <h2 className="font-display text-lg italic">Unblock invisible places</h2>
+        <p className="mt-1 text-sm leading-relaxed text-ink-dim">
+          Some places carry nothing a search can match on - no vibe tags, and a
+          description that only restates the name. They are{" "}
+          <strong className="text-ink">refused an embedding on purpose</strong>:
+          a row like that would sit in the middle of the catalog crowding out
+          places that could actually answer the question, and it can never be
+          recommended for a reason, because there is nothing to say about it.
+          This rewrites them from the quoted reviews the harvest already stored.
+          Rows with no stored evidence are left alone - those need a scout.
+        </p>
+        <div className="mt-4">
+          <JobRunner
+            action={enrichBlockedAction}
+            label="Unblock places"
+            runningLabel="Rewriting"
+            total={0}
+            done={0}
+            unit="places"
+          />
+          <p className="mt-2 text-xs text-ink-dim">
+            {(untagged ?? 0).toLocaleString()} places have no vibe tags.
           </p>
         </div>
       </section>

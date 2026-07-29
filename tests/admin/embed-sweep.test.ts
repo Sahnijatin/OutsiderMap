@@ -64,7 +64,7 @@ describe("embedRowsInBatches", () => {
       },
     });
 
-    expect(result).toEqual({ embedded: 5, failed: 0, failures: [] });
+    expect(result).toMatchObject({ embedded: 5, failed: 0, failures: [], refused: 0 });
     expect(calls).toEqual([2, 2, 1]);
     expect(saved).toEqual(["a", "b", "c", "d", "e"]);
   });
@@ -130,6 +130,85 @@ describe("embedRowsInBatches", () => {
         throw new Error("should not be called");
       },
     });
-    expect(result).toEqual({ embedded: 0, failed: 0, failures: [] });
+    expect(result).toMatchObject({ embedded: 0, failed: 0, failures: [], refused: 0 });
+  });
+});
+
+describe("the quality floor inside the sweep", () => {
+  /**
+   * `match_places` filters `embedding is not null`, so refusing to write a
+   * vector is what keeps a row out of retrieval. Doing it here rather than at
+   * the publish gate means it covers every path that creates a published
+   * place - quorum flips, harvest approvals, hand-run SQL - not just the admin
+   * button that happens to check readiness.
+   */
+  const thin = (id: string): EmbeddableRow => ({
+    ...row(id),
+    vibe_tags: [],
+    description: `Place ${id} - a cafe in Hauz Khas.`,
+  });
+
+  it("does not embed a row with nothing to match on", async () => {
+    const saved: string[] = [];
+    const result = await embedRowsInBatches([thin("a"), row("b")], {
+      embedTexts: async (texts) => texts.map((_, i) => vec(i)),
+      save: async (id) => {
+        saved.push(id);
+      },
+    });
+
+    expect(saved).toEqual(["b"]);
+    expect(result.embedded).toBe(1);
+    expect(result.refused).toBe(1);
+    expect(result.refusedSample).toEqual(["a"]);
+  });
+
+  it("spends no tokens on the rows it refuses", async () => {
+    // Filtering after the embeddings call would work and would also pay for
+    // every stub in the catalog, which at six thousand drafts is the whole
+    // point of doing it first.
+    const sent: string[][] = [];
+    await embedRowsInBatches([thin("a"), thin("b")], {
+      embedTexts: async (texts) => {
+        sent.push(texts);
+        return texts.map((_, i) => vec(i));
+      },
+      save: async () => {},
+    });
+    expect(sent).toEqual([]);
+  });
+
+  it("counts a refusal apart from a failure", async () => {
+    // They mean different things to whoever reads the report: a failure may
+    // work on the next run, a refusal will not until someone writes words.
+    const result = await embedRowsInBatches([thin("a")], {
+      embedTexts: async (texts) => texts.map((_, i) => vec(i)),
+      save: async () => {},
+    });
+    expect(result).toMatchObject({ embedded: 0, failed: 0, refused: 1 });
+    expect(result.failures).toEqual([]);
+  });
+
+  it("still embeds a tagless row that carries real prose", async () => {
+    // The floor is about matchability, not about tags. Refusing good copy
+    // because nobody tagged it would hide real places.
+    const saved: string[] = [];
+    await embedRowsInBatches(
+      [
+        {
+          ...row("a"),
+          vibe_tags: [],
+          description:
+            "Mutton burra off the coals until one in the morning, down a gali behind the mosque where the queue is half the evening.",
+        },
+      ],
+      {
+        embedTexts: async (texts) => texts.map((_, i) => vec(i)),
+        save: async (id) => {
+          saved.push(id);
+        },
+      },
+    );
+    expect(saved).toEqual(["a"]);
   });
 });

@@ -11,6 +11,7 @@ import {
   type BatchResult,
 } from "@/lib/admin/jobs";
 import { enrichDraftsBatch } from "@/lib/admin/enrich";
+import { enrichBlockedBatch } from "@/lib/admin/enrich-blocked";
 
 /**
  * Server actions behind the Data tab.
@@ -92,6 +93,43 @@ export async function enrichDraftsAction(): Promise<JobOutcome> {
         scanned: out.scanned,
         enriched: out.enriched,
         declined: out.declined,
+      },
+    };
+  });
+}
+
+/**
+ * Rewrite places the quality floor refuses, from evidence already stored.
+ *
+ * Separate from `enrichDraftsAction` because the two work on different
+ * populations from different sources: that one reads a venue's own website for
+ * drafts with no description, this one reads the harvest's quoted reviews for
+ * rows - published or not - that carry nothing a search can match on. Merging
+ * them would mean one job whose report could not say which half did anything.
+ */
+export async function enrichBlockedAction(): Promise<JobOutcome> {
+  await requireAdmin();
+  const env = serverEnv();
+  if (!env.OPENAI_API_KEY && !env.ANTHROPIC_API_KEY) {
+    return {
+      processed: 0,
+      remaining: 0,
+      notes: [],
+      error: "Set OPENAI_API_KEY or ANTHROPIC_API_KEY in Vercel, then redeploy.",
+    };
+  }
+  return run(async () => {
+    const out = await enrichBlockedBatch(createAdminClient());
+    return {
+      processed: out.enriched,
+      remaining: out.remaining,
+      notes: out.notes,
+      // Same reason enrichment reports scan-level progress: a round of nothing
+      // but declines is the tool working, not the pile being empty.
+      progress: {
+        scanned: out.scanned,
+        enriched: out.enriched,
+        declined: out.declined + out.noEvidence,
       },
     };
   });
