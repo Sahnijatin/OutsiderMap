@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { LOCATION_PRECISIONS, POST_TYPES, POST_VISIBILITIES } from "./model";
+import {
+  DEFAULT_LOCATION_PRECISION,
+  LOCATION_PRECISIONS,
+  POST_TYPES,
+  POST_VISIBILITIES,
+} from "./model";
 
 /**
  * Composer input contracts + media limits, shared by the /api/posts routes
@@ -40,7 +45,7 @@ export const CreatePostSchema = z
     mood: optionalText(60),
     body: optionalText(MAX_POST_BODY),
     visibility: z.enum(POST_VISIBILITIES).default("public"),
-    location_precision: z.enum(LOCATION_PRECISIONS).default("exact"),
+    location_precision: z.enum(LOCATION_PRECISIONS).default(DEFAULT_LOCATION_PRECISION),
   })
   .refine((v) => Boolean(v.place_id || v.body || v.action), {
     message: "A post needs a place, a note, or an action.",

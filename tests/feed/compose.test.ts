@@ -13,7 +13,8 @@ describe("CreatePostSchema", () => {
   it("accepts a place-anchored post and defaults visibility + precision", () => {
     const parsed = CreatePostSchema.parse({ type: "photo", place_id: PLACE });
     expect(parsed.visibility).toBe("public");
-    expect(parsed.location_precision).toBe("exact");
+    // Safe-by-default (#122): coarse location unless the author opts into exact.
+    expect(parsed.location_precision).toBe("area");
   });
 
   it("accepts a note-only or action-only post", () => {

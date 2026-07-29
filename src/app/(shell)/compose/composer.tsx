@@ -14,6 +14,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/app/page-header";
 import { Screen } from "@/components/app/screen";
 import {
+  DEFAULT_LOCATION_PRECISION,
   LOCATION_PRECISIONS,
   POST_TYPES,
   POST_VISIBILITIES,
@@ -86,7 +87,7 @@ export function Composer({ homeCity }: { homeCity: string }) {
   const [visibility, setVisibility] =
     useState<(typeof POST_VISIBILITIES)[number]>("public");
   const [precision, setPrecision] =
-    useState<(typeof LOCATION_PRECISIONS)[number]>("exact");
+    useState<(typeof LOCATION_PRECISIONS)[number]>(DEFAULT_LOCATION_PRECISION);
   const [media, setMedia] = useState<LocalMedia[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -460,6 +461,13 @@ export function Composer({ homeCity }: { homeCity: string }) {
               </option>
             ))}
           </Select>
+          <p className="mt-1 text-xs text-ink-dim">
+            {precision === "exact"
+              ? "Everyone who sees this sees the exact place."
+              : precision === "area"
+                ? "Shows only your neighbourhood — not the exact spot."
+                : "Hides where you are entirely."}
+          </p>
         </Field>
       </div>
 
