@@ -7,8 +7,7 @@
 > **Vision:** `OutsiderMap_Vision.docx` (curated *experiences*, proactive
 > suggestion, no chains, invite-only, in-app companion).
 >
-> _Last updated: 2026-07-27 · launch-readiness pass landed (PR #173): see the
-> decision log and REVIEW.md._
+> _Last updated: 2026-07-29 · the open backlog is sequenced in §8.1._
 
 ---
 
@@ -221,6 +220,53 @@ verifying places now, and merchant-funded rewards and payouts follow later
 | **Then** | **Proactive layer** (earned push) + **freshness / "tonight" engine** | Converts tool → habit. The retention play. |
 | **Then** | **People & belonging ring** (taste-based group experiences) | TAM expansion + the emotional payoff. |
 | **Parallel, always** | Profile-evolution "wow" surface; **referral / invite graph**; north-star instrumentation | Compounding growth + proof the one-answer model beats a list. |
+
+### 8.1 The open-issue sequence (2026-07-29)
+
+The horizons above say *what* order the bets come in. This says which **open
+GitHub issue** to pick up next, sequenced against verified repo state
+(`main` @ `edc6ba0`).
+
+> Derived from a pass that checked each issue's claims against the code. Several
+> issue bodies describe a state that no longer exists — corrections are on #114,
+> #120, #122, #127, #129, #145, #148 and #47. Trust the code, not the issue body.
+
+**Lane A — start immediately, runs in parallel to everything below**
+
+**#91 — legal, policy & vendor long-poles.** Grievance Officer (resident in
+India, IT Rules 2021), CSAM vendor onboarding (PhotoDNA / Thorn qualification),
+counsel for DPDP wording, retention periods. No code, weeks of external latency,
+and it gates public launch harder than any feature below — so it can't be slotted
+late. It isn't in the sequence because it doesn't compete with it.
+
+**Lane B — the sequence**
+
+| # | Work | Why here |
+|---|---|---|
+| 0 | Merge PR #144; then close #114, retitle #148, prune #47 | Rebased and green. The precision leak is live on `main` until it merges. The bookkeeping is minutes and stops the backlog misreporting itself. |
+| 1 | **#148** — CSRF origin check on cookie-auth mutations | Last real item in the security debt (the other two are already fixed on `main`). Small, self-contained. |
+| 2 | **#129** — Community Guidelines page | Privacy + Terms already ship under `(marketing)/`. CG is the public statement #70 enforces; draft now, counsel finalizes via Lane A. |
+| 3 | **#124** — Catalog density + real media | **The gate.** 110 places, placeholder covers, no events seed. Every measurement below is noise on an empty catalog, and thin inventory kills the first session. Matches "inventory density is the gating constraint" above. |
+| 4 | **#120** — enable and run `one_answer_vs_list` | Harness is built and seeded-disabled (migration `38`). Needs #124's catalog and real traffic to mean anything. The existential test — run it early. |
+| 5 | **#121** — Activation "wow" + evolving profile | Needs a catalog good enough for a confident first answer (#124) and accept-rate instrumentation to tune against (#4). |
+| 6 | **#122** — remainder: anti-harassment, anti-stalking, threat model | Block is shipped; location safety lands at step 0. The rest must precede opening the social surfaces widely, and hard-gates ring 3. |
+| 7 | **#130** — Observability (error tracking first) | Before real traffic, not after. Makes everything below debuggable. AI cost governance follows. |
+| 8 | **#149** — Native OAuth (Google + Apple) | Opens the mobile track; nothing native is device-testable until sign-in works. Needs the Supabase redirect allowlist and Google/Apple console setup. |
+| 9 | **#143** + **#127** device perf; close **#145** | Store readiness, signing, privacy labels, TestFlight/Play internal — paired with #127's real-mid-range-Android perf verification, since Capacitor loads the hosted web app and they're the same measurement. |
+| 10 | **#125** — Proactive layer + freshness | Web push first (works today); native push once #143 yields the APNs key and `google-services.json`. Trigger model needs #120's receptivity data. |
+| 11 | **#123** — Growth loops | Needs #121's share card as the artifact and #120's attribution to tell which loops actually acquire. |
+| 12 | **#128** — Monetization | Premium needs #124 to put real value behind the wall; the merchant loop needs #120 to prove ROI. |
+| 13 | **#126** — Adventurousness dial + bandit | Explicitly needs interaction volume to learn from; LLM-as-ranker until then. |
+| 14 | **#131** — People & belonging (ring 3) | Hard-gated on #122 complete, density real, and retention proven. Deliberately last. |
+
+**The critical path: #124 → #120 → #121.** That chain decides whether there's a
+product. Steps 0–2 are cheap cleanup that shouldn't eat a week. The mobile track
+(8–9) is genuinely independent — the clean split if a second pair of hands ever
+exists.
+
+**Risk note.** #127 is labelled launch-blocking but is nearly done (PWA manifest,
+service worker and voice input all shipped); #124 is the actual launch blocker
+and hasn't started. Treating them as equal-weight misprices the risk.
 
 ---
 
