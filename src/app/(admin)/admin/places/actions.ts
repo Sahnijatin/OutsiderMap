@@ -129,6 +129,10 @@ export async function upsertPlace(formData: FormData) {
     best_for: (formData.get("best_for") as string) ?? "",
     is_published: formData.get("is_published") === "on",
   });
+  const extraCategoryIds = z
+    .array(z.string().uuid())
+    .max(20)
+    .parse(formData.getAll("extra_categories").map(String));
 
   const slug = input.slug?.trim() || slugify(input.name);
   const vibeTags = (input.vibe_tags ?? "")
@@ -191,6 +195,7 @@ export async function upsertPlace(formData: FormData) {
     console.error("Embedding regeneration failed:", error);
   }
 
+  let placeId = input.id ?? null;
   if (input.id) {
     const { error } = await admin
       .from("places")
@@ -198,10 +203,29 @@ export async function upsertPlace(formData: FormData) {
       .eq("id", input.id);
     if (error) throw new Error(error.message);
   } else {
-    const { error } = await admin
+    const { data: created, error } = await admin
       .from("places")
-      .insert({ ...row, source: "curated" });
+      .insert({ ...row, source: "curated" })
+      .select("id")
+      .single();
     if (error) throw new Error(error.message);
+    placeId = created.id;
+  }
+
+  // Sync category memberships: the primary plus every checked group. A place
+  // can live in several legend groups; the primary alone drives pin color.
+  if (placeId) {
+    const pid = placeId;
+    const memberIds = [
+      ...new Set([...(input.category_id ? [input.category_id] : []), ...extraCategoryIds]),
+    ];
+    await admin.from("place_categories").delete().eq("place_id", pid);
+    if (memberIds.length > 0) {
+      const { error: catError } = await admin
+        .from("place_categories")
+        .insert(memberIds.map((category_id) => ({ place_id: pid, category_id })));
+      if (catError) throw new Error(catError.message);
+    }
   }
 
   revalidatePath("/admin/places");

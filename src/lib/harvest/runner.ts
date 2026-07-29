@@ -76,6 +76,30 @@ export async function createHarvestRun(
   return { runId: run.id, tasks: tasks.length, googleEnabled: sources.includes("google") };
 }
 
+type TypeSignals = {
+  google_primary_type?: string;
+  google_types?: string[];
+  osm?: Record<string, string>;
+};
+
+/** Fold a sighting's evidence into what's already on the candidate. */
+function mergeTypeSignals(existing: Json | null, s: Sighting): TypeSignals {
+  const prior = (existing && typeof existing === "object" && !Array.isArray(existing)
+    ? existing
+    : {}) as TypeSignals;
+  const merged: TypeSignals = { ...prior };
+  if (!merged.google_primary_type && s.googlePrimaryType) {
+    merged.google_primary_type = s.googlePrimaryType;
+  }
+  if (s.googleTypes.length) {
+    merged.google_types = [...new Set([...(merged.google_types ?? []), ...s.googleTypes])];
+  }
+  if (s.osmTags && Object.keys(s.osmTags).length) {
+    merged.osm = { ...s.osmTags, ...(merged.osm ?? {}) };
+  }
+  return merged;
+}
+
 /** Merge one task's sightings into scout_candidates (upsert by merge_key). */
 async function mergeSightings(
   admin: SupabaseClient<Database>,
@@ -87,7 +111,7 @@ async function mergeSightings(
     const key = mergeKey(s.name, task.city_slug);
     const { data: existing } = await admin
       .from("scout_candidates")
-      .select("id, sources, story_signals, rating, review_count, name, address, lat, lng, price_level, website, maps_url, google_place_id")
+      .select("id, sources, story_signals, type_signals, rating, review_count, name, address, lat, lng, price_level, website, maps_url, google_place_id")
       .eq("run_id", run.id)
       .eq("merge_key", key)
       .maybeSingle();
@@ -123,6 +147,7 @@ async function mergeSightings(
         .update({
           sources,
           story_signals: signals as unknown as Json,
+          type_signals: mergeTypeSignals(existing.type_signals, s) as Json,
           rating: merged.rating,
           review_count: merged.review_count,
           address: existing.address ?? s.address,
@@ -165,6 +190,7 @@ async function mergeSightings(
           price_level: s.priceLevel,
           sources: [s.source],
           story_signals: signals as unknown as Json,
+          type_signals: mergeTypeSignals(null, s) as Json,
           google_place_id: s.googlePlaceId,
           website: s.website,
           maps_url: s.mapsUrl,

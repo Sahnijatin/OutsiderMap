@@ -30,6 +30,22 @@ describe("harvest registry", () => {
     }
   });
 
+  it("every category declares one of the five product groups", () => {
+    const groups = ["food", "nightlife", "shopping", "culture", "outdoors"];
+    for (const [key, def] of Object.entries(HARVEST_CATEGORIES)) {
+      expect(groups, `${key} -> ${def.productCategory}`).toContain(def.productCategory);
+    }
+  });
+
+  it("covers the taxonomy beyond food - parks, culture, shopping", () => {
+    const groups = new Set(
+      Object.values(HARVEST_CATEGORIES).map((d) => d.productCategory),
+    );
+    for (const g of ["outdoors", "culture", "shopping"]) {
+      expect(groups.has(g as never), `no harvest category sweeps ${g}`).toBe(true);
+    }
+  });
+
   it("resolves selected cities and rejects unknown ones", () => {
     expect(
       resolveHarvestCities(HARVEST_STATES, "delhi", ["delhi", "noida"]),

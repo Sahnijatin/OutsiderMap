@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createHarvestRun, processScoutTasks } from "@/lib/harvest/runner";
 import { approveCandidate } from "@/lib/harvest/approve";
+import { PRODUCT_CATEGORY_SLUGS } from "@/lib/catalog/classify";
 import { geocodeCity } from "@/lib/harvest/geocode";
 import { HARVEST_CATEGORIES, harvestCityBySlug } from "@/lib/harvest/registry";
 
@@ -184,8 +185,12 @@ export async function tickHarvest() {
 export async function approveHarvestCandidate(formData: FormData) {
   const profile = await requireAdmin();
   const id = z.string().uuid().parse(formData.get("id"));
+  const categorySlug = z
+    .enum(PRODUCT_CATEGORY_SLUGS)
+    .optional()
+    .parse(formData.get("category") || undefined);
   const admin = createAdminClient();
-  await approveCandidate(admin, id, profile.id);
+  await approveCandidate(admin, id, profile.id, { categorySlug });
   revalidatePath("/admin/harvest");
   revalidatePath("/admin/places");
 }

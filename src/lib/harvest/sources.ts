@@ -22,7 +22,14 @@ export type Sighting = {
   mapsUrl: string | null;
   googlePlaceId: string | null;
   passages: Passage[];
+  /** Classification evidence - fed to classifyInbound at approve time. */
+  googlePrimaryType: string | null;
+  googleTypes: string[];
+  osmTags: Record<string, string> | null;
 };
+
+/** OSM tag keys worth keeping as classification evidence. */
+const OSM_EVIDENCE_KEYS = ["amenity", "shop", "leisure", "tourism", "historic", "cuisine"];
 
 const PRICE_MAP: Record<string, number> = {
   PRICE_LEVEL_INEXPENSIVE: 1,
@@ -62,6 +69,8 @@ export async function googleDiscover(
           "places.googleMapsUri",
           "places.editorialSummary",
           "places.reviews",
+          "places.types",
+          "places.primaryType",
           "nextPageToken",
         ].join(","),
       },
@@ -97,6 +106,8 @@ export async function googleDiscover(
         googleMapsUri?: string;
         editorialSummary?: { text?: string };
         reviews?: Array<{ text?: { text?: string } }>;
+        types?: string[];
+        primaryType?: string;
       };
       const passages: Passage[] = [];
       if (p.editorialSummary?.text) {
@@ -118,6 +129,9 @@ export async function googleDiscover(
         mapsUrl: p.googleMapsUri ?? null,
         googlePlaceId: p.id ?? null,
         passages,
+        googlePrimaryType: p.primaryType ?? null,
+        googleTypes: p.types ?? [],
+        osmTags: null,
       });
     }
     pageToken = data.nextPageToken;
@@ -133,18 +147,12 @@ export async function osmDiscover(
   const def = HARVEST_CATEGORIES[category];
   const around = `(around:${city.radiusM},${city.lat},${city.lng})`;
   const selectors: string[] = [];
-  if (def.osm.length) {
-    const a = def.osm.join("|");
+  for (const [key, values] of Object.entries(def.osm)) {
+    if (!values?.length) continue;
+    const v = values.join("|");
     selectors.push(
-      `node["amenity"~"^(${a})$"]["name"]${around};`,
-      `way["amenity"~"^(${a})$"]["name"]${around};`,
-    );
-  }
-  if (def.osmShop.length) {
-    const s = def.osmShop.join("|");
-    selectors.push(
-      `node["shop"~"^(${s})$"]["name"]${around};`,
-      `way["shop"~"^(${s})$"]["name"]${around};`,
+      `node["${key}"~"^(${v})$"]["name"]${around};`,
+      `way["${key}"~"^(${v})$"]["name"]${around};`,
     );
   }
   if (selectors.length === 0) return [];
@@ -196,6 +204,11 @@ export async function osmDiscover(
         mapsUrl: null,
         googlePlaceId: null,
         passages,
+        googlePrimaryType: null,
+        googleTypes: [],
+        osmTags: Object.fromEntries(
+          OSM_EVIDENCE_KEYS.filter((k) => tags[k]).map((k) => [k, tags[k]]),
+        ),
       };
     })
     .filter((s) => s.name);

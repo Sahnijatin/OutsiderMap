@@ -18,9 +18,10 @@ export default async function EditPlacePage({
   await requireAdmin();
   const { id } = await params;
   const admin = createAdminClient();
-  const [{ data: place }, categories] = await Promise.all([
+  const [{ data: place }, categories, { data: memberships }] = await Promise.all([
     admin.from("places").select("*").eq("id", id).maybeSingle(),
     listMapCategories(admin),
+    admin.from("place_categories").select("category_id").eq("place_id", id),
   ]);
   if (!place) notFound();
 
@@ -41,6 +42,7 @@ export default async function EditPlacePage({
       <PlaceForm
         place={place}
         categories={categories}
+        memberCategoryIds={(memberships ?? []).map((m) => m.category_id)}
       />
     </main>
   );

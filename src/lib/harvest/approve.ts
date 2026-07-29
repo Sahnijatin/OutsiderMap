@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAI, getEmbeddings } from "@/lib/ai";
+import { classifyInbound, type ProductCategorySlug } from "@/lib/catalog/classify";
 import { HARVEST_CATEGORIES, harvestProductCity } from "@/lib/harvest/registry";
 import type { StorySignal } from "@/lib/harvest/story";
 import type { Database, Json, PlaceKind } from "@/types/database";
@@ -70,6 +71,7 @@ export async function approveCandidate(
   admin: SupabaseClient<Database>,
   candidateId: string,
   reviewerId: string,
+  opts?: { categorySlug?: ProductCategorySlug },
 ): Promise<{ placeId: string; slug: string }> {
   const { data: candidate } = await admin
     .from("scout_candidates")
@@ -137,7 +139,30 @@ export async function approveCandidate(
   const images = (media ?? []).filter((m) => m.kind === "image" && m.storage_path);
   const embeds = (media ?? []).filter((m) => m.kind === "embed" && m.source_url);
 
-  const kind = (HARVEST_CATEGORIES[candidate.category]?.kind ?? "spot") as PlaceKind;
+  // Classify from the harvested evidence; the sweep category is only the
+  // prior, and the reviewer's select (opts.categorySlug) wins over both.
+  const def = HARVEST_CATEGORIES[candidate.category];
+  const ts = (candidate.type_signals ?? {}) as {
+    google_primary_type?: string;
+    google_types?: string[];
+    osm?: Record<string, string>;
+  };
+  const inferred = classifyInbound({
+    googlePrimaryType: ts.google_primary_type,
+    googleTypes: ts.google_types,
+    osmTags: ts.osm,
+    prior: def ? { productCategory: def.productCategory, kind: def.kind } : null,
+  });
+  const primarySlug = opts?.categorySlug ?? inferred.productCategory;
+  const allSlugs = [...new Set([primarySlug, ...inferred.categories])];
+  const { data: mapCats } = await admin
+    .from("map_categories")
+    .select("id, slug")
+    .in("slug", allSlugs)
+    .eq("is_active", true);
+  const catBySlug = new Map((mapCats ?? []).map((c) => [c.slug, c.id]));
+
+  const kind = inferred.kind as PlaceKind;
   const { data: place, error } = await admin
     .from("places")
     .insert({
@@ -146,6 +171,7 @@ export async function approveCandidate(
       city: productCity,
       kind,
       category: candidate.category,
+      category_id: catBySlug.get(primarySlug) ?? null,
       price_level: candidate.price_level,
       vibe_tags: copy.vibe_tags,
       description: copy.description,
@@ -162,6 +188,24 @@ export async function approveCandidate(
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+
+  // Every group the evidence supports - a restaurant inside a park belongs
+  // to food AND outdoors. The primary (pin color) is places.category_id.
+  const junctionRows = allSlugs
+    .map((s) => catBySlug.get(s))
+    .filter((id): id is string => Boolean(id))
+    .map((category_id) => ({ place_id: place.id, category_id }));
+  if (junctionRows.length > 0) {
+    const { error: catError } = await admin
+      .from("place_categories")
+      .upsert(junctionRows, { ignoreDuplicates: true });
+    if (catError) {
+      console.error(
+        "[harvest] category attach failed",
+        JSON.stringify({ placeId: place.id, message: catError.message }),
+      );
+    }
+  }
 
   // Attach media under the licence law: uploads are editorial (we hold the
   // file), reels/videos are embeds (a pointer with attribution, never a copy).

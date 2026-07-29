@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
+import type { ProductCategorySlug } from "@/lib/catalog/classify";
+import type { Database, PlaceKind } from "@/types/database";
 
 /**
  * Harvest geography: which cities the in-console scout can sweep, and how a
@@ -394,19 +395,97 @@ export async function harvestProductCity(
   return data?.product_city ?? null;
 }
 
-/** Harvest categories with per-source query terms and the catalog kind. */
-export const HARVEST_CATEGORIES: Record<
-  string,
-  { google: string; osm: string[]; osmShop: string[]; kind: string }
-> = {
-  cafe: { google: "specialty cafe", osm: ["cafe"], osmShop: [], kind: "cafe" },
-  restaurant: { google: "restaurant", osm: ["restaurant"], osmShop: [], kind: "spot" },
-  bar: { google: "bar", osm: ["bar", "pub"], osmShop: [], kind: "nightlife" },
+/** OSM tag keys a harvest category may select on. */
+export type OsmSelectorKey = "amenity" | "shop" | "leisure" | "tourism" | "historic";
+
+export type HarvestCategoryDef = {
+  /** Google Places text-query stem ("<stem> in <city>"). */
+  google: string;
+  /** Overpass selectors: tag key -> allowed values. */
+  osm: Partial<Record<OsmSelectorKey, string[]>>;
+  /** Catalog kind for approved places. */
+  kind: PlaceKind;
+  /** map_categories slug this category publishes into (pin color group). */
+  productCategory: ProductCategorySlug;
+};
+
+/**
+ * Harvest categories with per-source query terms, the catalog kind, and the
+ * product category group - the whole taxonomy the sweep can extract, food to
+ * forts. The classifier can still move an individual candidate to another
+ * group when its type evidence disagrees with the sweep.
+ */
+export const HARVEST_CATEGORIES: Record<string, HarvestCategoryDef> = {
+  cafe: {
+    google: "specialty cafe",
+    osm: { amenity: ["cafe"] },
+    kind: "cafe",
+    productCategory: "food",
+  },
+  restaurant: {
+    google: "restaurant",
+    osm: { amenity: ["restaurant"] },
+    kind: "spot",
+    productCategory: "food",
+  },
+  bar: {
+    google: "bar",
+    osm: { amenity: ["bar", "pub"] },
+    kind: "nightlife",
+    productCategory: "nightlife",
+  },
   bakery: {
     google: "bakery dessert",
-    osm: ["ice_cream"],
-    osmShop: ["bakery", "pastry", "confectionery"],
+    osm: { amenity: ["ice_cream"], shop: ["bakery", "pastry", "confectionery"] },
     kind: "cafe",
+    productCategory: "food",
   },
-  "street-food": { google: "street food", osm: ["fast_food"], osmShop: [], kind: "spot" },
+  "street-food": {
+    google: "street food",
+    osm: { amenity: ["fast_food"] },
+    kind: "spot",
+    productCategory: "food",
+  },
+  park: {
+    google: "parks and gardens",
+    osm: { leisure: ["park", "garden", "nature_reserve"], tourism: ["viewpoint"] },
+    kind: "spot",
+    productCategory: "outdoors",
+  },
+  museum: {
+    google: "museums and art galleries",
+    osm: { tourism: ["museum", "gallery"], amenity: ["arts_centre"] },
+    kind: "cultural",
+    productCategory: "culture",
+  },
+  historic: {
+    google: "historical monuments and heritage sites",
+    osm: {
+      historic: [
+        "monument",
+        "fort",
+        "castle",
+        "memorial",
+        "ruins",
+        "archaeological_site",
+        "tomb",
+        "palace",
+        "city_gate",
+      ],
+    },
+    kind: "historical",
+    productCategory: "culture",
+  },
+  market: {
+    google: "local markets and bazaars",
+    osm: { amenity: ["marketplace"] },
+    kind: "spot",
+    productCategory: "shopping",
+  },
+  bookstore: {
+    google: "independent bookstores",
+    osm: { shop: ["books"] },
+    kind: "spot",
+    productCategory: "shopping",
+  },
 };

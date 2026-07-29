@@ -3,8 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { classifyInbound } from "@/lib/catalog/classify";
 import { HARVEST_CATEGORIES, loadHarvestGeography } from "@/lib/harvest/registry";
 import type { StorySignal } from "@/lib/harvest/story";
+import { listMapCategories } from "@/lib/map/categories";
 import { publicMediaUrl } from "@/lib/media/url";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -166,6 +168,15 @@ export default async function AdminHarvestPage({
     };
   }
 
+  // Product categories for the inferred-category chip + approve override.
+  const mapCategories = await listMapCategories(admin);
+  const categoryOptions = mapCategories.map((c) => ({
+    slug: c.slug,
+    label: c.label,
+    color: c.color,
+  }));
+  const catBySlug = new Map(categoryOptions.map((c) => [c.slug, c]));
+
   const geography = await loadHarvestGeography(admin);
   // Delhi first (home turf), then the rest of India alphabetically.
   const pickerStates: GeoPickerState[] = Object.entries(geography)
@@ -255,6 +266,10 @@ export default async function AdminHarvestPage({
             </label>
             <Button type="submit" size="sm">Start harvest</Button>
           </div>
+          <p className="text-xs text-ink-dim">
+            Tip: parks, monuments and markets often carry no Google reviews -
+            for those sweeps set min reviews to 0 or check the gate section.
+          </p>
         </form>
       </section>
 
@@ -411,13 +426,38 @@ export default async function AdminHarvestPage({
             </p>
           ) : (
             <div className="mt-4 flex flex-col gap-4">
-              {reviewable.map((c) => (
-                <CandidateCard
-                  key={String(c.id)}
-                  candidate={c as never}
-                  media={mediaByCandidate.get(String(c.id)) ?? []}
-                />
-              ))}
+              {reviewable.map((c) => {
+                const cand = c as never as Candidate;
+                const def = HARVEST_CATEGORIES[cand.category];
+                const ts = (cand.type_signals ?? {}) as {
+                  google_primary_type?: string;
+                  google_types?: string[];
+                  osm?: Record<string, string>;
+                };
+                const inferred = classifyInbound({
+                  googlePrimaryType: ts.google_primary_type,
+                  googleTypes: ts.google_types,
+                  osmTags: ts.osm,
+                  prior: def
+                    ? { productCategory: def.productCategory, kind: def.kind }
+                    : null,
+                });
+                const chip = catBySlug.get(inferred.productCategory);
+                return (
+                  <CandidateCard
+                    key={cand.id}
+                    candidate={cand}
+                    media={mediaByCandidate.get(cand.id) ?? []}
+                    inferred={{
+                      slug: inferred.productCategory,
+                      label: chip?.label ?? inferred.productCategory,
+                      color: chip?.color ?? "#f0a431",
+                      matchedSignal: inferred.matchedSignal,
+                    }}
+                    categoryOptions={categoryOptions}
+                  />
+                );
+              })}
             </div>
           )}
         </section>
@@ -487,17 +527,29 @@ type Candidate = {
   price_level: number | null;
   sources: string[];
   story_signals: unknown;
+  type_signals: unknown;
   maps_url: string | null;
   website: string | null;
   score: number;
 };
 
+type InferredCategory = {
+  slug: string;
+  label: string;
+  color: string;
+  matchedSignal: string | null;
+};
+
 function CandidateCard({
   candidate,
   media,
+  inferred,
+  categoryOptions,
 }: {
   candidate: Candidate;
   media: Array<{ kind: string; storage_path: string | null; source_url: string | null; author_name: string | null }>;
+  inferred: InferredCategory;
+  categoryOptions: Array<{ slug: string; label: string; color: string }>;
 }) {
   const signals: StorySignal[] = Array.isArray(candidate.story_signals)
     ? (candidate.story_signals as StorySignal[])
@@ -532,6 +584,13 @@ function CandidateCard({
               maps
             </a>
           )}
+          <span
+            className="rounded-full px-2 py-0.5 text-xs"
+            style={{ backgroundColor: `${inferred.color}26`, color: inferred.color }}
+            title={inferred.matchedSignal ?? "from sweep category"}
+          >
+            {inferred.label}
+          </span>
           <Badge variant="accent">score {candidate.score}</Badge>
         </div>
       </div>
@@ -586,8 +645,19 @@ function CandidateCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <form action={approveHarvestCandidate}>
+        <form action={approveHarvestCandidate} className="flex items-center gap-2">
           <input type="hidden" name="id" value={candidate.id} />
+          <select
+            name="category"
+            defaultValue={inferred.slug}
+            className="rounded-card border border-line bg-surface px-2 py-1 text-xs"
+          >
+            {categoryOptions.map((o) => (
+              <option key={o.slug} value={o.slug}>
+                {o.label}
+              </option>
+            ))}
+          </select>
           <Button type="submit" size="sm">Approve → publish</Button>
         </form>
         <form action={markNeedsVisit}>
