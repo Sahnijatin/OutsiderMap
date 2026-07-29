@@ -16,10 +16,13 @@ const KINDS: PlaceKind[] = [
 export function PlaceForm({
   place,
   categories,
+  memberCategoryIds = [],
 }: {
   place?: Tables<"places">;
   /** Admin-managed map categories (drives the pin color + legend). */
   categories: MapCategory[];
+  /** All category memberships (place_categories) - primary included. */
+  memberCategoryIds?: string[];
 }) {
   return (
     <form action={upsertPlace} className="flex max-w-2xl flex-col gap-5">
@@ -36,7 +39,7 @@ export function PlaceForm({
           <Input id="area" name="area" defaultValue={place?.area ?? ""} />
         </Field>
         <Field
-          label="Category"
+          label="Primary category"
           htmlFor="category_id"
           hint="Sets the pin color + legend group"
         >
@@ -52,6 +55,31 @@ export function PlaceForm({
               </option>
             ))}
           </Select>
+        </Field>
+        <Field
+          label="Also appears in"
+          htmlFor="extra_categories"
+          hint="A place can live in several groups - a restaurant in a park is food and outdoors"
+        >
+          <div id="extra_categories" className="flex flex-wrap gap-3 pt-1.5">
+            {categories.map((c) => (
+              <label key={c.id} className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  name="extra_categories"
+                  value={c.id}
+                  defaultChecked={memberCategoryIds.includes(c.id)}
+                  className="size-4 accent-(--color-accent)"
+                />
+                <span
+                  aria-hidden
+                  className="size-2 rounded-full"
+                  style={{ background: c.color }}
+                />
+                {c.label}
+              </label>
+            ))}
+          </div>
         </Field>
         <Field
           label="Kind"

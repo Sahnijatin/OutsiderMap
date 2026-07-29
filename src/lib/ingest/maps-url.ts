@@ -147,6 +147,8 @@ export async function lookupGooglePlace(opts: {
         "places.priceLevel",
         "places.editorialSummary",
         "places.googleMapsUri",
+        "places.types",
+        "places.primaryType",
       ].join(","),
     },
     body: JSON.stringify({
@@ -177,6 +179,8 @@ export async function lookupGooglePlace(opts: {
         priceLevel?: string;
         editorialSummary?: { text?: string };
         googleMapsUri?: string;
+        types?: string[];
+        primaryType?: string;
       }
     | undefined;
   if (!p) return null;
@@ -191,5 +195,7 @@ export async function lookupGooglePlace(opts: {
     price_level: p.priceLevel ?? null,
     editorial: p.editorialSummary?.text ?? null,
     maps_uri: p.googleMapsUri ?? null,
+    primary_type: p.primaryType ?? null,
+    types: p.types ?? [],
   };
 }

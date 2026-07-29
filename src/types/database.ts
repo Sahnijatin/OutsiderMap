@@ -267,6 +267,36 @@ export type Database = {
           },
         ];
       };
+      place_categories: {
+        Row: {
+          place_id: string;
+          category_id: string;
+        };
+        Insert: {
+          place_id: string;
+          category_id: string;
+        };
+        Update: {
+          place_id?: string;
+          category_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "place_categories_place_id_fkey";
+            columns: ["place_id"];
+            isOneToOne: false;
+            referencedRelation: "places";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "place_categories_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "map_categories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       place_claims: {
         Row: {
           id: string;
@@ -410,6 +440,7 @@ export type Database = {
           price_level: number | null;
           sources: string[];
           story_signals: Json;
+          type_signals: Json;
           google_place_id: string | null;
           website: string | null;
           maps_url: string | null;
@@ -438,6 +469,7 @@ export type Database = {
           price_level?: number | null;
           sources?: string[];
           story_signals?: Json;
+          type_signals?: Json;
           google_place_id?: string | null;
           website?: string | null;
           maps_url?: string | null;
@@ -453,6 +485,7 @@ export type Database = {
         Update: {
           sources?: string[];
           story_signals?: Json;
+          type_signals?: Json;
           rating?: number | null;
           review_count?: number | null;
           address?: string | null;
