@@ -94,12 +94,12 @@ export default async function AdminMembersPage({
             <tr className="border-b border-line text-xs text-ink-dim">
               <th className="px-4 py-3 font-normal">#</th>
               <th className="px-4 py-3 font-normal">Username</th>
+              <th className="px-4 py-3 font-normal">Role</th>
               <th className="px-4 py-3 font-normal">Display name</th>
               <th className="px-4 py-3 font-normal">City</th>
               <th className="px-4 py-3 font-normal">Onboarded</th>
               <th className="px-4 py-3 font-normal">Quests</th>
               <th className="px-4 py-3 font-normal">Joined</th>
-              <th className="px-4 py-3 font-normal">Role</th>
             </tr>
           </thead>
           <tbody>
@@ -112,27 +112,7 @@ export default async function AdminMembersPage({
                   <td className="px-4 py-2.5">
                     {m.username ? `@${m.username}` : "-"}
                   </td>
-                  <td className="max-w-40 truncate px-4 py-2.5 text-ink-dim">
-                    {m.display_name ?? "-"}
-                  </td>
-                  <td className="px-4 py-2.5 capitalize text-ink-dim">
-                    {m.home_city ?? "-"}
-                  </td>
-                  <td className="px-4 py-2.5 text-ink-dim">
-                    {m.onboarding_completed_at ? "yes" : "no"}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-xs">
-                    {questCounts.get(m.id) ?? 0}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-ink-dim">
-                    {new Date(m.created_at).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "2-digit",
-                      timeZone: "Asia/Kolkata",
-                    })}
-                  </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
                     {m.is_admin ? (
                       <span className="mr-2 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
                         admin
@@ -163,6 +143,26 @@ export default async function AdminMembersPage({
                         </button>
                       </form>
                     )}
+                  </td>
+                  <td className="max-w-40 truncate px-4 py-2.5 text-ink-dim">
+                    {m.display_name ?? "-"}
+                  </td>
+                  <td className="px-4 py-2.5 capitalize text-ink-dim">
+                    {m.home_city ?? "-"}
+                  </td>
+                  <td className="px-4 py-2.5 text-ink-dim">
+                    {m.onboarding_completed_at ? "yes" : "no"}
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-xs">
+                    {questCounts.get(m.id) ?? 0}
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-ink-dim">
+                    {new Date(m.created_at).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "2-digit",
+                      timeZone: "Asia/Kolkata",
+                    })}
                   </td>
                 </tr>
               );
