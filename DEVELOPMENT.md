@@ -7,8 +7,7 @@
 > **Vision:** `OutsiderMap_Vision.docx` (curated *experiences*, proactive
 > suggestion, no chains, invite-only, in-app companion).
 >
-> _Last updated: 2026-07-27 · launch-readiness pass landed (PR #173): see the
-> decision log and REVIEW.md._
+> _Last updated: 2026-07-29 · the open backlog is sequenced in §8.1._
 
 ---
 
@@ -221,6 +220,115 @@ verifying places now, and merchant-funded rewards and payouts follow later
 | **Then** | **Proactive layer** (earned push) + **freshness / "tonight" engine** | Converts tool → habit. The retention play. |
 | **Then** | **People & belonging ring** (taste-based group experiences) | TAM expansion + the emotional payoff. |
 | **Parallel, always** | Profile-evolution "wow" surface; **referral / invite graph**; north-star instrumentation | Compounding growth + proof the one-answer model beats a list. |
+
+### 8.1 The open-issue phases (2026-07-29)
+
+The horizons above say *what* order the bets come in. This says which **open
+GitHub issue** to pick up next, phased against verified repo state
+(`main` @ `00b2515`).
+
+> Derived from a pass that checked each issue's claims against the code. Several
+> issue bodies describe a state that no longer exists — corrections are on #114,
+> #120, #122, #127, #129, #145, #148 and #47. Trust the code, not the issue body.
+
+A phase is not a sprint. It's a set of things that have to be **true** before the
+next phase's work means anything — each one ends on a condition, not a date. All
+19 open issues appear exactly once, in a phase or in Lane A.
+
+**Lane A — starts immediately, runs alongside every phase**
+
+**#91 — legal, policy & vendor long-poles.** Grievance Officer (resident in
+India, IT Rules 2021), CSAM vendor onboarding (PhotoDNA / Thorn qualification),
+counsel for DPDP wording, retention periods. Weeks of external latency, no code.
+It's a lane rather than a phase because nothing downstream waits on it and
+nothing we do makes it faster — but it gates public launch harder than any
+feature below, so it starts now.
+
+#### Phase 0 — Clear the board
+
+Merge PR #193, which completes **#148** (the other two items were already fixed
+on `main`). Renumber PR #192's migration to `56`: it was cut before #144 merged
+and both claim `00000000000055`, which `supabase db push` treats as a duplicate
+version, not just an untidy filename. Then the bookkeeping — close **#114** (its
+scope shipped; open a fresh issue for the three real remnants: phone-verification
+hook for `can_validate`, NSFW moderation of confirmation evidence, browser-testing
+the capture flow), close **#148**, prune the four done items from **#47**.
+
+*Exit:* no open PR older than a day, no duplicate migration version, no issue
+body describing a state the code has left.
+
+#### Phase 1 — Publish the rules
+
+**#129**'s Community Guidelines page. Privacy and Terms already ship under
+`(marketing)/`; CG is the missing one, and it's the public statement the #70
+moderation machinery enforces. Draft it now — Lane A's counsel finalises wording.
+
+*Exit:* CG published, versioned, linked from sign-up and settings.
+
+#### Phase 2 — Fill the catalog
+
+**#124.** The gate: every measurement in Phase 3 is noise on an empty catalog,
+and thin inventory kills the first session. Point the harvest console at the dead
+areas the coverage panel now names (`/admin/metrics` → `/admin/harvest`), and
+seed underground/premium events so the paid hook isn't empty. This is an operator
+task, not a code task — it needs `GOOGLE_MAPS_API_KEY` and a live DB.
+
+*Exit:* zero dead areas across core Delhi + Gurgaon + Noida; `unplaced` at zero;
+a seeded events batch exists.
+*Does not close:* real media. Replacing placeholder covers needs a sourcing
+decision (licensed vs commissioned) that is deliberately deferred — #124 stays
+open on that one criterion.
+
+#### Phase 3 — Prove the model
+
+**#120**, then **#121.** Enable the seeded-but-disabled `one_answer_vs_list`
+experiment (migration `38`) and read accept-rate per variant — this is the
+existential test, and the harness is already built. Then #121's activation moment
+and visibly-evolving profile, tuned against that number. Both are meaningless
+before Phase 2.
+
+*Exit:* accept-rate readable per variant; time-to-first-answer instrumented.
+
+#### Phase 4 — Safe to open socially
+
+**#122**'s remainder and **#130.** Anti-harassment beyond block
+(restrict-who-can-contact, DM/follow rate limits, report-a-person → priority
+review), anti-stalking heuristics, and the documented threat model. Alongside it,
+#130's error tracking and alerting — before real traffic arrives, not after.
+
+*Exit:* threat model documented with a mitigation per row; report-a-person routes
+to human review; errors alert.
+
+#### Phase 5 — Mobile
+
+**#149** first — Google blocks OAuth in embedded WebViews, so nothing native is
+device-testable until sign-in works. Then **#143**'s store readiness paired with
+**#127**'s real-mid-range-Android perf verification: Capacitor loads the hosted
+web app, so those are the same measurement, not two. **#145** closes with them.
+
+*Exit:* TestFlight and Play internal builds, signed in on a real device.
+
+#### Phase 6 — Compounding loops
+
+**#125 → #123 → #128 → #126**, in that order, because each needs the one before:
+push needs Phase 3's receptivity data; growth needs #121's share card;
+monetization needs Phase 2's value behind the wall and #120 to prove ROI; the
+bandit needs the interaction volume the earlier phases generate.
+
+*Exit:* each loop instrumented and measurably moving its own metric.
+
+#### Phase 7 — Ring 3
+
+**#131.** Hard-gated on Phase 4 complete, density real, and retention proven.
+Deliberately last — the graveyard is full of social-first apps.
+
+**The critical path runs through Phase 2 → 3.** Phases 0–1 are cheap and
+shouldn't eat a week. Phase 5 is genuinely independent of 2–4 — the clean split
+if a second pair of hands ever exists.
+
+**Risk note.** #127 is labelled launch-blocking but is nearly done (PWA manifest,
+service worker and voice input all shipped); #124 is the actual launch blocker.
+Treating them as equal-weight misprices the risk.
 
 ---
 

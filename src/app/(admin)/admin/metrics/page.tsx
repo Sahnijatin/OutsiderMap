@@ -21,6 +21,12 @@ import {
   type CatalogInventory,
 } from "@/lib/catalog/inventory";
 import {
+  AREA_CONFIDENT,
+  cityCoverage,
+  type CityCoverage,
+} from "@/lib/catalog/coverage";
+import { resolveCity } from "@/lib/cities";
+import {
   ratePct,
   funnelShares,
   reasonSourceTile,
@@ -30,6 +36,13 @@ import { ONE_ANSWER_VS_LIST } from "@/lib/experiments/server";
 import { toggleExperiment } from "./actions";
 
 export const metadata: Metadata = { title: "Admin · Metrics" };
+
+/**
+ * Areas listed under the coverage tiles. Delhi NCR declares 69, and the whole
+ * list is a wall rather than a queue - the tiles carry the totals, so this only
+ * has to show enough of the worst end to be actionable.
+ */
+const COVERAGE_SHOWN = 24;
 
 /**
  * North-star metrics (#120): Confident-Answer-Accept-Rate, the activation
@@ -55,6 +68,7 @@ export default async function MetricsPage() {
     expConfig,
     expRows,
     inventory,
+    coverage,
   ] =
     await Promise.all([
       getAnswerAcceptRate(supabase, 7),
@@ -83,6 +97,14 @@ export default async function MetricsPage() {
         console.error("catalog inventory failed", err);
         return null;
       }),
+      // Same treatment, same reason: newest panel on the page, and its own
+      // failure must not take the dashboard down with it.
+      resolveCity(supabase)
+        .then((city) => cityCoverage(supabase, city))
+        .catch((err): CityCoverage | null => {
+          console.error("catalog coverage failed", err);
+          return null;
+        }),
     ]);
 
   const acceptPct = ratePct(accept.accepts, accept.asks);
@@ -237,6 +259,78 @@ export default async function MetricsPage() {
           </p>
         )}
       </section>
+
+      {/*
+        Coverage (#124). The same ceiling, asked geographically. A healthy
+        city-wide count says nothing about the member standing in an area we
+        have nothing in - and that member never sees an error, because an
+        over-constrained area filter relaxes to a city-wide sample. They just
+        get answered about somewhere they didn't ask about.
+      */}
+      {coverage && (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="voice">coverage · where the catalog actually is</h2>
+            <Link
+              href="/admin/harvest"
+              className="text-xs text-ink-dim transition-colors hover:text-ink"
+            >
+              Harvest an area
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Tile
+              label="Dead areas"
+              value={coverage.dead}
+              sub="nothing retrievable - answers city-wide instead"
+              muted={coverage.dead === 0}
+            />
+            <Tile
+              label="Thin areas"
+              value={coverage.thin}
+              sub={`under ${AREA_CONFIDENT} - same picks for everyone`}
+              muted={coverage.thin === 0}
+            />
+            <Tile
+              label="Covered areas"
+              value={coverage.covered}
+              sub={`${AREA_CONFIDENT}+ retrievable`}
+            />
+            <Tile
+              label="Unplaced places"
+              value={coverage.unplaced}
+              sub="area not on the city list - unreachable"
+              muted={coverage.unplaced === 0}
+            />
+          </div>
+          {coverage.areas.length > 0 && (
+            <Card className="flex flex-col gap-2 p-4">
+              <p className="text-xs text-ink-dim">
+                Worst first - the harvest queue. Showing{" "}
+                {Math.min(COVERAGE_SHOWN, coverage.areas.length)} of{" "}
+                {coverage.areas.length} areas.
+              </p>
+              <ul className="flex flex-wrap gap-1.5">
+                {coverage.areas.slice(0, COVERAGE_SHOWN).map((a) => (
+                  <li
+                    key={a.area}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-xs",
+                      a.state === "dead"
+                        ? "border-accent/40 text-accent"
+                        : a.state === "thin"
+                          ? "border-line text-ink"
+                          : "border-line/60 text-ink-dim",
+                    )}
+                  >
+                    {a.area} · {a.retrievable}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </section>
+      )}
 
       {/* Experiment: one answer vs a list (#120 part 2b) */}
       {expConfig && (

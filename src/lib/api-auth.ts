@@ -5,6 +5,7 @@ import {
   type User,
 } from "@supabase/supabase-js";
 import { createClient as createCookieClient } from "@/lib/supabase/server";
+import { isCrossOriginWrite } from "@/lib/security/origin";
 import type { Database } from "@/types/database";
 
 /**
@@ -51,6 +52,14 @@ export async function getApiContext(
   }
 
   // Web fallback: session cookies.
+  //
+  // Cookies are attached by the browser to cross-site requests too, so this is
+  // the one path that can be driven by another origin. Reject a cross-origin
+  // write before the session is resolved (#148) - the caller's own 401 is the
+  // response, which is the same answer the request would get with no session
+  // at all, and tells a probing page nothing about whether one exists.
+  if (isCrossOriginWrite(request)) return null;
+
   const supabase = await createCookieClient();
   const {
     data: { user },
@@ -76,6 +85,26 @@ export async function getOptionalApiContext(
 ): Promise<OptionalApiContext> {
   const ctx = await getApiContext(request);
   if (ctx) return ctx;
+
+  // A rejected cross-origin write must not fall through to the cookie client.
+  // That client is built from the request's cookies, so it still carries the
+  // victim's session and PostgREST would run as them - the route would believe
+  // it was serving an anonymous caller while RLS granted the signed-in user's
+  // rights. Every anon-tolerant route is GET-only today, so this cannot fire
+  // yet; it exists so that adding the first POST to one is not a silent hole.
+  if (isCrossOriginWrite(request)) {
+    return { user: null, supabase: anonClient() };
+  }
+
   const supabase = await createCookieClient();
   return { user: null, supabase };
+}
+
+/** Cookie-free anon-role client: no session to borrow, RLS at its strictest. */
+function anonClient(): SupabaseClient<Database> {
+  return createSupabaseClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
 }
