@@ -23,6 +23,8 @@ const MEMBER_SURFACES = [
   "/submit",
   // Owners claim and manage their places - signed-in members only.
   "/business",
+  // Member blogs: written and read by members, gated by can_view_post.
+  "/blog",
 ];
 
 const RETIRED = ["/onboarding", "/reels", "/join", "/thank-you"];

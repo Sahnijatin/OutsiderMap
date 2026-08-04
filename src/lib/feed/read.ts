@@ -43,6 +43,13 @@ export type PostPlace = {
   area: string | null;
 } | null;
 
+/** The blog fields a feed card shows; null for every non-article post. */
+export type PostArticleCard = {
+  title: string;
+  slug: string;
+  reading_minutes: number | null;
+} | null;
+
 export type PostCard = {
   id: string;
   author_id: string;
@@ -62,6 +69,8 @@ export type PostCard = {
   want_count: number;
   author: PostAuthor | null;
   media: PostMediaCard[];
+  /** Long-form child, present only when `type === "article"` (migration 0056). */
+  article: PostArticleCard;
   fromNetwork: boolean;
 };
 

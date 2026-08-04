@@ -11,7 +11,30 @@ import { z } from "zod";
  * replacement: RLS in the migration is the real gate.
  */
 
-export const POST_TYPES = ["status", "photo", "video", "review", "list"] as const;
+// 'article' is a member-written long-form blog (migration 0056). It is a post
+// in every other respect - same author, place, visibility, moderation and
+// counters - so it lives here rather than in a parallel content model.
+export const POST_TYPES = [
+  "status",
+  "photo",
+  "video",
+  "review",
+  "list",
+  "article",
+] as const;
+/**
+ * What the quick composer offers. 'article' is deliberately absent: a blog
+ * needs a title and the block editor, so it is authored at /blog/new. Keep
+ * POST_TYPES as the faithful mirror of the DB check constraint.
+ */
+export const QUICK_POST_TYPES = [
+  "status",
+  "photo",
+  "video",
+  "review",
+  "list",
+] as const;
+
 export const POST_VISIBILITIES = ["public", "followers", "private"] as const;
 export const POST_STATUSES = ["pending", "approved", "rejected", "removed"] as const;
 export const LOCATION_PRECISIONS = ["exact", "area", "hidden"] as const;

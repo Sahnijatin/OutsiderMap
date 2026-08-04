@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import type { FeedTab, PostCard as PostCardData } from "@/lib/feed/read";
-import { PostCard } from "./post-card";
+import { FeedCard } from "./article-card";
 
 type FeedResponse = { posts: PostCardData[]; nextCursor: string | null };
 
@@ -52,7 +52,7 @@ export function FeedMore({
   return (
     <>
       {posts.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <FeedCard key={post.id} post={post} />
       ))}
       {error && (
         <p className="text-center text-sm text-danger">Couldn&apos;t load more.</p>

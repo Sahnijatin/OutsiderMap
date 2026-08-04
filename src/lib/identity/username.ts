@@ -26,6 +26,7 @@ const RESERVED = new Set([
   "settings",
   "about",
   "team",
+  "blog",
 ]);
 
 export const UsernameSchema = z

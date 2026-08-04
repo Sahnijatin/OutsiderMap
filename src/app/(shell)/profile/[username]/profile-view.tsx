@@ -10,7 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Screen } from "@/components/app/screen";
 import type { FollowState } from "@/lib/feed/follows";
 import type { PostCard as PostCardData } from "@/lib/feed/read";
-import { PostCard } from "../../feed/post-card";
+import { FeedCard } from "../../feed/article-card";
 import { SafetyMenu } from "./safety-menu";
 
 type ProfilePayload = {
@@ -164,7 +164,7 @@ export function ProfileView({ username }: { username: string }) {
             {data.isSelf ? "You haven't posted yet." : "Nothing to show you here yet."}
           </p>
         ) : (
-          posts.map((post) => <PostCard key={post.id} post={post} />)
+          posts.map((post) => <FeedCard key={post.id} post={post} />)
         )}
       </div>
     </Screen>

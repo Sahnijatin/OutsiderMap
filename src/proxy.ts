@@ -31,6 +31,9 @@ export const PROTECTED_PREFIXES = [
   "/welcome",
   "/submit",
   "/business",
+  // Member blogs are members-only reading (can_view_post requires a session),
+  // so the wall here matches what RLS already enforces.
+  "/blog",
 ];
 
 function isProtected(pathname: string) {
