@@ -3,9 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_MAX_AGE_SECONDS } from "@/lib/auth/session";
 
 /**
- * Route prefixes that require a signed-in user. The map, place pages, /about and
- * root are deliberately absent (#116): anyone can explore. Personalized surfaces
- * and every write stay walled here.
+ * Route prefixes that require a signed-in user. The map, place pages and /about
+ * are deliberately absent: anyone can still explore them by link. Root is absent
+ * too, but for a different reason - it now RENDERS the sign-in landing for
+ * signed-out visitors rather than redirecting, so it must not be walled.
+ * Personalized surfaces and every write stay walled here.
  *
  * This list MUST track the actual route tree (src/app + src/app/(shell)):
  * a member surface missing here loses its `?next=` return path after sign-in,

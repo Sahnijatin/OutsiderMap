@@ -2,9 +2,11 @@ import type { MetadataRoute } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Sitemap (#116). Published place pages are the anon-viewable, indexable surface
- * now that the map is home, so they carry the SEO. Falls back to the static
- * routes when the service-role key is absent (e.g. preview builds).
+ * Sitemap. Root is the sign-in landing and still indexable (it renders content
+ * at an allowed URL rather than redirecting to the disallowed /sign-in), and
+ * published place pages remain the anon-viewable surface that carries the SEO.
+ * Member blogs are deliberately absent - they sit behind the auth wall.
+ * Falls back to the static routes when the service-role key is absent.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://outsidermap.com";
