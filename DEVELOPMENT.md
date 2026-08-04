@@ -221,52 +221,114 @@ verifying places now, and merchant-funded rewards and payouts follow later
 | **Then** | **People & belonging ring** (taste-based group experiences) | TAM expansion + the emotional payoff. |
 | **Parallel, always** | Profile-evolution "wow" surface; **referral / invite graph**; north-star instrumentation | Compounding growth + proof the one-answer model beats a list. |
 
-### 8.1 The open-issue sequence (2026-07-29)
+### 8.1 The open-issue phases (2026-07-29)
 
 The horizons above say *what* order the bets come in. This says which **open
-GitHub issue** to pick up next, sequenced against verified repo state
-(`main` @ `edc6ba0`).
+GitHub issue** to pick up next, phased against verified repo state
+(`main` @ `00b2515`).
 
 > Derived from a pass that checked each issue's claims against the code. Several
 > issue bodies describe a state that no longer exists — corrections are on #114,
 > #120, #122, #127, #129, #145, #148 and #47. Trust the code, not the issue body.
 
-**Lane A — start immediately, runs in parallel to everything below**
+A phase is not a sprint. It's a set of things that have to be **true** before the
+next phase's work means anything — each one ends on a condition, not a date. All
+19 open issues appear exactly once, in a phase or in Lane A.
+
+**Lane A — starts immediately, runs alongside every phase**
 
 **#91 — legal, policy & vendor long-poles.** Grievance Officer (resident in
 India, IT Rules 2021), CSAM vendor onboarding (PhotoDNA / Thorn qualification),
-counsel for DPDP wording, retention periods. No code, weeks of external latency,
-and it gates public launch harder than any feature below — so it can't be slotted
-late. It isn't in the sequence because it doesn't compete with it.
+counsel for DPDP wording, retention periods. Weeks of external latency, no code.
+It's a lane rather than a phase because nothing downstream waits on it and
+nothing we do makes it faster — but it gates public launch harder than any
+feature below, so it starts now.
 
-**Lane B — the sequence**
+#### Phase 0 — Clear the board
 
-| # | Work | Why here |
-|---|---|---|
-| 0 | Merge PR #144; then close #114, retitle #148, prune #47 | Rebased and green. The precision leak is live on `main` until it merges. The bookkeeping is minutes and stops the backlog misreporting itself. |
-| 1 | **#148** — CSRF origin check on cookie-auth mutations | Last real item in the security debt (the other two are already fixed on `main`). Small, self-contained. |
-| 2 | **#129** — Community Guidelines page | Privacy + Terms already ship under `(marketing)/`. CG is the public statement #70 enforces; draft now, counsel finalizes via Lane A. |
-| 3 | **#124** — Catalog density + real media | **The gate.** 110 places, placeholder covers, no events seed. Every measurement below is noise on an empty catalog, and thin inventory kills the first session. Matches "inventory density is the gating constraint" above. |
-| 4 | **#120** — enable and run `one_answer_vs_list` | Harness is built and seeded-disabled (migration `38`). Needs #124's catalog and real traffic to mean anything. The existential test — run it early. |
-| 5 | **#121** — Activation "wow" + evolving profile | Needs a catalog good enough for a confident first answer (#124) and accept-rate instrumentation to tune against (#4). |
-| 6 | **#122** — remainder: anti-harassment, anti-stalking, threat model | Block is shipped; location safety lands at step 0. The rest must precede opening the social surfaces widely, and hard-gates ring 3. |
-| 7 | **#130** — Observability (error tracking first) | Before real traffic, not after. Makes everything below debuggable. AI cost governance follows. |
-| 8 | **#149** — Native OAuth (Google + Apple) | Opens the mobile track; nothing native is device-testable until sign-in works. Needs the Supabase redirect allowlist and Google/Apple console setup. |
-| 9 | **#143** + **#127** device perf; close **#145** | Store readiness, signing, privacy labels, TestFlight/Play internal — paired with #127's real-mid-range-Android perf verification, since Capacitor loads the hosted web app and they're the same measurement. |
-| 10 | **#125** — Proactive layer + freshness | Web push first (works today); native push once #143 yields the APNs key and `google-services.json`. Trigger model needs #120's receptivity data. |
-| 11 | **#123** — Growth loops | Needs #121's share card as the artifact and #120's attribution to tell which loops actually acquire. |
-| 12 | **#128** — Monetization | Premium needs #124 to put real value behind the wall; the merchant loop needs #120 to prove ROI. |
-| 13 | **#126** — Adventurousness dial + bandit | Explicitly needs interaction volume to learn from; LLM-as-ranker until then. |
-| 14 | **#131** — People & belonging (ring 3) | Hard-gated on #122 complete, density real, and retention proven. Deliberately last. |
+Merge PR #193, which completes **#148** (the other two items were already fixed
+on `main`). Renumber PR #192's migration to `56`: it was cut before #144 merged
+and both claim `00000000000055`, which `supabase db push` treats as a duplicate
+version, not just an untidy filename. Then the bookkeeping — close **#114** (its
+scope shipped; open a fresh issue for the three real remnants: phone-verification
+hook for `can_validate`, NSFW moderation of confirmation evidence, browser-testing
+the capture flow), close **#148**, prune the four done items from **#47**.
 
-**The critical path: #124 → #120 → #121.** That chain decides whether there's a
-product. Steps 0–2 are cheap cleanup that shouldn't eat a week. The mobile track
-(8–9) is genuinely independent — the clean split if a second pair of hands ever
-exists.
+*Exit:* no open PR older than a day, no duplicate migration version, no issue
+body describing a state the code has left.
+
+#### Phase 1 — Publish the rules
+
+**#129**'s Community Guidelines page. Privacy and Terms already ship under
+`(marketing)/`; CG is the missing one, and it's the public statement the #70
+moderation machinery enforces. Draft it now — Lane A's counsel finalises wording.
+
+*Exit:* CG published, versioned, linked from sign-up and settings.
+
+#### Phase 2 — Fill the catalog
+
+**#124.** The gate: every measurement in Phase 3 is noise on an empty catalog,
+and thin inventory kills the first session. Point the harvest console at the dead
+areas the coverage panel now names (`/admin/metrics` → `/admin/harvest`), and
+seed underground/premium events so the paid hook isn't empty. This is an operator
+task, not a code task — it needs `GOOGLE_MAPS_API_KEY` and a live DB.
+
+*Exit:* zero dead areas across core Delhi + Gurgaon + Noida; `unplaced` at zero;
+a seeded events batch exists.
+*Does not close:* real media. Replacing placeholder covers needs a sourcing
+decision (licensed vs commissioned) that is deliberately deferred — #124 stays
+open on that one criterion.
+
+#### Phase 3 — Prove the model
+
+**#120**, then **#121.** Enable the seeded-but-disabled `one_answer_vs_list`
+experiment (migration `38`) and read accept-rate per variant — this is the
+existential test, and the harness is already built. Then #121's activation moment
+and visibly-evolving profile, tuned against that number. Both are meaningless
+before Phase 2.
+
+*Exit:* accept-rate readable per variant; time-to-first-answer instrumented.
+
+#### Phase 4 — Safe to open socially
+
+**#122**'s remainder and **#130.** Anti-harassment beyond block
+(restrict-who-can-contact, DM/follow rate limits, report-a-person → priority
+review), anti-stalking heuristics, and the documented threat model. Alongside it,
+#130's error tracking and alerting — before real traffic arrives, not after.
+
+*Exit:* threat model documented with a mitigation per row; report-a-person routes
+to human review; errors alert.
+
+#### Phase 5 — Mobile
+
+**#149** first — Google blocks OAuth in embedded WebViews, so nothing native is
+device-testable until sign-in works. Then **#143**'s store readiness paired with
+**#127**'s real-mid-range-Android perf verification: Capacitor loads the hosted
+web app, so those are the same measurement, not two. **#145** closes with them.
+
+*Exit:* TestFlight and Play internal builds, signed in on a real device.
+
+#### Phase 6 — Compounding loops
+
+**#125 → #123 → #128 → #126**, in that order, because each needs the one before:
+push needs Phase 3's receptivity data; growth needs #121's share card;
+monetization needs Phase 2's value behind the wall and #120 to prove ROI; the
+bandit needs the interaction volume the earlier phases generate.
+
+*Exit:* each loop instrumented and measurably moving its own metric.
+
+#### Phase 7 — Ring 3
+
+**#131.** Hard-gated on Phase 4 complete, density real, and retention proven.
+Deliberately last — the graveyard is full of social-first apps.
+
+**The critical path runs through Phase 2 → 3.** Phases 0–1 are cheap and
+shouldn't eat a week. Phase 5 is genuinely independent of 2–4 — the clean split
+if a second pair of hands ever exists.
 
 **Risk note.** #127 is labelled launch-blocking but is nearly done (PWA manifest,
-service worker and voice input all shipped); #124 is the actual launch blocker
-and hasn't started. Treating them as equal-weight misprices the risk.
+service worker and voice input all shipped); #124 is the actual launch blocker.
+Treating them as equal-weight misprices the risk.
 
 ---
 
