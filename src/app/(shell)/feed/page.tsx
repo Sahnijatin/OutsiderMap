@@ -11,7 +11,7 @@ import { fetchFeedPage } from "@/lib/feed/query";
 import type { FeedTab } from "@/lib/feed/read";
 import { FeedTabs } from "./feed-tabs";
 import { FeedMore } from "./feed-more";
-import { PostCard } from "./post-card";
+import { FeedCard } from "./article-card";
 
 export const metadata: Metadata = { title: "Feed" };
 
@@ -63,7 +63,7 @@ export default async function FeedPage({
       ) : (
         <div className="om-stagger flex flex-col gap-4">
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <FeedCard key={post.id} post={post} />
           ))}
           {nextCursor ? (
             <FeedMore

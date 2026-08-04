@@ -1,7 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
-import { SESSION_COOKIE_MAX_AGE_SECONDS } from "@/lib/auth/session";
+import {
+  applySessionLifetime,
+  readSessionPersistence,
+  SESSION_PREF_COOKIE,
+} from "@/lib/auth/session";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -10,16 +14,25 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      // Persist the session across visits (#116); the proxy re-sets it each hit.
-      cookieOptions: { maxAge: SESSION_COOKIE_MAX_AGE_SECONDS },
+      // No cookieOptions: @supabase/ssr ignores its maxAge (see
+      // lib/auth/session.ts). The lifetime is applied in setAll below - which
+      // matters most in Route Handlers like /auth/callback, where cookies are
+      // writable and exchangeCodeForSession lands the first session cookie.
       cookies: {
         getAll() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
+          const persistence = readSessionPersistence(
+            cookieStore.get(SESSION_PREF_COOKIE)?.value,
+          );
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(
+                name,
+                value,
+                applySessionLifetime(options, persistence, value),
+              ),
             );
           } catch {
             // setAll is called from a Server Component, where cookies are

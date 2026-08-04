@@ -29,8 +29,15 @@ export type FeedPage = { posts: PostCard[]; nextCursor: string | null };
 /** Thrown when the underlying query fails - callers decide how to surface it. */
 export class FeedQueryError extends Error {}
 
-const CARD_FIELDS =
-  "id, author_id, type, place_id, area, city, location_precision, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area)";
+/**
+ * The columns a feed card needs. Exported so the single-post page selects the
+ * identical shape instead of re-declaring it and drifting.
+ *
+ * `article` is the long-form child (migration 0056); it is null for every
+ * other post type.
+ */
+export const CARD_FIELDS =
+  "id, author_id, type, place_id, area, city, location_precision, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area), article:post_articles(title, slug, reading_minutes)";
 
 /** followees + self - the "home" author set. */
 async function networkAuthorIds(
@@ -62,6 +69,9 @@ export async function fetchFeedPage(
     .from("posts")
     .select(CARD_FIELDS)
     .eq("status", "approved")
+    // A blog the author scoped to its place page never enters the feed.
+    // Everything else defaults true, so no existing post is affected.
+    .eq("show_in_feed", true)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(FEED_PAGE_SIZE + 1);
@@ -143,6 +153,7 @@ export async function fetchFeedPage(
       want_count: p.want_count,
       author: authorById.get(p.author_id) ?? null,
       media: mediaByPost.get(p.id) ?? [],
+      article: p.article ?? null,
       fromNetwork: network.has(p.author_id),
     };
   });

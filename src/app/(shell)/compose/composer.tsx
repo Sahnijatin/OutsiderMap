@@ -7,7 +7,7 @@ import { captureNativePhoto } from "@/lib/media/camera";
 import { useIsNativeApp } from "@/lib/capacitor/platform";
 import { success as hapticSuccess } from "@/lib/native/haptics";
 import { playSound } from "@/lib/sound/engine";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
@@ -16,8 +16,8 @@ import { Screen } from "@/components/app/screen";
 import {
   DEFAULT_LOCATION_PRECISION,
   LOCATION_PRECISIONS,
-  POST_TYPES,
   POST_VISIBILITIES,
+  QUICK_POST_TYPES,
   type PostType,
 } from "@/lib/feed/model";
 import {
@@ -37,7 +37,7 @@ type PlaceHit = {
 
 type LocalMedia = { file: File; url: string; kind: PostMediaKind; ext: string };
 
-const TYPE_LABELS: Record<PostType, string> = {
+const TYPE_LABELS: Record<(typeof QUICK_POST_TYPES)[number], string> = {
   status: "Status",
   photo: "Photo",
   video: "Video",
@@ -289,10 +289,15 @@ export function Composer({ homeCity }: { homeCity: string }) {
         eyebrow="the network"
         title="Share a place"
         lead="Anchor it to a real spot on the map. You choose who sees it."
+        action={
+          <ButtonLink href="/blog/new" variant="secondary" size="sm">
+            Write a blog
+          </ButtonLink>
+        }
       />
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Post type">
-        {POST_TYPES.map((t) => (
+        {QUICK_POST_TYPES.map((t) => (
           <button
             key={t}
             type="button"

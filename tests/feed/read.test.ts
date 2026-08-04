@@ -28,6 +28,7 @@ function card(over: Partial<PostCard>): PostCard {
     want_count: 0,
     author: null,
     media: [],
+    article: null,
     fromNetwork: false,
     ...over,
   };

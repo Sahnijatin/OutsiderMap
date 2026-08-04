@@ -7,13 +7,11 @@ import { createClient } from "@/lib/supabase/server";
 import { publicMediaUrl } from "@/lib/media/url";
 import { Screen } from "@/components/app/screen";
 import type { PostCard as PostCardData } from "@/lib/feed/read";
+import { CARD_FIELDS } from "@/lib/feed/query";
 import { resolvePostLocation } from "@/lib/feed/location";
 import { PostCard } from "../post-card";
 import { PostActions } from "./post-actions";
 import { Comments } from "./comments";
-
-const CARD_FIELDS =
-  "id, author_id, type, place_id, area, city, location_precision, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area)";
 
 /** A single post. RLS (can_view_post) decides whether it's visible at all. */
 export default async function PostDetailPage({
@@ -72,6 +70,7 @@ export default async function PostDetailPage({
       url: publicMediaUrl(m.bucket, m.path),
       posterUrl: publicMediaUrl(m.bucket, m.poster_path),
     })),
+    article: post.article ?? null,
     fromNetwork: false,
   };
 

@@ -1,11 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE_MAX_AGE_SECONDS } from "@/lib/auth/session";
+import {
+  applySessionLifetime,
+  readSessionPersistence,
+  SESSION_PREF_COOKIE,
+} from "@/lib/auth/session";
 
 /**
- * Route prefixes that require a signed-in user. The map, place pages, /about and
- * root are deliberately absent (#116): anyone can explore. Personalized surfaces
- * and every write stay walled here.
+ * Route prefixes that require a signed-in user. The map, place pages and /about
+ * are deliberately absent: anyone can still explore them by link. Root is absent
+ * too, but for a different reason - it now RENDERS the sign-in landing for
+ * signed-out visitors rather than redirecting, so it must not be walled.
+ * Personalized surfaces and every write stay walled here.
  *
  * This list MUST track the actual route tree (src/app + src/app/(shell)):
  * a member surface missing here loses its `?next=` return path after sign-in,
@@ -31,6 +37,9 @@ export const PROTECTED_PREFIXES = [
   "/welcome",
   "/submit",
   "/business",
+  // Member blogs are members-only reading (can_view_post requires a session),
+  // so the wall here matches what RLS already enforces.
+  "/blog",
 ];
 
 function isProtected(pathname: string) {
@@ -48,9 +57,16 @@ export async function proxy(request: NextRequest) {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) return response;
 
+  // Read per request, not per client: the proxy re-stamps the auth cookies on
+  // every refresh, so this is what makes a "session only" choice stick instead
+  // of being quietly upgraded back to a rolling 60 days.
+  const persistence = readSessionPersistence(
+    request.cookies.get(SESSION_PREF_COOKIE)?.value,
+  );
+
   const supabase = createServerClient(url, anonKey, {
-    // Rolling 60-day session: the refresh below re-sets the cookies each visit.
-    cookieOptions: { maxAge: SESSION_COOKIE_MAX_AGE_SECONDS },
+    // No cookieOptions here on purpose - @supabase/ssr ignores its maxAge (see
+    // lib/auth/session.ts). The lifetime is applied in setAll below.
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -61,7 +77,11 @@ export async function proxy(request: NextRequest) {
         );
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
+          response.cookies.set(
+            name,
+            value,
+            applySessionLifetime(options, persistence, value),
+          ),
         );
       },
     },

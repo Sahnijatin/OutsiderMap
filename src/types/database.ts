@@ -1611,7 +1611,7 @@ export type Database = {
         Row: {
           id: string;
           author_id: string;
-          type: "status" | "photo" | "video" | "review" | "list";
+          type: "status" | "photo" | "video" | "review" | "list" | "article";
           place_id: string | null;
           area: string | null;
           city: string;
@@ -1624,12 +1624,13 @@ export type Database = {
           like_count: number;
           comment_count: number;
           want_count: number;
+          show_in_feed: boolean;
           created_at: string;
         };
         Insert: {
           id?: string;
           author_id: string;
-          type: "status" | "photo" | "video" | "review" | "list";
+          type: "status" | "photo" | "video" | "review" | "list" | "article";
           place_id?: string | null;
           area?: string | null;
           city?: string;
@@ -1642,12 +1643,13 @@ export type Database = {
           like_count?: number;
           comment_count?: number;
           want_count?: number;
+          show_in_feed?: boolean;
           created_at?: string;
         };
         Update: {
           id?: string;
           author_id?: string;
-          type?: "status" | "photo" | "video" | "review" | "list";
+          type?: "status" | "photo" | "video" | "review" | "list" | "article";
           place_id?: string | null;
           area?: string | null;
           city?: string;
@@ -1660,6 +1662,7 @@ export type Database = {
           like_count?: number;
           comment_count?: number;
           want_count?: number;
+          show_in_feed?: boolean;
           created_at?: string;
         };
         Relationships: [
@@ -1708,6 +1711,77 @@ export type Database = {
           bucket?: "post-media" | "reel-media";
         };
         Relationships: [];
+      };
+      post_articles: {
+        Row: {
+          post_id: string;
+          title: string;
+          slug: string;
+          body: Json;
+          reading_minutes: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          post_id: string;
+          title: string;
+          slug: string;
+          body?: Json;
+          reading_minutes?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          post_id?: string;
+          title?: string;
+          slug?: string;
+          body?: Json;
+          reading_minutes?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_articles_post_id_fkey";
+            columns: ["post_id"];
+            isOneToOne: true;
+            referencedRelation: "posts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      post_article_places: {
+        Row: {
+          post_id: string;
+          place_id: string;
+          sort_order: number;
+        };
+        Insert: {
+          post_id: string;
+          place_id: string;
+          sort_order?: number;
+        };
+        Update: {
+          post_id?: string;
+          place_id?: string;
+          sort_order?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_article_places_post_id_fkey";
+            columns: ["post_id"];
+            isOneToOne: false;
+            referencedRelation: "posts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "post_article_places_place_id_fkey";
+            columns: ["place_id"];
+            isOneToOne: false;
+            referencedRelation: "places";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       post_reactions: {
         Row: {

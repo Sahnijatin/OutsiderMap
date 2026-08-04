@@ -19,6 +19,8 @@ import { isOpenNow, openStatusLabel } from "@/lib/places/hours";
 import type { Json } from "@/types/database";
 import { displayHandle, listPlaceMedia } from "@/lib/media/place-media";
 import { AddPlacePhoto } from "./add-photo";
+import { PlaceStories } from "@/components/blog/place-stories";
+import { listPlaceArticles } from "@/lib/blog/place";
 import { PlaceGallery, type GalleryCard } from "./place-gallery";
 
 const PLATFORM_LABEL = {
@@ -119,6 +121,8 @@ export default async function PlacePage({
 
   const supabase = await createClient();
   const categories = await listMapCategories(supabase);
+  // Member blogs about this place. Empty for signed-out readers by RLS.
+  const articles = await listPlaceArticles(supabase, place.id);
   const { color: catColor, label: catLabel } = resolveCategory(
     buildCategoryIndex(categories),
     { categoryId: place.category_id, category: place.category, kind: place.kind },
@@ -257,6 +261,12 @@ export default async function PlacePage({
           </a>
         )}
         <AddPlacePhoto slug={place.slug} />
+        <Link
+          href={`/blog/new?place=${encodeURIComponent(place.slug)}`}
+          className="rounded-full border border-line px-3.5 py-1.5 text-xs text-ink-dim transition-colors hover:text-ink"
+        >
+          Write about this place
+        </Link>
         {!place.claimed_by && (
           <Link
             href={`/business?claim=${encodeURIComponent(place.slug)}`}
@@ -341,6 +351,8 @@ export default async function PlacePage({
           </dl>
         </section>
       )}
+
+      <PlaceStories articles={articles} />
 
       {/* Closing directions CTA */}
       {dirUrl && (

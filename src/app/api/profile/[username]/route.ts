@@ -5,6 +5,7 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { publicMediaUrl } from "@/lib/media/url";
 import { normalizeFollowState } from "@/lib/feed/follows";
 import { resolvePostLocation } from "@/lib/feed/location";
+import { CARD_FIELDS } from "@/lib/feed/query";
 import type { PostCard } from "@/lib/feed/read";
 
 /**
@@ -12,8 +13,6 @@ import type { PostCard } from "@/lib/feed/read";
  * counts, and the posts this viewer is allowed to see (RLS via
  * can_view_post). Used by the profile page and mobile.
  */
-const CARD_FIELDS =
-  "id, author_id, type, place_id, area, city, location_precision, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area)";
 
 export async function GET(
   request: NextRequest,
@@ -124,6 +123,7 @@ export async function GET(
       want_count: p.want_count,
       author,
       media: mediaByPost.get(p.id) ?? [],
+      article: p.article ?? null,
       fromNetwork: false,
     };
   });
