@@ -26,6 +26,28 @@ alter table public.posts drop constraint if exists posts_type_check;
 alter table public.posts add constraint posts_type_check
   check (type in ('status', 'photo', 'video', 'review', 'list', 'article'));
 
+-- The drop above names a constraint Postgres chose implicitly back in
+-- migration 0017. If this database ever carried a differently-named check on
+-- `type` - a hand-applied hotfix, say - that drop silently does nothing, the
+-- old constraint survives alongside the new one, and every blog insert fails
+-- at runtime while this migration reports success. Verified: without this
+-- block the swap "succeeds" and `insert ... type='article'` then errors.
+do $$
+declare
+  stale text;
+begin
+  select string_agg(conname, ', ') into stale
+  from pg_constraint
+  where conrelid = 'public.posts'::regclass
+    and contype = 'c'
+    and pg_get_constraintdef(oid) like '%''review''%'
+    and pg_get_constraintdef(oid) not like '%''article''%';
+  if stale is not null then
+    raise exception
+      'posts.type is still constrained by %, which rejects ''article''. Blogs would fail on insert.', stale;
+  end if;
+end $$;
+
 alter table public.posts
   add column if not exists show_in_feed boolean not null default true;
 
