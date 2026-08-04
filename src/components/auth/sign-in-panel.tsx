@@ -10,6 +10,10 @@ import {
   nativeAppleSignIn,
   nativeGoogleSignIn,
 } from "@/lib/auth/native-social";
+import {
+  sessionPrefCookieString,
+  type SessionPersistence,
+} from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -86,6 +90,10 @@ export function SignInPanel({
   const isIOS = platform === "ios";
   const showNativeGoogle = isNative && isNativeGoogleConfigured();
   const showNativeApple = isIOS && isNativeAppleConfigured();
+  // Default checked: every web member is effectively persistent today, so an
+  // unchecked default would silently start signing out returning visitors who
+  // never saw this box.
+  const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -112,6 +120,7 @@ export function SignInPanel({
     e.preventDefault();
     setPending(true);
     setError(null);
+    recordPersistence(stayLoggedIn ? "persistent" : "session");
     const { error } = await createClient().auth.verifyOtp({
       email,
       token: code.trim(),
@@ -123,6 +132,20 @@ export function SignInPanel({
       return;
     }
     finishSignIn();
+  }
+
+  /**
+   * Record the lifetime choice BEFORE the call that writes the session cookie,
+   * so the very first write already has the right maxAge. Web only: native
+   * never writes this cookie, and the absent-value default (persistent) is
+   * what keeps the WebView signed in across app restarts.
+   */
+  function recordPersistence(mode: SessionPersistence) {
+    if (isNative) return;
+    document.cookie = sessionPrefCookieString(
+      mode,
+      window.location.protocol === "https:",
+    );
   }
 
   // Shared post-sign-in navigation (OTP + native social).
@@ -156,6 +179,9 @@ export function SignInPanel({
     setError(null);
     // Stash the destination for the callback (OAuth can't carry ?next reliably).
     document.cookie = `${NEXT_COOKIE}=${encodeURIComponent(next)}; path=/; max-age=600; samesite=lax`;
+    // Survives the round trip to /auth/callback because it is SameSite=Lax,
+    // like the cookie above.
+    recordPersistence(stayLoggedIn ? "persistent" : "session");
     const { error } = await createClient().auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -272,6 +298,26 @@ export function SignInPanel({
             Use a different email
           </Button>
         </form>
+      )}
+
+      {/* Web only. The native shell has no token storage and relies entirely on
+          WebView cookie persistence, so a session-only cookie would sign people
+          out whenever the app restarts. It never writes the preference. */}
+      {!isNative && (
+        <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink-dim">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={stayLoggedIn}
+            onChange={(e) => setStayLoggedIn(e.target.checked)}
+          />
+          <span>
+            Stay logged in
+            <span className="block text-xs text-ink-dim/70">
+              Uncheck on a shared computer.
+            </span>
+          </span>
+        </label>
       )}
 
       {error && <p className="text-center text-sm text-danger">{error}</p>}
