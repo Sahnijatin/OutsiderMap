@@ -14,6 +14,7 @@ import {
 } from "@/lib/map/geolocation";
 import { tap } from "@/lib/native/haptics";
 import { formatOutsiderNumber } from "@/lib/identity/username";
+import { blockTour } from "@/lib/tour/store";
 import { MapSearch } from "./map-search";
 import { MapLegend } from "./map-legend";
 import { PlaceSheet, type SelectedPlace } from "./place-sheet";
@@ -430,11 +431,29 @@ export function MapCanvas({
   }, [activeCity.slug, reloadKey]);
 
   // The welcome flag is a one-shot: strip it from the URL so revisits and
-  // shares of the link don't re-trigger the toast.
+  // shares of the link don't re-trigger the toast. Only the welcome param
+  // goes - rewriting the whole URL to "/map" also threw away ?place=, which
+  // silently broke deep links that arrived alongside the flag.
   useEffect(() => {
     if (!welcome) return;
-    window.history.replaceState(null, "", "/map");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("welcome");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
   }, [welcome]);
+
+  // The welcome card owns the screen while it is up; the guided tour waits its
+  // turn rather than stacking a second overlay on top of it.
+  useEffect(() => {
+    if (!showWelcome) return;
+    return blockTour("map-welcome");
+  }, [showWelcome]);
+
+  // Same for a deep-linked place sheet: an arriving ?place= link should get
+  // read before the tour starts talking over it.
+  useEffect(() => {
+    if (!selected) return;
+    return blockTour("place-sheet");
+  }, [selected]);
 
   // Deep link: open the requested place once the catalog is in.
   const deepLinked = useRef(false);

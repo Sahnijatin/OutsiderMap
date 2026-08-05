@@ -5,6 +5,7 @@ import { OfflineBanner } from "@/components/app/offline-banner";
 import { SideRail } from "@/components/app/side-rail";
 import { SoundBoot } from "@/components/app/sound-boot";
 import { PushRegistrar } from "@/components/push-registrar";
+import { TourArm } from "@/components/tour/tour-arm";
 
 /**
  * The app shell: full-bleed surfaces (map-first) with a phone-style bottom
@@ -33,6 +34,11 @@ export default async function ShellLayout({
       {/* Everything here is behind requireOnboarded(), so the member is signed
           in - register for push in the native app (no-op on web). */}
       <PushRegistrar signedIn />
+      {/* The first-run tour, but only once the activation beat is behind them:
+          onboarding -> /welcome -> the map's welcome card -> the tour. */}
+      <TourArm
+        eligible={!profile.tour_completed_at && !!profile.activated_at}
+      />
       <OfflineBanner />
       <SoundBoot />
       <div className="min-h-dvh lg:pl-[var(--rail-w)]">{children}</div>

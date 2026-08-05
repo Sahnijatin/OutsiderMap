@@ -35,7 +35,7 @@ const DELHI = { latitude: 28.6139, longitude: 77.209 };
 
 export default defineConfig({
   testDir: ".",
-  testMatch: /flows\.spec\.ts/,
+  testMatch: /\.spec\.ts$/,
   outputDir: "./.artifacts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

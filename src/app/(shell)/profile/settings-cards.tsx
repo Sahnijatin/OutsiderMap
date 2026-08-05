@@ -11,6 +11,8 @@ import { useIsNativeApp } from "@/lib/capacitor/platform";
 import { tap as hapticTap } from "@/lib/native/haptics";
 import { playSound, startAmbient, stopAmbient } from "@/lib/sound/engine";
 import { setSoundPref, useSoundPrefs } from "@/lib/sound/prefs";
+import { TOUR_STEPS } from "@/lib/tour/steps";
+import { startTour } from "@/lib/tour/store";
 
 /**
  * The settings that only needed a UI: the "Feel" card (sound effects, the
@@ -186,6 +188,36 @@ export function PersonalizationToggle({ initial }: { initial: boolean }) {
           style={{ width: 22, height: 22 }}
         />
       </button>
+    </div>
+  );
+}
+
+/**
+ * The way back into the guided tour. Starting it in "replay" mode is what
+ * stops the store disarming it the moment the server (correctly) reports this
+ * member as already done.
+ */
+export function TourCard({ completedAt }: { completedAt: string | null }) {
+  const router = useRouter();
+
+  return (
+    <div className="rounded-card border border-line bg-surface p-4">
+      <p className="text-sm font-medium text-ink">The walkthrough</p>
+      <p className="mt-0.5 text-xs leading-relaxed text-ink-dim">
+        {completedAt
+          ? "You've been round once. Run it again whenever you want a refresher."
+          : "A one-minute walk across the six surfaces, pointing at the real thing on the real screen."}
+      </p>
+      <Button
+        variant="secondary"
+        className="mt-3"
+        onClick={() => {
+          startTour("replay");
+          router.push(TOUR_STEPS[0].route);
+        }}
+      >
+        {completedAt ? "Show me around again" : "Show me around"}
+      </Button>
     </div>
   );
 }

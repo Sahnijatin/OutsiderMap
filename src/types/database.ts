@@ -91,6 +91,7 @@ export type Database = {
           personalization_enabled: boolean;
           onboarding_completed_at: string | null;
           activated_at: string | null;
+          tour_completed_at: string | null;
           outsider_number: number | null;
           username: string | null;
           home_city: string | null;
@@ -108,6 +109,7 @@ export type Database = {
           personalization_enabled?: boolean;
           onboarding_completed_at?: string | null;
           activated_at?: string | null;
+          tour_completed_at?: string | null;
           outsider_number?: number | null;
           username?: string | null;
           home_city?: string | null;
@@ -125,6 +127,7 @@ export type Database = {
           personalization_enabled?: boolean;
           onboarding_completed_at?: string | null;
           activated_at?: string | null;
+          tour_completed_at?: string | null;
           outsider_number?: number | null;
           username?: string | null;
           home_city?: string | null;

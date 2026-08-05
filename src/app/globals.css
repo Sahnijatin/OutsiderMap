@@ -264,3 +264,19 @@ textarea {
     opacity: 0;
   }
 }
+
+/* Guided tour spotlight: ONE element dims the whole screen and leaves its own
+   box transparent, with an amber ring on top. Four rects would show subpixel
+   hairline seams at Pixel 7's 2.625 DPR and give a square hole; an SVG mask
+   would need a namespaced mask id and animate attributes instead of a
+   transform. The 100vmax spread is clipped by the overlay's overflow-hidden,
+   so it can never affect layout or document scrollWidth.
+
+   This is paint only - pointer-events-none. Hit-testing (which needs a real
+   hole so the spotlit nav item stays tappable) is four transparent rects in
+   tour-host.tsx. */
+.om-tour-spotlight {
+  box-shadow:
+    0 0 0 100vmax color-mix(in srgb, var(--color-night) 84%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--color-accent) 70%, transparent);
+}
