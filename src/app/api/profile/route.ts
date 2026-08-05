@@ -3,6 +3,10 @@ import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { normalizeFollowState } from "@/lib/feed/follows";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { recordConsent } from "@/lib/consent/record";
+import { purgeTargets } from "@/lib/consent/purposes";
+import { purgeDerivedData } from "@/lib/consent/withdraw";
 
 /**
  * The member's profile screen: the system's read on their taste (the wow
@@ -46,6 +50,14 @@ export async function GET(request: NextRequest) {
 
 const PatchSchema = z.object({ personalization_enabled: z.boolean() });
 
+/**
+ * Kept for the native builds already in the wild, which know this shape and
+ * nothing else. It no longer writes the column directly - migration 58 revoked
+ * that grant, and only the consents trigger writes personalization_enabled
+ * now. Everything routes through the same consent path as PATCH /api/consent,
+ * so no caller can flip the switch without leaving a record or paying the
+ * withdrawal cost.
+ */
 export async function PATCH(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
@@ -61,13 +73,30 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
+  const granted = parsed.data.personalization_enabled;
 
-  const { error } = await ctx.supabase
-    .from("profiles")
-    .update({ personalization_enabled: parsed.data.personalization_enabled })
-    .eq("id", ctx.user.id);
+  const { error } = await recordConsent(ctx.supabase, {
+    purpose: "personalization",
+    granted,
+    method: "settings_toggle",
+    source: { route: "PATCH /api/profile" },
+  });
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error }, { status: 500 });
+  }
+
+  if (granted) return NextResponse.json({ ok: true });
+
+  const purge = await purgeDerivedData(
+    createAdminClient(),
+    ctx.user.id,
+    purgeTargets("personalization"),
+  );
+  if (purge.errors.length > 0) {
+    return NextResponse.json(
+      { error: "withdraw incomplete", details: purge.errors },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ ok: true });

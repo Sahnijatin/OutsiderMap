@@ -116,7 +116,14 @@ export async function POST(request: NextRequest) {
     payload,
   });
   if (logError) {
-    return NextResponse.json({ error: logError.message }, { status: 500 });
+    // Log and carry on. A member who has withdrawn personalization consent is
+    // REFUSED this insert by RLS (migration 58), by design - and the save they
+    // actually asked for has already succeeded above. Failing the request here
+    // would 500 every save for every member who opted out.
+    console.info(
+      "[interactions] event not logged",
+      JSON.stringify({ user: user.id, event: eventType, reason: logError.message }),
+    );
   }
 
   // A click on a served answer's pick is also a precise acceptance (#120),

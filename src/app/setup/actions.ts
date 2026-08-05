@@ -12,10 +12,114 @@ import {
   writeTasteSummary,
 } from "@/lib/taste/profile";
 import { QUIZ_VERSION, type QuizAnswers } from "@/lib/taste/quiz";
+import { verifyDateOfBirth } from "@/lib/consent/age";
+import { recordConsent, recordConsents } from "@/lib/consent/record";
+import {
+  withdrawablePurposes,
+  type ConsentPurpose,
+} from "@/lib/consent/purposes";
 
 export type ClaimResult =
   | { ok: true; claimed?: string }
   | { ok: false; error: string };
+
+export type NoticeResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Step 0 of /setup: the DPDP notice, the age gate, and itemized consent.
+ *
+ * This is the collection point the whole compliance story hangs off. Before
+ * it, a member signed in and the quiz started - no notice, no age check, and
+ * no artifact recording what anyone agreed to.
+ *
+ * Order is deliberate: the date of birth is settled FIRST, through the RPC
+ * that computes the age server-side, and consent is only recorded if an adult
+ * came back. Recording consent rows for a 15-year-old and then blocking them
+ * would leave us holding exactly the child's data the Act tells us not to
+ * process.
+ */
+export async function acceptNotice(input: {
+  dateOfBirth: string;
+  purposes: Record<string, boolean>;
+}): Promise<NoticeResult> {
+  await requireUser();
+
+  const verdict = verifyDateOfBirth(input.dateOfBirth ?? "", Date.now());
+  if (!verdict.ok && verdict.reason !== "underage") {
+    return {
+      ok: false,
+      error:
+        verdict.reason === "future"
+          ? "That date is in the future."
+          : verdict.reason === "implausible"
+            ? "That date doesn't look right."
+            : "Enter your date of birth as YYYY-MM-DD.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("set_date_of_birth", {
+    p_dob: input.dateOfBirth,
+  });
+
+  if (error) {
+    // The one-shot guard: a second attempt is a correction request, not a
+    // retry, and is handled by the grievance officer.
+    if (error.message.includes("already recorded")) {
+      redirect("/setup");
+    }
+    console.error("set_date_of_birth failed", { message: error.message });
+    return { ok: false, error: "Couldn't save that. Try again." };
+  }
+
+  const outcome = Array.isArray(data) ? data[0] : data;
+  if (!outcome?.adult) redirect("/blocked");
+
+  // Adult, verified. Now the itemized consent - essential first, because it
+  // is the one that stamps policy_version_accepted and clears the gate.
+  const entries: Array<{ purpose: ConsentPurpose; granted: boolean }> = [
+    { purpose: "essential", granted: true },
+    ...withdrawablePurposes().map((spec) => ({
+      purpose: spec.purpose,
+      granted: input.purposes?.[spec.purpose] === true,
+    })),
+  ];
+
+  const { errors } = await recordConsents(supabase, entries, "signup", {
+    step: "setup_notice",
+  });
+  if (errors.length > 0) {
+    console.error("acceptNotice consent write failed", { errors });
+    return { ok: false, error: "Couldn't save your choices. Try again." };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Re-accepting after a material policy change.
+ *
+ * Only the essential purpose is restamped: the member's existing per-purpose
+ * choices are theirs and survive a policy revision. Silently re-granting
+ * everything under a new version would turn "we updated our policy" into a
+ * consent reset, which is the opposite of what §6 is for.
+ */
+export async function acceptReconsent(): Promise<NoticeResult> {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  const { error } = await recordConsent(supabase, {
+    purpose: "essential",
+    granted: true,
+    method: "reconsent",
+    source: { step: "setup_reconsent", user: user.id },
+  });
+  if (error) {
+    console.error("acceptReconsent failed", { message: error });
+    return { ok: false, error: "Couldn't save that. Try again." };
+  }
+  return { ok: true };
+}
 
 /**
  * Step 1 of /setup: claim a username. One shot - the DB trigger blocks any

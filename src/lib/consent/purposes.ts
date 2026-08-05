@@ -85,6 +85,17 @@ export const PURPOSES: readonly PurposeSpec[] = [
   },
 ];
 
+/**
+ * The purpose keys as a typed tuple, for `z.enum()` at the API boundary.
+ * Derived from PURPOSES so a new purpose is accepted by the routes the moment
+ * it is declared, rather than being silently rejected until someone remembers
+ * to update a second list.
+ */
+export const CONSENT_PURPOSE_KEYS = PURPOSES.map((p) => p.purpose) as [
+  ConsentPurpose,
+  ...ConsentPurpose[],
+];
+
 export const PURPOSE_BY_KEY: Readonly<Record<ConsentPurpose, PurposeSpec>> =
   Object.fromEntries(PURPOSES.map((p) => [p.purpose, p])) as Record<
     ConsentPurpose,

@@ -36,7 +36,8 @@ function withoutDimensions(quizAnswers: Json | null): Json {
   if (!quizAnswers || typeof quizAnswers !== "object" || Array.isArray(quizAnswers)) {
     return {};
   }
-  const { dimensions: _dimensions, ...rest } = quizAnswers as Record<string, Json>;
+  const rest = { ...(quizAnswers as Record<string, Json>) };
+  delete rest.dimensions;
   return rest as Json;
 }
 
