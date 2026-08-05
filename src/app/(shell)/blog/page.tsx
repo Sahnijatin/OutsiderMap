@@ -6,9 +6,12 @@ import { BlogComposer } from "./blog-composer";
 export const metadata: Metadata = { title: "Write a blog · OutsiderMap" };
 
 /**
- * Long-form authoring. Separate from /compose because a blog needs a title,
- * an ordered block body and a required place anchor - the quick composer is
- * for a line and a photo.
+ * The Blog tab: writing a long-form piece about a place.
+ *
+ * It is a top-level destination rather than something behind the feed's
+ * composer - a member should reach it in one tap. Separate from /compose
+ * because a blog needs a title, an ordered block body and a required place
+ * anchor; the quick composer is for a line and a photo.
  *
  * `?place=<slug>` pre-fills the anchor, so "write about this place" from a
  * place page lands with the hard part already done.

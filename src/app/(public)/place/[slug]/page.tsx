@@ -262,7 +262,7 @@ export default async function PlacePage({
         )}
         <AddPlacePhoto slug={place.slug} />
         <Link
-          href={`/blog/new?place=${encodeURIComponent(place.slug)}`}
+          href={`/blog?place=${encodeURIComponent(place.slug)}`}
           className="rounded-full border border-line px-3.5 py-1.5 text-xs text-ink-dim transition-colors hover:text-ink"
         >
           Write about this place

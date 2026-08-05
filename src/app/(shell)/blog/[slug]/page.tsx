@@ -33,7 +33,10 @@ export default async function BlogPage({
   const { data: article } = await supabase
     .from("post_articles")
     .select(
-      "post_id, title, body, reading_minutes, created_at, post:posts(id, author_id, place_id, status, created_at, like_count, want_count, place:places(id, slug, name, area))",
+      // places is pinned to posts_place_id_fkey: post_article_places is a
+      // junction table, so PostgREST also infers a many-to-many posts<->places
+      // path and an unqualified embed is ambiguous (PGRST201). See CARD_FIELDS.
+      "post_id, title, body, reading_minutes, created_at, post:posts(id, author_id, place_id, status, created_at, like_count, want_count, place:places!posts_place_id_fkey(id, slug, name, area))",
     )
     .eq("slug", slug)
     .maybeSingle();

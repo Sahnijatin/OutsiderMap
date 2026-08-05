@@ -24,7 +24,7 @@ export const POST_TYPES = [
 ] as const;
 /**
  * What the quick composer offers. 'article' is deliberately absent: a blog
- * needs a title and the block editor, so it is authored at /blog/new. Keep
+ * needs a title and the block editor, so it is authored at /blog. Keep
  * POST_TYPES as the faithful mirror of the DB check constraint.
  */
 export const QUICK_POST_TYPES = [
