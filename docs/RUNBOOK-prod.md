@@ -16,7 +16,8 @@ Set in Vercel → Project → Settings → Environment Variables (Production).
 | `SUPABASE_SERVICE_ROLE_KEY` | Crons, ingest, account deletion all fail. |
 | `OPENAI_API_KEY` | Embeddings die: chat, quest generation, Right Now, seeding. Needed even with `AI_PROVIDER=anthropic`. |
 | `ANTHROPIC_API_KEY` | Chat + quest generation fail (default provider). |
-| `CRON_SECRET` | Ingest never processes, the embed sweep and nightly learning recompute never run. Any long random string; must match nothing else. |
+| `CRON_SECRET` | Ingest never processes, and the embed sweep, nightly learning recompute and **DPDP retention sweep** never run. Any long random string; must match nothing else. |
+| `DPDP_GRIEVANCE_OFFICER_NAME` + `_EMAIL` | `/privacy` and `/blocked` render "to be appointed" instead of a contact. The pages still work, but you are not DPDP-compliant without it. Both are required together. `_ADDRESS` is optional. Read at module scope — changing it needs a redeploy. |
 | `NEXT_PUBLIC_APP_URL` | Absolute links in email and share flows break. Set to `https://www.outsidermap.com`. |
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Rate limiting silently off (fails open). |
 | `RESEND_API_KEY` / `RESEND_FROM` / `RESEND_ADMIN_EMAIL` | Transactional email silently skipped. |
