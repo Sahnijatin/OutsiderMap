@@ -32,7 +32,9 @@ const RETIRED = ["/onboarding", "/reels", "/join", "/thank-you"];
 // Anon-viewable by design: the shared taste card is the invite loop's landing
 // page and its opengraph-image is fetched by link scrapers - it must never
 // sit behind the auth wall.
-const PUBLIC_SURFACES = ["/card", "/place", "/privacy", "/terms"];
+// /blocked renders for someone whose session we just dropped at the age gate,
+// so walling it would bounce them to /sign-in and straight back again.
+const PUBLIC_SURFACES = ["/card", "/place", "/privacy", "/terms", "/blocked"];
 
 describe("PROTECTED_PREFIXES", () => {
   it("covers every member surface", () => {
