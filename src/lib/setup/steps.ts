@@ -53,6 +53,7 @@ export const SETUP_STEPS: SetupStep[] = [
     id: "username",
     eyebrow: "01 / name",
     title: "That number is yours. Forever.",
+    lead: "Now pick the name that goes with it. Lowercase, no spaces - and choose carefully, it's one shot.",
     tip: "Short beats clever. This is how members find you in chat and on the map, and it's the one thing here you can't take back.",
   },
   {

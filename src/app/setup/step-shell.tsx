@@ -16,11 +16,18 @@ export function SetupStepShell({
   id,
   children,
   footer,
+  eyebrow,
 }: {
   id: SetupStepId;
   children: ReactNode;
   /** Secondary controls - "Skip for now", "Not now". */
   footer?: ReactNode;
+  /**
+   * Replaces the step's own eyebrow. Only the username screen uses it, to keep
+   * the outsider-number reveal - the one moment the flow spends the accent on
+   * an eyebrow rather than keeping it quiet.
+   */
+  eyebrow?: ReactNode;
 }) {
   const step = setupStep(id);
 
@@ -35,7 +42,7 @@ export function SetupStepShell({
 
       <div className="om-stagger flex flex-1 flex-col justify-center gap-6 py-8">
         <div className="flex flex-col gap-3">
-          <p className="voice">{step.eyebrow}</p>
+          {eyebrow ?? <p className="voice">{step.eyebrow}</p>}
           <h1 className="text-balance font-display text-3xl italic">
             {step.title}
           </h1>

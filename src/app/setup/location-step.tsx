@@ -35,7 +35,16 @@ export function LocationStep() {
     if (advanced.current) return;
     advanced.current = true;
     startTransition(async () => {
-      await markSetupStep("location");
+      try {
+        await markSetupStep("location");
+      } catch {
+        // Unlatch, or the button stays inert for the life of this mount and
+        // the screen becomes a dead end - there is no column here to fall back
+        // on the way home_area covers the city step.
+        advanced.current = false;
+        setNote("That didn't take. Try again.");
+        return;
+      }
       router.refresh();
     });
   }

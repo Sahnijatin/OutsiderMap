@@ -10,6 +10,7 @@ import {
   USERNAME_PATTERN,
 } from "@/lib/identity/username";
 import { claimUsername } from "./actions";
+import { SetupStepShell } from "./step-shell";
 
 type Availability = "idle" | "checking" | "free" | "taken" | "invalid";
 
@@ -81,20 +82,18 @@ export function UsernameStep({
   }
 
   return (
-    <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 pb-10 pt-[calc(var(--safe-top)+2.5rem)]">
-      <div className="flex flex-col gap-3">
+    // Same shell as the other screens, so this reads as screen 1 of 12 rather
+    // than a prologue - and so its pro tip and progress bar are not the only
+    // ones missing. The heading and lead now live in SETUP_STEPS with the rest
+    // of the flow's copy; only the outsider-number eyebrow is local.
+    <SetupStepShell
+      id="username"
+      eyebrow={
         <span className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
           outsider {formatOutsiderNumber(outsiderNumber)}
         </span>
-        <h1 className="font-display text-3xl italic">
-          That number is yours. Forever.
-        </h1>
-        <p className="text-sm text-ink-dim">
-          Now pick the name that goes with it. Lowercase, no spaces - and
-          choose carefully, it&rsquo;s one shot.
-        </p>
-      </div>
-
+      }
+    >
       <form onSubmit={submit} className="flex flex-col gap-3">
         <label htmlFor="username" className="sr-only">
           Username
@@ -152,6 +151,6 @@ export function UsernameStep({
         </Button>
         {error && <p className="text-sm text-danger">{error}</p>}
       </form>
-    </div>
+    </SetupStepShell>
   );
 }

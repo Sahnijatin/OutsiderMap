@@ -45,6 +45,13 @@ function completed(profile: SetupProfileShape): Set<string> {
   // claimUsername matches zero rows, reports success, refreshes, and lands on
   // the same screen again - a loop with no way out.
   if (profile.username) done.add("username");
+  // Same reasoning for the home area: nothing but a deliberate answer ever
+  // writes it (unlike home_city, which is defaulted, or display_name/avatar_url,
+  // which handle_new_user prefills from the OAuth provider). Without this, a
+  // marker write that failed - the RPC missing because the app shipped ahead of
+  // the migration, say - would pin the member on the city screen with no exit,
+  // since skipping calls the same RPC.
+  if (profile.home_area) done.add("city");
   return done;
 }
 
@@ -66,8 +73,21 @@ export function resolveSetupStep(
   if (opts.redo) return step("quiz");
 
   // 2. Filling gaps runs the profile screens only, and never the quiz.
+  //
+  // Resolved from COLUMN VALUES, via the same missingProfileBits the profile
+  // card uses - never from the markers. The two must agree or the card becomes
+  // a no-op: a skipped screen is marked done while leaving its column empty,
+  // and the backfill marks `identity` for anyone whose OAuth provider supplied
+  // a name, so markers say "answered" while the data says otherwise. Resolving
+  // on markers here sent those members straight back to /profile with the card
+  // still showing - and since these screens are the only avatar and area
+  // editor in the app, that left them no way to fill the gap at all.
+  //
+  // `location` is deliberately unreachable this way: its state lives in the OS,
+  // missingProfileBits can never report it, and the first run already asked.
   if (opts.fill) {
-    const next = PROFILE_STEPS.find((id) => !done.has(id));
+    const gaps = missingProfileBits(profile);
+    const next = PROFILE_STEPS.find((id) => gaps.includes(id));
     return next ? step(next) : { kind: "done", to: "/profile" };
   }
 

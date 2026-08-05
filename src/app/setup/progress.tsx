@@ -21,7 +21,10 @@ export function SetupProgress({
   className?: string;
 }) {
   return (
+    // role is what makes the label reachable - most screen readers ignore
+    // aria-label on a bare div.
     <div
+      role="group"
       className={cn("flex min-w-0 gap-1.5", className)}
       aria-label={`Screen ${index + 1} of ${total}`}
     >

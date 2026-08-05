@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeQuizDraft } from "@/lib/setup/draft";
+import { normalizeQuizDraft, quizDraftKey } from "@/lib/setup/draft";
 import { QUIZ } from "@/lib/taste/quiz";
 
 /**
@@ -89,4 +89,16 @@ describe("normalizeQuizDraft - index clamping", () => {
       expect(normalizeQuizDraft({ answers: {}, index }).index).toBe(0);
     },
   );
+});
+
+describe("quizDraftKey", () => {
+  // A shared laptop: without the suffix, whoever signs in next is seeded with
+  // the previous member's answers and submits them as their own taste profile.
+  it("scopes the draft to the member", () => {
+    expect(quizDraftKey("user-a")).not.toBe(quizDraftKey("user-b"));
+  });
+
+  it("keeps a stable, namespaced shape", () => {
+    expect(quizDraftKey("user-a")).toBe("om.setup.quiz.v1.user-a");
+  });
 });

@@ -81,11 +81,22 @@ export function normalizeQuizDraft(raw: unknown): QuizDraft {
   return { answers, index };
 }
 
+/**
+ * Scoped to the member.
+ *
+ * A shared laptop is the whole reason: without this, whoever signs in next is
+ * seeded with the previous member's answers - and then submits them as their
+ * own taste profile.
+ */
+export function quizDraftKey(userId: string): string {
+  return `${STORAGE_KEY}.${userId}`;
+}
+
 /** The stored draft, or an empty one. Never throws. */
-export function readQuizDraft(): QuizDraft {
+export function readQuizDraft(userId: string): QuizDraft {
   try {
     if (typeof localStorage === "undefined") return emptyDraft();
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(quizDraftKey(userId));
     if (!raw || raw.length > MAX_RAW_BYTES) return emptyDraft();
     return normalizeQuizDraft(JSON.parse(raw));
   } catch {
@@ -94,21 +105,62 @@ export function readQuizDraft(): QuizDraft {
 }
 
 /** Persist the draft. Never throws - a failed write just means no resume. */
-export function writeQuizDraft(draft: QuizDraft): void {
+export function writeQuizDraft(userId: string, draft: QuizDraft): void {
+  cached = draft;
   try {
-    if (typeof localStorage === "undefined") return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(quizDraftKey(userId), JSON.stringify(draft));
+    }
   } catch {
     // Private mode or quota. The in-memory answers still work this session.
   }
+  notify();
 }
 
 /** Drop the draft once the answers are safely on the server. */
-export function clearQuizDraft(): void {
+export function clearQuizDraft(userId: string): void {
+  cached = emptyDraft();
   try {
-    if (typeof localStorage === "undefined") return;
-    localStorage.removeItem(STORAGE_KEY);
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(quizDraftKey(userId));
+    }
   } catch {
     // Nothing to do - a stale draft is overwritten by the next quiz anyway.
   }
+  notify();
+}
+
+/**
+ * Exposed as an external store rather than seeded into state.
+ *
+ * /setup is server-rendered, so reading localStorage in a `useState`
+ * initialiser makes the server emit question 1 while the client emits question
+ * N - a hydration mismatch that fires precisely in the case this feature
+ * exists for. useSyncExternalStore renders the server snapshot during
+ * hydration and swaps to the real one after, which is exactly what it is for.
+ * Same shape as lib/sound/prefs.ts and lib/capacitor/platform.ts.
+ */
+const listeners = new Set<() => void>();
+let cached: QuizDraft | null = null;
+
+function notify() {
+  for (const listener of [...listeners]) listener();
+}
+
+export function subscribeQuizDraft(onChange: () => void): () => void {
+  listeners.add(onChange);
+  return () => {
+    listeners.delete(onChange);
+  };
+}
+
+/** Client snapshot. Cached, so repeat renders don't re-parse localStorage. */
+export function quizDraftSnapshot(userId: string): QuizDraft {
+  if (!cached) cached = readQuizDraft(userId);
+  return cached;
+}
+
+/** Hydration baseline: the server always renders an untouched quiz. */
+export function quizDraftServerSnapshot(): QuizDraft {
+  return EMPTY_QUIZ_DRAFT;
 }

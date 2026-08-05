@@ -88,6 +88,6 @@ async function renderStep(id: SetupStepId, profile: Profile) {
       return <LocationStep />;
 
     case "quiz":
-      return <OnboardingQuiz action={completeSetup} />;
+      return <OnboardingQuiz action={completeSetup} userId={profile.id} />;
   }
 }

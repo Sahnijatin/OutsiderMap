@@ -117,20 +117,28 @@ describe("resolveSetupStep - ?redo=1", () => {
 });
 
 describe("resolveSetupStep - ?fill=1", () => {
-  it("runs the first missing profile screen", () => {
+  const FILLED = {
+    username: "adi",
+    onboarding_completed_at: "2025-01-01T00:00:00Z",
+    home_area: "Saket",
+    display_name: "Adi",
+    avatar_url: "https://x/a.jpg",
+  };
+
+  it("runs the first screen whose data is missing", () => {
     expect(
-      stepId(profile({ username: "adi", setup_steps: ["username", "city"] }), {
-        fill: true,
-      }),
-    ).toBe("identity");
+      stepId(
+        profile({ ...FILLED, home_area: null, setup_steps: ["username"] }),
+        { fill: true },
+      ),
+    ).toBe("city");
   });
 
   it("returns to the profile once nothing is missing", () => {
     expect(
       resolveSetupStep(
         profile({
-          username: "adi",
-          onboarding_completed_at: "2025-01-01T00:00:00Z",
+          ...FILLED,
           setup_steps: ["username", "city", "identity", "location", "quiz"],
         }),
         { fill: true },
@@ -139,11 +147,101 @@ describe("resolveSetupStep - ?fill=1", () => {
   });
 
   it("never routes to the quiz", () => {
-    for (const done of [[], ["city"], ["city", "identity"], ["city", "identity", "location"]]) {
+    for (const done of [
+      [],
+      ["city"],
+      ["city", "identity"],
+      ["city", "identity", "location"],
+    ]) {
       expect(
         stepId(profile({ username: "adi", setup_steps: done }), { fill: true }),
       ).not.toBe("quiz");
     }
+  });
+
+  // The regression this suite exists for. Every earlier fill test kept the
+  // markers and the columns in agreement, which is exactly why resolving on
+  // markers looked correct: skipping a screen marks it done while writing no
+  // data, and the migration marks `identity` for anyone whose OAuth provider
+  // supplied a name. Resolving on markers sent those members straight back to
+  // /profile with the card still up - and these screens are the only avatar
+  // and area editor in the app, so the gap became unfillable.
+  describe("when the markers and the columns disagree", () => {
+    it("offers identity to a member marked done but holding no avatar", () => {
+      expect(
+        stepId(
+          profile({
+            ...FILLED,
+            avatar_url: null,
+            setup_steps: ["username", "quiz", "identity"],
+          }),
+          { fill: true },
+        ),
+      ).toBe("identity");
+    });
+
+    it("offers city to a member who skipped it", () => {
+      expect(
+        stepId(
+          profile({
+            ...FILLED,
+            home_area: null,
+            setup_steps: ["username", "quiz", "city", "identity"],
+          }),
+          { fill: true },
+        ),
+      ).toBe("city");
+    });
+
+    it("agrees with the card on every combination", () => {
+      // Whatever the card offers to fix, fill must be able to reach - and when
+      // the card shows nothing, fill must not strand the member on a screen.
+      for (const home_area of ["Saket", null]) {
+        for (const avatar_url of ["https://x/a.jpg", null]) {
+          for (const display_name of ["Adi", null]) {
+            const p = profile({
+              ...FILLED,
+              home_area,
+              avatar_url,
+              display_name,
+              // Every marker set: the worst case for a marker-driven resolver.
+              setup_steps: ["username", "city", "identity", "location", "quiz"],
+            });
+            const gaps = missingProfileBits(p);
+            const resolved = resolveSetupStep(p, { fill: true });
+            if (gaps.length === 0) {
+              expect(resolved).toEqual({ kind: "done", to: "/profile" });
+            } else {
+              expect(resolved.kind).toBe("step");
+              expect(gaps).toContain(
+                resolved.kind === "step" ? resolved.step.id : null,
+              );
+            }
+          }
+        }
+      }
+    });
+
+    it("never offers location, which the card can never report", () => {
+      expect(
+        stepId(profile({ ...FILLED, setup_steps: [] }), { fill: true }),
+      ).not.toBe("location");
+    });
+  });
+});
+
+describe("a marker write that failed", () => {
+  // If the app ships ahead of migration 57 the RPC does not exist, so nothing
+  // gets marked - and skipping calls the same RPC. The column fallbacks are
+  // what stop that pinning someone on a screen with no exit.
+  it("does not re-ask for a home area that is already saved", () => {
+    expect(
+      stepId(profile({ username: "adi", home_area: "Saket", setup_steps: [] })),
+    ).toBe("identity");
+  });
+
+  it("does not re-ask for a username that is already claimed", () => {
+    expect(stepId(profile({ username: "adi", setup_steps: [] }))).toBe("city");
   });
 });
 

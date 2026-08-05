@@ -23,7 +23,9 @@ export async function POST(request: NextRequest) {
   if (!ctx) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const allowed = await checkRateLimit(`avatar:${ctx.user.id}`, 20, 3600);
+  // Its own key: sharing one with the issue route would halve the real ceiling,
+  // since every upload spends one of each.
+  const allowed = await checkRateLimit(`avatar-confirm:${ctx.user.id}`, 20, 3600);
   if (!allowed) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
@@ -54,10 +56,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "missing_object" }, { status: 400 });
   }
 
-  const url = avatarPublicUrl(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    path,
-  );
+  // Fail rather than persist a relative URL: avatar_url is read all over the
+  // app, and a broken value written once outlives the misconfiguration.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    return NextResponse.json({ error: "misconfigured" }, { status: 500 });
+  }
+  const url = avatarPublicUrl(supabaseUrl, path);
   const { error } = await ctx.supabase
     .from("profiles")
     .update({ avatar_url: url })

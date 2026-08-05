@@ -33,6 +33,12 @@ const RULES: { match: RegExp; copy: string }[] = [
     match: /expired|invalid.*(code|token|otp)|(code|token|otp).*invalid/i,
     copy: "That code didn't match. Check the email and try again.",
   },
+  {
+    // A typo'd address is the most common failure on the email path, and the
+    // generic line leaves the member with nothing to act on.
+    match: /email|address|signups? not allowed|not authorized/i,
+    copy: "That email address didn't work. Check it and try again.",
+  },
 ];
 
 export function friendlyAuthError(raw: string | null | undefined): string {

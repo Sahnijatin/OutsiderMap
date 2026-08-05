@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useState, useTransition } from "react";
+import { useCallback, useState, useSyncExternalStore, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -10,7 +10,9 @@ import { cn } from "@/lib/utils";
 import { QUIZ, type QuizAnswers } from "@/lib/taste/quiz";
 import {
   clearQuizDraft,
-  readQuizDraft,
+  quizDraftServerSnapshot,
+  quizDraftSnapshot,
+  subscribeQuizDraft,
   writeQuizDraft,
 } from "@/lib/setup/draft";
 import { setupStepIndex } from "@/lib/setup/steps";
@@ -21,18 +23,34 @@ const QUIZ_OFFSET = setupStepIndex("quiz");
 
 export function OnboardingQuiz({
   action,
+  userId,
 }: {
   /** Server action run with the final answers (completeSetup). */
   action: (answers: QuizAnswers) => Promise<void>;
+  /** Scopes the local draft, so a shared device never crosses members. */
+  userId: string;
 }) {
   const reduced = useReducedMotion() ?? false;
-  // Seeded from the local draft so a refresh mid-quiz resumes where it left
-  // off. The lazy initialiser keeps localStorage out of the render path and
-  // out of the server render entirely.
-  const [step, setStep] = useState(() => readQuizDraft().index);
-  const [answers, setAnswers] = useState<QuizAnswers>(
-    () => readQuizDraft().answers,
+
+  // The stored draft, read as an external store so hydration is safe: the
+  // server (and the client's hydrating render) see an untouched quiz, and the
+  // resume applies immediately after. Seeding useState from localStorage would
+  // mismatch on exactly the reload this feature exists to survive.
+  const stored = useSyncExternalStore(
+    subscribeQuizDraft,
+    useCallback(() => quizDraftSnapshot(userId), [userId]),
+    quizDraftServerSnapshot,
   );
+  // Local edits take over the moment there are any; until then the draft is
+  // the truth.
+  const [local, setLocal] = useState<{
+    answers: QuizAnswers;
+    index: number;
+  } | null>(null);
+  const state = local ?? stored;
+  const step = state.index;
+  const answers = state.answers;
+
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -40,21 +58,17 @@ export function OnboardingQuiz({
   const isLast = step === QUIZ.length - 1;
   const current = answers[question.id];
 
-  function persist(nextAnswers: QuizAnswers, nextIndex: number) {
-    writeQuizDraft({ answers: nextAnswers, index: nextIndex });
+  function commit(nextAnswers: QuizAnswers, nextIndex: number) {
+    setLocal({ answers: nextAnswers, index: nextIndex });
+    writeQuizDraft(userId, { answers: nextAnswers, index: nextIndex });
   }
 
   function answer(value: string | string[]) {
-    setAnswers((prev) => {
-      const updated = { ...prev, [question.id]: value };
-      persist(updated, step);
-      return updated;
-    });
+    commit({ ...answers, [question.id]: value }, step);
   }
 
   function goTo(index: number, nextAnswers?: QuizAnswers) {
-    setStep(index);
-    persist(nextAnswers ?? answers, index);
+    commit(nextAnswers ?? answers, index);
   }
 
   function next(updated?: QuizAnswers) {
@@ -62,12 +76,18 @@ export function OnboardingQuiz({
       const finalAnswers = updated ?? answers;
       setError(null);
       startTransition(async () => {
+        // Cleared before the call, restored if it fails.
+        //
+        // completeSetup ends in redirect(), which throws a control-flow
+        // exception server-side, so a clear placed after the await is not
+        // guaranteed to run. A draft that outlives its own submission is worse
+        // than one cleared early: a later "Retake the quiz" would mount
+        // pre-filled with the answers the retake exists to replace.
+        clearQuizDraft(userId);
         try {
           await action(finalAnswers);
-          // Only once the server has the answers - clearing earlier would lose
-          // them if the action throws.
-          clearQuizDraft();
         } catch {
+          writeQuizDraft(userId, { answers: finalAnswers, index: step });
           setError(
             "Something broke while saving. Your answers are safe - try again.",
           );
@@ -80,8 +100,7 @@ export function OnboardingQuiz({
 
   function pickSingle(value: string) {
     const updated = { ...answers, [question.id]: value };
-    setAnswers(updated);
-    persist(updated, step);
+    commit(updated, step);
     // Auto-advance feels cinematic; tiny delay lets the selection register.
     setTimeout(() => next(updated), reduced ? 0 : 220);
   }

@@ -99,7 +99,17 @@ export async function saveHome(
     return { ok: false, error: "Couldn't save that. Try again." };
   }
 
-  await supabase.rpc("mark_setup_step", { step: "city" });
+  // A failed marker leaves the resolver on this same screen, so report it
+  // rather than returning ok and refreshing into an apparent no-op. The data
+  // itself is saved; home_area doubles as evidence in the resolver, so this is
+  // belt and braces rather than the only guard.
+  const { error: markError } = await supabase.rpc("mark_setup_step", {
+    step: "city",
+  });
+  if (markError) {
+    console.error("mark_setup_step(city) failed", { message: markError.message });
+    return { ok: false, error: "Saved, but something stuck. Try again." };
+  }
   return { ok: true };
 }
 
@@ -126,7 +136,15 @@ export async function saveDisplayName(
     return { ok: false, error: "Couldn't save that. Try again." };
   }
 
-  await supabase.rpc("mark_setup_step", { step: "identity" });
+  const { error: markError } = await supabase.rpc("mark_setup_step", {
+    step: "identity",
+  });
+  if (markError) {
+    console.error("mark_setup_step(identity) failed", {
+      message: markError.message,
+    });
+    return { ok: false, error: "Saved, but something stuck. Try again." };
+  }
   return { ok: true };
 }
 

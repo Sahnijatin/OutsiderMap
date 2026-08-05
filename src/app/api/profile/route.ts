@@ -128,9 +128,12 @@ export async function PATCH(request: NextRequest) {
 
   // Record which setup screens this satisfied, so the flow stops asking and
   // the profile nudge retires. Never fatal: the data landed either way.
+  // Only a value counts as an answer - clearing a name or an area is not the
+  // member telling us who they are, and marking the screen done for it would
+  // retire the profile nudge that exists to ask again.
   const steps: SetupStepId[] = [];
-  if ("home_city" in body || "home_area" in body) steps.push("city");
-  if ("display_name" in body) steps.push("identity");
+  if (body.home_city != null || body.home_area != null) steps.push("city");
+  if (body.display_name != null) steps.push("identity");
   for (const step of steps) {
     await ctx.supabase.rpc("mark_setup_step", { step });
   }
