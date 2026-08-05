@@ -71,7 +71,11 @@ export function CoachMark({
       style={{ left: placement?.x ?? 0, top: placement?.y ?? 0 }}
       className={cn(
         "absolute w-[min(20rem,calc(100vw-1.5rem))] rounded-card border border-line bg-surface p-4 outline-none",
-        !placement && "pointer-events-none",
+        // The host layer is pointer-events-none so the spotlit nav item stays
+        // reachable; the panel opts back in. One class either way, never both -
+        // cn() concatenates without merging, so a base plus an override would
+        // leave the winner up to stylesheet order.
+        placement ? "pointer-events-auto" : "pointer-events-none",
       )}
     >
       {placement && (

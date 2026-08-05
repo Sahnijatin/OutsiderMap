@@ -66,6 +66,11 @@ const ROUTE_TO_INDEX: ReadonlyMap<string, number> = new Map(
   TOUR_STEPS.map((step, index) => [step.route, index]),
 );
 
+/** Clicking the dim must not steal focus out of the panel. */
+function swallowFocus(event: { preventDefault: () => void }) {
+  event.preventDefault();
+}
+
 export function TourHost() {
   const state = useTourState();
   const blocked = useTourBlocked();
@@ -319,6 +324,27 @@ export function TourHost() {
     return () => document.removeEventListener("click", onClick, true);
   }, [running, stepIndex]);
 
+  // --- escape --------------------------------------------------------------
+
+  // Escape lives on the document, not on the layer's onKeyDown, because focus
+  // is not guaranteed to be inside the overlay: the tour is deliberately
+  // non-modal, so tapping the spotlit nav item moves focus to that <Link>, and
+  // a step in flight has no panel mounted at all. A dismissal that only works
+  // from one focus position is not "keyboard-dismissible".
+  //
+  // The directional keys stay on the panel on purpose - hijacking arrows
+  // document-wide would fight Leaflet's keyboard panning and any focused input.
+  useEffect(() => {
+    if (!running) return;
+    const onEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      endTour("skipped");
+    };
+    document.addEventListener("keydown", onEscape, true);
+    return () => document.removeEventListener("keydown", onEscape, true);
+  }, [running]);
+
   // --- focus ---------------------------------------------------------------
 
   useEffect(() => {
@@ -343,11 +369,8 @@ export function TourHost() {
   // --- keyboard ------------------------------------------------------------
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      endTour("skipped");
-      return;
-    }
+    // Escape is handled document-wide above, so it works from any focus
+    // position rather than only from inside this subtree.
     if (event.key === "Tab") {
       if (panelRef.current) trapTab(panelRef.current, event);
       return;
@@ -405,7 +428,11 @@ export function TourHost() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: reduced ? 0 : 0.2, ease: easeOutExpo }}
-          className="fixed inset-0 z-[1200] overflow-hidden"
+          // pointer-events-none is load-bearing, not tidiness: a full-viewport
+          // fixed layer with default pointer events swallows every click,
+          // including the one over the spotlight's "hole". The blocker rects
+          // and the panel opt back in individually.
+          className="pointer-events-none fixed inset-0 z-[1200] overflow-hidden"
         >
           {/* Inset probes: 1px spans that actually lay out, so the env()/calc()
               layout tokens can be read as real pixels. */}
@@ -423,22 +450,29 @@ export function TourHost() {
           {/* Hit-testing: four transparent rects framing the target, leaving a
               real pointer hole so the spotlit nav item stays tappable. The
               seams between them are invisible and a stray 1px click through
-              one costs nothing. */}
+              one costs nothing.
+
+              onMouseDown preventDefault keeps focus in the panel when the dim
+              is clicked. Without it the browser blurs to <body>, and every
+              key handler below - Escape included - stops receiving anything. */}
           {showStep && framed && (
             <>
               <div
                 aria-hidden
-                className="absolute inset-x-0 top-0 touch-none"
+                onMouseDown={swallowFocus}
+                className="pointer-events-auto absolute inset-x-0 top-0 touch-none"
                 style={{ height: Math.max(0, framed.y) }}
               />
               <div
                 aria-hidden
-                className="absolute inset-x-0 bottom-0 touch-none"
+                onMouseDown={swallowFocus}
+                className="pointer-events-auto absolute inset-x-0 bottom-0 touch-none"
                 style={{ top: framed.y + framed.height }}
               />
               <div
                 aria-hidden
-                className="absolute left-0 touch-none"
+                onMouseDown={swallowFocus}
+                className="pointer-events-auto absolute left-0 touch-none"
                 style={{
                   top: framed.y,
                   height: framed.height,
@@ -447,7 +481,8 @@ export function TourHost() {
               />
               <div
                 aria-hidden
-                className="absolute right-0 touch-none"
+                onMouseDown={swallowFocus}
+                className="pointer-events-auto absolute right-0 touch-none"
                 style={{
                   top: framed.y,
                   height: framed.height,
