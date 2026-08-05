@@ -35,9 +35,17 @@ export class FeedQueryError extends Error {}
  *
  * `article` is the long-form child (migration 0056); it is null for every
  * other post type.
+ *
+ * The place embed MUST name `posts_place_id_fkey` explicitly. Migration 0056
+ * added post_article_places(post_id, place_id) with both columns as the
+ * composite primary key - which is exactly PostgREST's definition of a junction
+ * table, so it infers a second, many-to-many posts<->places relationship
+ * through it. With two candidate paths an unqualified `place:places(...)` is
+ * ambiguous and the whole query fails with PGRST201, taking the feed down.
+ * Naming the foreign key pins it to the direct posts.place_id path.
  */
 export const CARD_FIELDS =
-  "id, author_id, type, place_id, area, city, location_precision, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places(id, slug, name, area), article:post_articles(title, slug, reading_minutes)";
+  "id, author_id, type, place_id, area, city, location_precision, action, mood, body, visibility, status, like_count, comment_count, want_count, created_at, place:places!posts_place_id_fkey(id, slug, name, area), article:post_articles(title, slug, reading_minutes)";
 
 /** followees + self - the "home" author set. */
 async function networkAuthorIds(

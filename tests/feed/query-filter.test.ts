@@ -77,4 +77,21 @@ describe("CARD_FIELDS", () => {
     expect(CARD_FIELDS).toContain("title");
     expect(CARD_FIELDS).toContain("slug");
   });
+
+  /**
+   * This one took the feed down in production. Migration 0056 added
+   * post_article_places(post_id, place_id) with both columns forming the
+   * composite primary key - PostgREST's exact definition of a junction table -
+   * so it infers a SECOND, many-to-many posts<->places relationship alongside
+   * posts.place_id. An unqualified `place:places(...)` then has two candidate
+   * paths, PostgREST refuses with PGRST201, and every query using this string
+   * throws: the feed, the single post page, /api/feed and the profile route.
+   *
+   * Naming the foreign key is the fix. Dropping the qualifier looks like a
+   * harmless tidy-up and is a 500 on four surfaces, so it is pinned here.
+   */
+  it("pins the place embed to posts_place_id_fkey", () => {
+    expect(CARD_FIELDS).toContain("place:places!posts_place_id_fkey(");
+    expect(CARD_FIELDS).not.toMatch(/place:places\(/);
+  });
 });
