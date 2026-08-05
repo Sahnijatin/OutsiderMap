@@ -42,47 +42,61 @@ export async function acceptNotice(input: {
   dateOfBirth: string;
   purposes: Record<string, boolean>;
 }): Promise<NoticeResult> {
-  await requireUser();
-
-  const verdict = verifyDateOfBirth(input.dateOfBirth ?? "", Date.now());
-  if (!verdict.ok && verdict.reason !== "underage") {
-    return {
-      ok: false,
-      error:
-        verdict.reason === "future"
-          ? "That date is in the future."
-          : verdict.reason === "implausible"
-            ? "That date doesn't look right."
-            : "Enter your date of birth as YYYY-MM-DD.",
-    };
-  }
-
+  const user = await requireUser();
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("set_date_of_birth", {
-    p_dob: input.dateOfBirth,
-  });
 
-  if (error) {
-    // The one-shot guard: a second attempt is a correction request, not a
-    // retry, and is handled by the grievance officer.
-    if (error.message.includes("already recorded")) {
-      redirect("/setup");
+  // The date of birth is one-shot, so this has to be re-entrant: a previous
+  // attempt may have saved it and then failed on the consent write. Skip
+  // straight to the consent it is missing rather than raising "already
+  // recorded" and looping.
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("date_of_birth, blocked_at")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (existing?.blocked_at) redirect("/blocked");
+
+  if (!existing?.date_of_birth) {
+    const verdict = verifyDateOfBirth(input.dateOfBirth ?? "", Date.now());
+    if (!verdict.ok && verdict.reason !== "underage") {
+      return {
+        ok: false,
+        error:
+          verdict.reason === "future"
+            ? "That date is in the future."
+            : verdict.reason === "implausible"
+              ? "That date doesn't look right."
+              : "Enter your date of birth as YYYY-MM-DD.",
+      };
     }
-    console.error("set_date_of_birth failed", { message: error.message });
-    return { ok: false, error: "Couldn't save that. Try again." };
+
+    const { data, error } = await supabase.rpc("set_date_of_birth", {
+      p_dob: input.dateOfBirth,
+    });
+    if (error) {
+      console.error("set_date_of_birth failed", { message: error.message });
+      return { ok: false, error: "Couldn't save that. Try again." };
+    }
+
+    const outcome = Array.isArray(data) ? data[0] : data;
+    if (!outcome?.adult) redirect("/blocked");
   }
 
-  const outcome = Array.isArray(data) ? data[0] : data;
-  if (!outcome?.adult) redirect("/blocked");
-
-  // Adult, verified. Now the itemized consent - essential first, because it
-  // is the one that stamps policy_version_accepted and clears the gate.
+  // Adult, verified. Now the itemized consent - essential LAST, deliberately.
+  //
+  // Recording essential is what stamps policy_version_accepted, which is what
+  // clears the gate. Do it first and a failure on any later purpose leaves the
+  // member through the door with their optional choices unrecorded, silently
+  // defaulting to refused, and never asked again. Doing it last means a
+  // partial failure leaves the gate closed and they simply see this screen
+  // again.
   const entries: Array<{ purpose: ConsentPurpose; granted: boolean }> = [
-    { purpose: "essential", granted: true },
     ...withdrawablePurposes().map((spec) => ({
       purpose: spec.purpose,
       granted: input.purposes?.[spec.purpose] === true,
     })),
+    { purpose: "essential", granted: true },
   ];
 
   const { errors } = await recordConsents(supabase, entries, "signup", {

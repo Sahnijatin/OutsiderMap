@@ -121,12 +121,23 @@ async function reconcileWithdrawnConsent(
   admin: Admin,
   errors: string[],
 ): Promise<number> {
+  // Scan wide, repair narrow.
+  //
+  // Almost every withdrawn member is already clean, so a small scan window
+  // would return the same clean rows every night (the query has no meaningful
+  // order, so Postgres hands back roughly the same page each time) and a
+  // member further down the table would never be reached. Scanning 500 and
+  // capping the expensive work at 25 keeps the run bounded without starving
+  // the tail.
+  const SCAN = 500;
+  const MAX_REPAIRS = 25;
+
   const { data, error } = await admin
     .from("consents")
     .select("user_id")
     .eq("purpose", "personalization")
     .eq("granted", false)
-    .limit(25);
+    .limit(SCAN);
   if (error) {
     errors.push(`consent reconciliation select: ${error.message}`);
     return 0;
@@ -134,6 +145,7 @@ async function reconcileWithdrawnConsent(
 
   let repaired = 0;
   for (const row of data ?? []) {
+    if (repaired >= MAX_REPAIRS) break;
     const { count } = await admin
       .from("member_memory")
       .select("id", { count: "exact", head: true })

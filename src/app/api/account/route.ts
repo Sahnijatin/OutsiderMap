@@ -14,10 +14,10 @@ import { eraseSubject } from "@/lib/account/erase";
  * the auth user, then the erasure record.
  *
  * The table list used to live here, inline, and had drifted about twenty
- * tables behind the schema; post-media and experience-media objects were
- * orphaned on every deletion because the rows that pointed at them cascaded
- * away first. The registry fixes both and a test now fails the build if a new
- * user-keyed table is left unclassified.
+ * tables behind the schema; post-media objects were orphaned on every deletion
+ * because the post rows that pointed at them cascaded away first. The registry
+ * fixes both, and a test now fails the build if a new user-keyed table is left
+ * unclassified.
  *
  * Best-effort but honest, unchanged: every step runs even if an earlier one
  * fails, and the response reports failures so the client never shows "deleted"

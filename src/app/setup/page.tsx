@@ -42,7 +42,10 @@ export default async function SetupPage({
     <main className="relative min-h-dvh overflow-hidden">
       <div className="halo absolute inset-0" />
       {step === "age" ? (
-        <NoticeStep maxDate={maxBirthDate} />
+        <NoticeStep
+          maxDate={maxBirthDate}
+          dobRecorded={profile.date_of_birth != null}
+        />
       ) : step === "reconsent" ? (
         <ReconsentStep action={acceptReconsent} />
       ) : step === "username" ? (

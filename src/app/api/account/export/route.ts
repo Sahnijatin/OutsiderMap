@@ -32,6 +32,20 @@ export const maxDuration = 60;
 
 const PAGE = 500;
 
+/**
+ * PostgREST puts filters in the query string, so an `.in()` list is bounded by
+ * URL length, not by memory. A member with a few hundred chat threads would
+ * blow past it and get a broken export instead of a large one, so parent ids
+ * go in fixed-size chunks.
+ */
+const PARENT_CHUNK = 100;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 /** One table, paged to its limit. Errors become a note, not a dead request. */
 async function* readPlan(
   supabase: ReturnType<typeof createAdminClient>,
@@ -39,39 +53,53 @@ async function* readPlan(
   userId: string,
 ): AsyncGenerator<unknown[]> {
   // Rows reachable only through a parent (post_media -> posts) need the parent
-  // ids first.
-  let parentIds: string[] | null = null;
+  // ids first. `null` here means "no parent hop", which is different from an
+  // empty list ("parent hop, but they own nothing").
+  let parentChunks: (string[] | null)[] = [null];
   if (plan.via) {
     const { data } = await supabase
       .from(plan.via.parent)
       .select("id")
       .eq(plan.via.parentColumn, userId);
-    parentIds = (data ?? []).map((r) => (r as unknown as { id: string }).id);
+    const parentIds = (data ?? []).map(
+      (r) => (r as unknown as { id: string }).id,
+    );
     if (parentIds.length === 0) return;
+    parentChunks = chunk(parentIds, PARENT_CHUNK);
   }
 
-  for (let offset = 0; offset < plan.limit; offset += PAGE) {
-    const size = Math.min(PAGE, plan.limit - offset);
-    let query = supabase
-      .from(plan.table)
-      .select(plan.select)
-      .range(offset, offset + size - 1);
+  let emitted = 0;
+  for (const parentIds of parentChunks) {
+    for (let offset = 0; offset < plan.limit; offset += PAGE) {
+      if (emitted >= plan.limit) return;
+      const size = Math.min(PAGE, plan.limit - emitted);
+      let query = supabase
+        .from(plan.table)
+        .select(plan.select)
+        .range(offset, offset + size - 1);
 
-    if (parentIds) query = query.in(plan.via!.localColumn, parentIds);
-    if (plan.orFilter) query = query.or(plan.orFilter);
-    for (const filter of plan.filters) query = query.eq(filter.column, filter.value);
+      if (parentIds) query = query.in(plan.via!.localColumn, parentIds);
+      if (plan.orFilter) query = query.or(plan.orFilter);
+      for (const filter of plan.filters) {
+        query = query.eq(filter.column, filter.value);
+      }
 
-    const { data, error } = await query;
-    if (error) {
-      console.error("export page failed", {
-        table: plan.table,
-        message: error.message,
-      });
-      return;
+      const { data, error } = await query;
+      if (error) {
+        console.error("export page failed", {
+          table: plan.table,
+          message: error.message,
+        });
+        return;
+      }
+      const rows = (data ?? []) as unknown[];
+      if (rows.length > 0) {
+        emitted += rows.length;
+        yield rows;
+      }
+      // A short page means this chunk is exhausted; move to the next one.
+      if (rows.length < size) break;
     }
-    const rows = (data ?? []) as unknown[];
-    if (rows.length > 0) yield rows;
-    if (rows.length < size) return;
   }
 }
 

@@ -50,7 +50,19 @@ export function evaluateGate(profile: GateProfile, nowMs: number): GateStep {
     return "blocked";
   }
 
-  if (!profile.age_verified_at) return "age";
+  // Age AND first consent are the same step, and both must be settled before
+  // anything that profiles the member.
+  //
+  // The second half matters because set_date_of_birth() and the consent write
+  // are two round trips: if the first succeeds and the second fails, the
+  // member has a verified age and no consent record. Checking only
+  // age_verified_at here would then walk them through the username step and
+  // the taste quiz - profiling them - before the reconsent check at the bottom
+  // finally noticed. Sending them back to the notice screen instead costs one
+  // extra screen in a rare failure path and closes the ordering hole.
+  if (!profile.age_verified_at || !profile.policy_version_accepted) {
+    return "age";
+  }
   if (!profile.username) return "username";
   if (!profile.onboarding_completed_at) return "quiz";
   if (needsReconsent(profile.policy_version_accepted)) return "reconsent";

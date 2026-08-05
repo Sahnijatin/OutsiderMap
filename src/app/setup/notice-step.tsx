@@ -21,7 +21,16 @@ import { acceptNotice } from "./actions";
  * purpose has its own checkbox, and the optional ones start UNCHECKED - a
  * pre-ticked box is not consent freely given.
  */
-export function NoticeStep({ maxDate }: { maxDate: string }) {
+export function NoticeStep({
+  maxDate,
+  // True on the recovery path: the date of birth is already recorded (it is
+  // one-shot) and only the consent write is outstanding. Asking for it again
+  // would be asking for something we are going to ignore.
+  dobRecorded = false,
+}: {
+  maxDate: string;
+  dobRecorded?: boolean;
+}) {
   const router = useRouter();
   const [dob, setDob] = useState("");
   const [granted, setGranted] = useState<Record<string, boolean>>({});
@@ -64,28 +73,30 @@ export function NoticeStep({ maxDate }: { maxDate: string }) {
       </div>
 
       <form onSubmit={submit} className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <label htmlFor="dob" className="text-sm font-medium text-ink">
-            Your date of birth
-          </label>
-          <Input
-            id="dob"
-            type="date"
-            required
-            max={maxDate}
-            value={dob}
-            onChange={(e) => {
-              setDob(e.target.value);
-              setError(null);
-            }}
-          />
-          <p className="text-xs leading-relaxed text-ink-dim">
-            OutsiderMap is for {MINIMUM_AGE_YEARS}s and over. The law does not
-            let us build a taste profile for a child, and a taste profile is
-            the whole product - so we ask once, and we keep the date only to
-            show we asked.
-          </p>
-        </div>
+        {!dobRecorded && (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="dob" className="text-sm font-medium text-ink">
+              Your date of birth
+            </label>
+            <Input
+              id="dob"
+              type="date"
+              required
+              max={maxDate}
+              value={dob}
+              onChange={(e) => {
+                setDob(e.target.value);
+                setError(null);
+              }}
+            />
+            <p className="text-xs leading-relaxed text-ink-dim">
+              OutsiderMap is for {MINIMUM_AGE_YEARS}s and over. The law does not
+              let us build a taste profile for a child, and a taste profile is
+              the whole product - so we ask once, and we keep the date only to
+              show we asked.
+            </p>
+          </div>
+        )}
 
         <fieldset className="flex flex-col gap-3">
           <legend className="text-sm font-medium text-ink">
@@ -131,7 +142,7 @@ export function NoticeStep({ maxDate }: { maxDate: string }) {
           </p>
         </fieldset>
 
-        <Button type="submit" disabled={pending || !dob}>
+        <Button type="submit" disabled={pending || (!dob && !dobRecorded)}>
           {pending ? <Spinner className="border-night/30 border-t-night" /> : null}
           Agree and continue
         </Button>

@@ -83,10 +83,33 @@ describe("evaluateGate", () => {
     );
   });
 
-  it("asks a member who never accepted anything", () => {
-    expect(
-      evaluateGate(profile({ policy_version_accepted: null }), NOW),
-    ).toBe("reconsent");
+  it("sends a member who never accepted anything to the notice, not a diff", () => {
+    // "reconsent" shows what CHANGED since the version they accepted. For
+    // someone who has accepted nothing there is no diff to show - they need
+    // the notice itself, which is where first consent is given.
+    expect(evaluateGate(profile({ policy_version_accepted: null }), NOW)).toBe(
+      "age",
+    );
+  });
+
+  it("returns to the notice when the age saved but the consent write failed", () => {
+    // set_date_of_birth() and the consent write are two round trips. If the
+    // first lands and the second does not, checking only age_verified_at would
+    // walk this member through the username step and the taste quiz - i.e.
+    // profile them - before the reconsent check at the bottom noticed.
+    const halfDone = profile({
+      age_verified_at: "2026-08-05T00:00:00Z",
+      policy_version_accepted: null,
+      username: null,
+      onboarding_completed_at: null,
+    });
+    expect(evaluateGate(halfDone, NOW)).toBe("age");
+  });
+
+  it("does not let a half-consented member reach the quiz", () => {
+    const halfDone = profile({ policy_version_accepted: null });
+    expect(evaluateGate(halfDone, NOW)).not.toBe("quiz");
+    expect(evaluateGate(halfDone, NOW)).toBe("age");
   });
 
   it("puts re-consent last, so a half-set-up account finishes setup first", () => {

@@ -8,11 +8,14 @@ import { POST_MEDIA_BUCKET } from "@/lib/media/post";
  *
  * Erasure, export and retention all need the same list, and until now only
  * erasure had one - hand-written inline in DELETE /api/account, and already
- * stale: it omitted member_memory, posts, follows, grievances, subscriptions
- * and a dozen more. Most of those survive by ON DELETE CASCADE, which is why
- * nobody noticed. Two things did not survive: post-media and experience-media
- * storage objects, which have been orphaned on every account deletion to date,
- * because deleting a row does not delete the file it points at.
+ * stale: it omitted member_memory, posts, follows, grievances and a dozen
+ * more. Most of those survive by ON DELETE CASCADE, which is why nobody
+ * noticed. One thing did not: post-media storage objects have been orphaned on
+ * every account deletion to date, because the post row cascades away and takes
+ * the only pointer to the file with it.
+ *
+ * (experience-media and place-images are NOT in that category - they are
+ * catalog content uploaded through the admin desks, not member uploads.)
  *
  * Building the §11 export against a second hand-written list would have
  * guaranteed the same drift twice. So the list is built once, here, and

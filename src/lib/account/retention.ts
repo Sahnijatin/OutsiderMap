@@ -73,7 +73,8 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
   },
   {
     table: "notification_sends",
-    column: "created_at",
+    // sent_at, not created_at - this table records a send, not a row birth.
+    column: "sent_at",
     days: 90,
     batch: 500,
     label: "A log of notifications we sent you",
@@ -91,14 +92,16 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
   },
   {
     table: "moderation_cases",
-    column: "updated_at",
+    // resolved_at is the closed signal - it is null while a case is open, and
+    // .lt() excludes nulls, so open cases are never swept. There is no
+    // `status` column on this table; the field is `decision`.
+    column: "resolved_at",
     days: 1095,
-    where: { status: "closed" },
     batch: 200,
     label: "Closed moderation decisions",
     reason:
       "Three years, which is the retention the IT Rules 2021 require for " +
-      "moderation records.",
+      "moderation records. Open cases are never deleted.",
   },
   {
     table: "grievances",

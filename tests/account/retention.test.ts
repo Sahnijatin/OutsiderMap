@@ -7,6 +7,7 @@ import {
   underageCutoffISO,
   type RetentionRule,
 } from "@/lib/account/retention";
+import { parseSchema } from "./migration-schema";
 
 const NOW = Date.parse("2026-08-05T22:00:00.000Z");
 const DAY = 86_400_000;
@@ -85,6 +86,59 @@ describe("planRetention", () => {
     expect(planRetention(NOW).map((s) => s.table)).toEqual(
       planRetention(NOW + DAY).map((s) => s.table),
     );
+  });
+});
+
+describe("the shipped rules match the actual schema", () => {
+  // This suite exists because two rules shipped pointing at columns that do
+  // not exist: notification_sends.created_at (it is sent_at) and
+  // moderation_cases.updated_at + status (they are resolved_at and decision).
+  //
+  // Neither would have thrown. The sweep collects per-table errors and carries
+  // on, so both rules would have failed silently every night while /privacy -
+  // which renders its retention table from this very list - promised members
+  // the deletions were happening. A retention policy nobody can see failing is
+  // worse than no retention policy, because it is also a false statement.
+  const schema = parseSchema();
+
+  it("names tables that exist", () => {
+    for (const rule of RETENTION_RULES) {
+      expect(
+        schema.has(rule.table as string),
+        `${rule.table} is swept but is not in the schema`,
+      ).toBe(true);
+    }
+  });
+
+  it("ages on a column that exists", () => {
+    for (const rule of RETENTION_RULES) {
+      const columns = schema.get(rule.table as string)?.columns ?? [];
+      expect(
+        columns,
+        `${rule.table}.${rule.column} does not exist - the sweep would fail silently every night`,
+      ).toContain(rule.column);
+    }
+  });
+
+  it("filters on columns that exist", () => {
+    for (const rule of RETENTION_RULES) {
+      const columns = schema.get(rule.table as string)?.columns ?? [];
+      for (const column of Object.keys(rule.where ?? {})) {
+        expect(
+          columns,
+          `${rule.table}.${column} is used as a retention filter but does not exist`,
+        ).toContain(column);
+      }
+    }
+  });
+
+  it("deletes by an id column, which is how the batch bound works", () => {
+    // runStep selects `id` then deletes by id - PostgREST has no
+    // `delete ... limit`, so a table without `id` would blow past its batch.
+    for (const rule of RETENTION_RULES) {
+      const columns = schema.get(rule.table as string)?.columns ?? [];
+      expect(columns, `${rule.table} has no id column`).toContain("id");
+    }
   });
 });
 

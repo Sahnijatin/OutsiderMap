@@ -23,8 +23,38 @@ export type ForeignKey = {
 
 export type ParsedTable = {
   name: string;
+  columns: string[];
   foreignKeys: ForeignKey[];
 };
+
+/** Line starters that are constraints, not columns. */
+const NOT_A_COLUMN = new Set([
+  "constraint",
+  "primary",
+  "unique",
+  "check",
+  "foreign",
+  "exclude",
+]);
+
+function columnsIn(body: string): string[] {
+  const names: string[] = [];
+  let depth = 0;
+  for (const rawLine of body.split("\n")) {
+    const line = rawLine.trim();
+    // Only top-level lines are column definitions; anything nested inside a
+    // check(...) or references(...) continuation is not.
+    const atTop = depth === 0;
+    depth += (line.match(/\(/g) ?? []).length - (line.match(/\)/g) ?? []).length;
+    if (!atTop) continue;
+    if (!line || line.startsWith("--")) continue;
+    const match = /^(\w+)\s+/.exec(line);
+    if (!match) continue;
+    if (NOT_A_COLUMN.has(match[1].toLowerCase())) continue;
+    names.push(match[1]);
+  }
+  return names;
+}
 
 const MIGRATIONS_DIR = path.join(process.cwd(), "supabase", "migrations");
 
@@ -87,7 +117,11 @@ export function parseSchema(): Map<string, ParsedTable> {
       /create table (?:if not exists )?public\.(\w+)\s*\(([\s\S]*?)\n\);/g,
     )) {
       const name = match[1];
-      tables.set(name, { name, foreignKeys: foreignKeysIn(match[2]) });
+      tables.set(name, {
+        name,
+        columns: columnsIn(match[2]),
+        foreignKeys: foreignKeysIn(match[2]),
+      });
     }
 
     for (const match of sql.matchAll(
@@ -104,10 +138,14 @@ export function parseSchema(): Map<string, ParsedTable> {
       if (!table) continue;
       for (const clause of match[2].split(/add column/i).slice(1)) {
         const line = clause.split("\n").join(" ").trim();
-        if (!REFERENCE.test(line)) continue;
         const columnMatch = /^(?:if not exists\s+)?(\w+)\s+/i.exec(line);
+        if (!columnMatch) continue;
+        if (!table.columns.includes(columnMatch[1])) {
+          table.columns.push(columnMatch[1]);
+        }
+        if (!REFERENCE.test(line)) continue;
         const ref = REFERENCE.exec(line);
-        if (!columnMatch || !ref) continue;
+        if (!ref) continue;
         table.foreignKeys.push({
           column: columnMatch[1],
           references: ref[1] ?? `${ref[2]}.${ref[3]}`,

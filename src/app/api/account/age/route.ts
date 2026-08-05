@@ -59,12 +59,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, blocked: true }, { status: 403 });
   }
 
+  // essential LAST: it is what stamps policy_version_accepted and clears the
+  // gate, so a partial failure must leave the gate closed rather than let the
+  // member through with their optional choices unrecorded. Mirrors
+  // acceptNotice in src/app/setup/actions.ts.
   const entries: Array<{ purpose: ConsentPurpose; granted: boolean }> = [
-    { purpose: "essential", granted: true },
     ...withdrawablePurposes().map((spec) => ({
       purpose: spec.purpose,
       granted: parsed.data.purposes[spec.purpose] === true,
     })),
+    { purpose: "essential", granted: true },
   ];
 
   const { errors } = await recordConsents(ctx.supabase, entries, "api", {
