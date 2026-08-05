@@ -12,10 +12,18 @@ import {
   writeTasteSummary,
 } from "@/lib/taste/profile";
 import { QUIZ_VERSION, type QuizAnswers } from "@/lib/taste/quiz";
+import { SETUP_STEPS, type SetupStepId } from "@/lib/setup/steps";
 
 export type ClaimResult =
   | { ok: true; claimed?: string }
   | { ok: false; error: string };
+
+const HomeSchema = z.object({
+  city: z.string().trim().min(1).max(40),
+  area: z.string().trim().min(1).max(80),
+});
+
+const DisplayNameSchema = z.string().trim().min(1).max(60);
 
 /**
  * Step 1 of /setup: claim a username. One shot - the DB trigger blocks any
@@ -59,8 +67,100 @@ export async function claimUsername(raw: string): Promise<ClaimResult> {
   return { ok: true, claimed: data?.length ? username : undefined };
 }
 
+/** Where do you actually live. Marks the step whether or not an area is given. */
+export async function saveHome(
+  raw: unknown,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const parsed = HomeSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: "Pick an area from the list." };
+  }
+  const supabase = await createClient();
+
+  // The area must belong to the chosen city. Checking here keeps the free-text
+  // column aligned with the catalog rather than trusting a client-side list.
+  const { data: city } = await supabase
+    .from("cities")
+    .select("slug, areas")
+    .eq("slug", parsed.data.city)
+    .eq("is_live", true)
+    .maybeSingle();
+  if (!city || !city.areas.includes(parsed.data.area)) {
+    return { ok: false, error: "Pick an area from the list." };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ home_city: city.slug, home_area: parsed.data.area })
+    .eq("id", user.id);
+  if (error) {
+    console.error("saveHome failed", { message: error.message });
+    return { ok: false, error: "Couldn't save that. Try again." };
+  }
+
+  await supabase.rpc("mark_setup_step", { step: "city" });
+  return { ok: true };
+}
+
 /**
- * Step 2 of /setup: the taste quiz. Runs the onboarding pipeline, then hands
+ * The name half of the identity screen. The photo has its own upload route,
+ * and either one on its own is enough to call the screen answered.
+ */
+export async function saveDisplayName(
+  raw: unknown,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const parsed = DisplayNameSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: "That name won't work - one to sixty letters." };
+  }
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ display_name: parsed.data })
+    .eq("id", user.id);
+  if (error) {
+    console.error("saveDisplayName failed", { message: error.message });
+    return { ok: false, error: "Couldn't save that. Try again." };
+  }
+
+  await supabase.rpc("mark_setup_step", { step: "identity" });
+  return { ok: true };
+}
+
+/**
+ * Move past a screen without answering it.
+ *
+ * Records that we asked and writes no profile data - which is exactly what
+ * makes the profile page's nudge honest later: it reads the columns, not these
+ * markers, so a skipped screen resurfaces there while never blocking the first
+ * run again.
+ */
+export async function skipSetupStep(id: SetupStepId): Promise<void> {
+  await requireUser();
+  // Never trust a client-supplied step id - it goes straight into a row the
+  // resolver reads back.
+  if (!SETUP_STEPS.some((s) => s.id === id)) return;
+  // The quiz and the username are not skippable: one is the product, the other
+  // is one-shot and the flow cannot proceed without it.
+  if (id === "quiz" || id === "username") return;
+
+  const supabase = await createClient();
+  await supabase.rpc("mark_setup_step", { step: id });
+}
+
+/** Record a screen as answered without changing what it captured. */
+export async function markSetupStep(id: SetupStepId): Promise<void> {
+  await requireUser();
+  if (!SETUP_STEPS.some((s) => s.id === id)) return;
+  const supabase = await createClient();
+  await supabase.rpc("mark_setup_step", { step: id });
+}
+
+/**
+ * The taste quiz - the last screen. Runs the onboarding pipeline, then hands
  * off to the activation beat (#121) - the crafted first-answer moment - which
  * reveals one taste-derived pick and then leads into the map.
  */

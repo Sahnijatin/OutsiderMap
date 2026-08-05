@@ -5,8 +5,19 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { ProTip } from "@/components/app/pro-tip";
 import { cn } from "@/lib/utils";
 import { QUIZ, type QuizAnswers } from "@/lib/taste/quiz";
+import {
+  clearQuizDraft,
+  readQuizDraft,
+  writeQuizDraft,
+} from "@/lib/setup/draft";
+import { setupStepIndex } from "@/lib/setup/steps";
+import { SetupProgress } from "./progress";
+
+/** Screens ahead of the quiz, so the shared progress bar reads continuously. */
+const QUIZ_OFFSET = setupStepIndex("quiz");
 
 export function OnboardingQuiz({
   action,
@@ -15,8 +26,13 @@ export function OnboardingQuiz({
   action: (answers: QuizAnswers) => Promise<void>;
 }) {
   const reduced = useReducedMotion() ?? false;
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<QuizAnswers>({});
+  // Seeded from the local draft so a refresh mid-quiz resumes where it left
+  // off. The lazy initialiser keeps localStorage out of the render path and
+  // out of the server render entirely.
+  const [step, setStep] = useState(() => readQuizDraft().index);
+  const [answers, setAnswers] = useState<QuizAnswers>(
+    () => readQuizDraft().answers,
+  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -24,8 +40,21 @@ export function OnboardingQuiz({
   const isLast = step === QUIZ.length - 1;
   const current = answers[question.id];
 
+  function persist(nextAnswers: QuizAnswers, nextIndex: number) {
+    writeQuizDraft({ answers: nextAnswers, index: nextIndex });
+  }
+
   function answer(value: string | string[]) {
-    setAnswers((prev) => ({ ...prev, [question.id]: value }));
+    setAnswers((prev) => {
+      const updated = { ...prev, [question.id]: value };
+      persist(updated, step);
+      return updated;
+    });
+  }
+
+  function goTo(index: number, nextAnswers?: QuizAnswers) {
+    setStep(index);
+    persist(nextAnswers ?? answers, index);
   }
 
   function next(updated?: QuizAnswers) {
@@ -35,6 +64,9 @@ export function OnboardingQuiz({
       startTransition(async () => {
         try {
           await action(finalAnswers);
+          // Only once the server has the answers - clearing earlier would lose
+          // them if the action throws.
+          clearQuizDraft();
         } catch {
           setError(
             "Something broke while saving. Your answers are safe - try again.",
@@ -42,13 +74,14 @@ export function OnboardingQuiz({
         }
       });
     } else {
-      setStep((s) => s + 1);
+      goTo(step + 1, updated);
     }
   }
 
   function pickSingle(value: string) {
     const updated = { ...answers, [question.id]: value };
     setAnswers(updated);
+    persist(updated, step);
     // Auto-advance feels cinematic; tiny delay lets the selection register.
     setTimeout(() => next(updated), reduced ? 0 : 220);
   }
@@ -78,18 +111,10 @@ export function OnboardingQuiz({
   return (
     <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-6 pb-10 pt-[calc(var(--safe-top)+2.5rem)]">
       <div className="flex items-center justify-between">
-        <span className="font-display text-lg italic">OutsiderMap</span>
-        <div className="flex gap-1.5" aria-label={`Question ${step + 1} of ${QUIZ.length}`}>
-          {QUIZ.map((q, i) => (
-            <span
-              key={q.id}
-              className={cn(
-                "h-1 w-6 rounded-full transition-colors",
-                i <= step ? "bg-accent" : "bg-line",
-              )}
-            />
-          ))}
-        </div>
+        <span className="shrink-0 font-display text-lg italic">
+          OutsiderMap
+        </span>
+        <SetupProgress index={QUIZ_OFFSET + step} className="ml-4" />
       </div>
 
       <AnimatePresence mode="wait">
@@ -109,6 +134,7 @@ export function OnboardingQuiz({
             {question.hint && (
               <p className="text-sm text-ink-dim">{question.hint}</p>
             )}
+            {question.tip && <ProTip className="mt-2">{question.tip}</ProTip>}
           </div>
 
           {question.kind === "single" && (
@@ -188,7 +214,10 @@ export function OnboardingQuiz({
                     typeof current !== "string" || current.trim().length < 10
                   }
                 >
-                  Build my profile
+                  {/* Derived, not hardcoded: this label sat on every text
+                      question and only read correctly because the last one
+                      happened to be text. */}
+                  {isLast ? "Build my profile" : "Continue"}
                 </Button>
                 <span className="text-xs text-ink-dim">
                   The more honest, the better the answers.
@@ -205,7 +234,7 @@ export function OnboardingQuiz({
         {step > 0 && (
           <button
             type="button"
-            onClick={() => setStep((s) => s - 1)}
+            onClick={() => goTo(step - 1)}
             className="text-sm text-ink-dim transition-colors hover:text-ink"
           >
             ← Back

@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { SignInPanel } from "@/components/auth/sign-in-panel";
+import { callbackErrorCopy } from "@/lib/auth/auth-errors";
 import { safeNextPath } from "@/lib/auth/next-path";
 
 function SignInFormInner() {
@@ -13,9 +14,7 @@ function SignInFormInner() {
   return (
     <SignInPanel
       next={next}
-      initialError={
-        urlError ? "That sign-in link didn’t work. Try again here." : null
-      }
+      initialError={urlError ? callbackErrorCopy(urlError) : null}
     />
   );
 }

@@ -11,9 +11,13 @@ import {
   nativeGoogleSignIn,
 } from "@/lib/auth/native-social";
 import {
+  authNextCookieString,
   sessionPrefCookieString,
   type SessionPersistence,
 } from "@/lib/auth/session";
+import { friendlyAuthError } from "@/lib/auth/auth-errors";
+import { isWebGoogleConfigured } from "@/lib/auth/google-web";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -30,9 +34,6 @@ import { Spinner } from "@/components/ui/spinner";
  *   account pickers via `signInWithIdToken`, shown only once their client IDs
  *   are configured. The web-redirect Google button is never shown on native.
  */
-
-/** Cookie the OAuth callback reads to restore the intended destination. */
-const NEXT_COOKIE = "om_auth_next";
 
 function GoogleIcon() {
   return (
@@ -90,6 +91,9 @@ export function SignInPanel({
   const isIOS = platform === "ios";
   const showNativeGoogle = isNative && isNativeGoogleConfigured();
   const showNativeApple = isIOS && isNativeAppleConfigured();
+  // Web Google is gated on configuration too, so an unconfigured deployment
+  // shows the email code alone rather than a button that always fails.
+  const showWebGoogle = !isNative && isWebGoogleConfigured();
   // Default checked: every web member is effectively persistent today, so an
   // unchecked default would silently start signing out returning visitors who
   // never saw this box.
@@ -110,7 +114,7 @@ export function SignInPanel({
     });
     setPending(false);
     if (error) {
-      setError(error.message);
+      setError(friendlyAuthError(error.message));
       return;
     }
     setStep("code");
@@ -169,7 +173,7 @@ export function SignInPanel({
       finishSignIn();
     } catch (e) {
       // A user-cancelled sheet also lands here - a quiet retry is fine.
-      setError(e instanceof Error ? e.message : "Sign-in failed. Try again.");
+      setError(friendlyAuthError(e instanceof Error ? e.message : null));
       setPending(false);
     }
   }
@@ -177,8 +181,13 @@ export function SignInPanel({
   async function signInWithGoogle() {
     setPending(true);
     setError(null);
-    // Stash the destination for the callback (OAuth can't carry ?next reliably).
-    document.cookie = `${NEXT_COOKIE}=${encodeURIComponent(next)}; path=/; max-age=600; samesite=lax`;
+    // Stash the destination for the callback (OAuth can't carry ?next
+    // reliably). Sanitised on the way in as well as on the way out, so a bad
+    // `next` prop can never round-trip into a redirect.
+    document.cookie = authNextCookieString(
+      safeNextPath(next),
+      window.location.protocol === "https:",
+    );
     // Survives the round trip to /auth/callback because it is SameSite=Lax,
     // like the cookie above.
     recordPersistence(stayLoggedIn ? "persistent" : "session");
@@ -188,7 +197,7 @@ export function SignInPanel({
     });
     if (error) {
       setPending(false);
-      setError(error.message);
+      setError(friendlyAuthError(error.message));
     }
   }
 
@@ -221,7 +230,7 @@ export function SignInPanel({
           Continue with Google
         </Button>
       ) : (
-        !isNative && (
+        showWebGoogle && (
           <Button
             type="button"
             variant="secondary"
@@ -234,7 +243,9 @@ export function SignInPanel({
         )
       )}
 
-      {(!isNative || showNativeGoogle || showNativeApple) && (
+      {/* The divider only earns its place when something sits above it -
+          otherwise a bare "or" floats over the email form on its own. */}
+      {(showWebGoogle || showNativeGoogle || showNativeApple) && (
         <div className="flex items-center gap-3">
           <span className="h-px flex-1 bg-line" />
           <span className="font-mono text-xs text-ink-dim">or</span>

@@ -37,7 +37,8 @@ until the corresponding env vars are set.
 1. **Supabase**: create a project, then `npx supabase db push` to apply
    `supabase/migrations/`. Enable the Email (OTP) and Google providers in
    Auth settings; add your domain to the redirect allowlist
-   (`/auth/callback`).
+   (`/auth/callback`). Google needs Google Cloud credentials and one env var
+   as well, or its button stays hidden — see [`docs/AUTH-google.md`](docs/AUTH-google.md).
 2. **Seed the catalog**: `npm run seed` (needs `NEXT_PUBLIC_SUPABASE_URL`,
    `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`). Idempotent — re-run after
    editing `data/places.delhi.json`.

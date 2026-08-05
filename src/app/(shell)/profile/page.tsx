@@ -21,6 +21,8 @@ import { MemoryCard } from "./memory-card";
 import { TasteCardShare } from "./taste-card-share";
 import { IdentityCard } from "./identity-card";
 import { BioCard } from "./bio-card";
+import { FinishProfileCard } from "./finish-profile-card";
+import { missingProfileBits } from "@/lib/setup/flow";
 import { StatsRow } from "./stats-row";
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -50,6 +52,11 @@ export default async function ProfilePage({
   const profile = await requireOnboarded();
   const { welcome } = await searchParams;
   const supabase = await createClient();
+
+  // Read off the columns, not the setup markers: a screen that was skipped is
+  // marked done (so the flow stops asking) but left the data empty, and it is
+  // the empty data this card is offering to fill.
+  const missingBits = missingProfileBits(profile);
 
   const [
     { data: taste },
@@ -136,6 +143,9 @@ export default async function ProfilePage({
           following={followingCount ?? 0}
         />
         <BioCard initial={profile.bio} />
+        {/* Only mounts when something is actually missing - a member with a
+            complete profile never pays for this component at all. */}
+        {missingBits.length > 0 && <FinishProfileCard missing={missingBits} />}
       </div>
 
       <div className="flex flex-col gap-10 lg:col-span-3">
