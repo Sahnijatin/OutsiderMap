@@ -21,3 +21,10 @@ export const NAV_ITEMS = [
   { href: "/blog", label: "Blog", icon: BookOpen },
   { href: "/profile", label: "You", icon: UserRound },
 ] as const;
+
+/**
+ * The six destinations as a literal union. The guided tour keys its anchor map
+ * off this, so adding a nav item fails typecheck until the tour learns about
+ * it - see lib/tour/anchors.ts.
+ */
+export type NavHref = (typeof NAV_ITEMS)[number]["href"];

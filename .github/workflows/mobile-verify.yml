@@ -52,12 +52,32 @@ jobs:
             echo "url=${{ github.event.deployment_status.target_url }}" >> "$GITHUB_OUTPUT"
           fi
 
+      # Optional: a Playwright storageState JSON for a seeded member whose
+      # profile has activated_at set and tour_completed_at NULL. Without it the
+      # authed specs (the guided tour walk) skip themselves and everything else
+      # runs signed out, exactly as before.
+      # The secrets context is not available to a step `if:`, so the presence
+      # check happens in the shell and simply emits no path when unset.
+      - name: Materialize seeded session
+        id: session
+        env:
+          STATE: ${{ secrets.MOBILE_VERIFY_STORAGE_STATE }}
+        run: |
+          if [ -z "$STATE" ]; then
+            echo "No seeded session; authed specs will skip themselves."
+            exit 0
+          fi
+          printf '%s' "$STATE" > "$RUNNER_TEMP/storage-state.json"
+          echo "path=$RUNNER_TEMP/storage-state.json" >> "$GITHUB_OUTPUT"
+
       - name: mobile-verify
         env:
           MOBILE_VERIFY_URL: ${{ steps.target.outputs.url }}
           # Optional: set this secret to a Vercel "Protection Bypass for
           # Automation" token if preview deployments are access-protected.
           PW_BYPASS_TOKEN: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          MOBILE_VERIFY_STORAGE_STATE: ${{ steps.session.outputs.path }}
+          MOBILE_VERIFY_AUTHED: ${{ steps.session.outputs.path }}
         run: npm run mobile:verify
 
       - name: Upload screenshots + report

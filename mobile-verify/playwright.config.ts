@@ -22,6 +22,11 @@ const CHROME = process.env.PW_CHROME;
 // Vercel deployment-protection bypass, so CI can reach a protected preview.
 const BYPASS = process.env.PW_BYPASS_TOKEN;
 
+// Path to a Playwright storageState JSON holding a signed-in session. Set it
+// and the authed specs (tour.spec.ts) stop skipping - see README -> Authed
+// flows. Unset, everything runs signed out exactly as before.
+const STORAGE_STATE = process.env.MOBILE_VERIFY_STORAGE_STATE;
+
 const BASE_URL = process.env.MOBILE_VERIFY_URL ?? "http://localhost:3000";
 
 // Opt-in proxy for running the harness from behind an egress proxy (e.g. a
@@ -35,7 +40,7 @@ const DELHI = { latitude: 28.6139, longitude: 77.209 };
 
 export default defineConfig({
   testDir: ".",
-  testMatch: /flows\.spec\.ts/,
+  testMatch: /\.spec\.ts$/,
   outputDir: "./.artifacts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -52,6 +57,7 @@ export default defineConfig({
     permissions: ["geolocation"],
     screenshot: "on",
     trace: "retain-on-failure",
+    ...(STORAGE_STATE ? { storageState: STORAGE_STATE } : {}),
     ...(PROXY ? { proxy: { server: PROXY }, ignoreHTTPSErrors: true } : {}),
     ...(BYPASS
       ? {

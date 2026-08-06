@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import { NAV_ITEMS } from "@/components/app/nav-items";
+import { NAV_TOUR_IDS } from "@/lib/tour/anchors";
 import { tap } from "@/lib/native/haptics";
 import { cn } from "@/lib/utils";
 
@@ -16,11 +17,14 @@ export function BottomTabs({ signedIn = true }: { signedIn?: boolean }) {
   const pathname = usePathname();
   const reduced = useReducedMotion() ?? false;
 
-  const items = NAV_ITEMS.map((item) =>
-    !signedIn && item.href === "/profile"
+  // The tour anchor is keyed off the ORIGINAL href: the /profile -> /sign-in
+  // swap below widens the type, and NAV_TOUR_IDS["/sign-in"] does not exist.
+  const items = NAV_ITEMS.map((item) => ({
+    ...(!signedIn && item.href === "/profile"
       ? { ...item, href: "/sign-in", label: "Sign in" }
-      : item,
-  );
+      : item),
+    tour: NAV_TOUR_IDS[item.href],
+  }));
 
   return (
     <nav
@@ -29,13 +33,14 @@ export function BottomTabs({ signedIn = true }: { signedIn?: boolean }) {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="mx-auto flex h-16 max-w-lg items-stretch justify-around">
-        {items.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, label, icon: Icon, tour }) => {
           const active =
             pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
               key={href}
               href={href}
+              data-tour={tour}
               aria-current={active ? "page" : undefined}
               onClick={() => {
                 // The tab bar is the most-tapped surface in the app; a tick of

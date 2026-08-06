@@ -7,6 +7,7 @@ import { SoundBoot } from "@/components/app/sound-boot";
 import { AuthGateProvider } from "@/components/auth/auth-gate";
 import { MobileAuthGate } from "@/components/auth/mobile-auth-gate";
 import { PushRegistrar } from "@/components/push-registrar";
+import { TourArm } from "@/components/tour/tour-arm";
 
 /**
  * The public app shell: the map and place pages render for everyone, signed in
@@ -43,6 +44,16 @@ export default async function PublicLayout({
       <MobileAuthGate signedIn={signedIn} />
       {/* Native push registration once signed in; no-op on web (#143/#125). */}
       <PushRegistrar signedIn={signedIn} />
+      {/* Anonymous explorers get false, so a shared map link never fires the
+          tour at someone who has no account. */}
+      <TourArm
+        eligible={
+          !!profile &&
+          !!profile.onboarding_completed_at &&
+          !!profile.activated_at &&
+          !profile.tour_completed_at
+        }
+      />
       <OfflineBanner />
       <SoundBoot />
       <div className="min-h-dvh lg:pl-[var(--rail-w)]">{children}</div>

@@ -60,8 +60,21 @@ redirect for the gated ones. To exercise authed surfaces (map with data, chat,
 profile, feed), run against an environment with a seeded session:
 
 1. Point `MOBILE_VERIFY_URL` at a deployment with Supabase + AI keys configured.
-2. Add a Playwright `storageState` (a signed-in session) to the config `use`
-   block, or a global-setup step that signs in once and reuses the cookies.
+2. Set `MOBILE_VERIFY_STORAGE_STATE` to the path of a Playwright
+   [`storageState`](https://playwright.dev/docs/auth) JSON for a signed-in
+   member. The config picks it up automatically; no code change needed.
+3. Set `MOBILE_VERIFY_AUTHED=1` to un-skip the specs that need a session.
+
+In CI both come from one optional repository secret,
+`MOBILE_VERIFY_STORAGE_STATE` — the workflow writes it to a file and sets both
+variables. Without the secret every authed spec skips itself and the rest of
+the harness runs signed out, exactly as before.
+
+`tour.spec.ts` additionally needs that member's profile to have `activated_at`
+set and `tour_completed_at` NULL, since the tour only arms for someone who is
+actually owed it. **Until this secret exists, nothing machine-verifies the tour
+walking end to end** — the step machine's unit tests (`tests/tour/machine.test.ts`)
+are the only net under it.
 
 Until then the harness is still valuable: it proves the mobile *shell*, layout,
 and routing on real device viewports and screenshots every surface.

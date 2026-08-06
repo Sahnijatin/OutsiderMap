@@ -15,6 +15,7 @@ import {
   DangerZone,
   FeelCard,
   PersonalizationToggle,
+  TourCard,
   SignOutForm,
 } from "./settings-cards";
 import { MemoryCard } from "./memory-card";
@@ -307,6 +308,8 @@ export default async function ProfilePage({
       <PersonalizationToggle
         initial={profile.personalization_enabled !== false}
       />
+
+      <TourCard completedAt={profile.tour_completed_at} />
 
       <DangerZone username={profile.username} />
 

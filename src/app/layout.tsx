@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import { PwaRegister } from "@/components/pwa-register";
 import { CapacitorInit } from "@/components/capacitor-init";
+import { TourHost } from "@/components/tour/tour-host";
 import "./globals.css";
 
 const GA_MEASUREMENT_ID = "G-SY3XQJ0R3S";
@@ -81,6 +82,12 @@ export default function RootLayout({
       </head>
       <body>
         {children}
+        {/* The guided tour walks from (public)/map into (shell), so its overlay
+            mounts here - above both route groups, outside (shell)/template.tsx
+            (which remounts every navigation) and outside the map's isolated
+            Leaflet stacking context. This layout stays a server component;
+            TourHost carries its own "use client". */}
+        <TourHost />
         <PwaRegister />
         <CapacitorInit />
         <Analytics />

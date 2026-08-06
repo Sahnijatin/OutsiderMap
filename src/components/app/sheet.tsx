@@ -5,10 +5,8 @@ import { X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { easeOutExpo } from "@/components/motion/primitives";
+import { trapTab } from "@/lib/a11y/focus-trap";
 import { cn } from "@/lib/utils";
-
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * THE bottom sheet. One implementation of the dialog contract so no surface
@@ -58,23 +56,7 @@ export function Sheet({
       return;
     }
     if (e.key !== "Tab" || !panelRef.current) return;
-    const focusables = Array.from(
-      panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
-    );
-    if (focusables.length === 0) {
-      e.preventDefault();
-      return;
-    }
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || active === panelRef.current)) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && active === last) {
-      e.preventDefault();
-      first.focus();
-    }
+    trapTab(panelRef.current, e);
   }
 
   return (
