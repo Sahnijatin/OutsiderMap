@@ -96,6 +96,7 @@ export type Database = {
           home_city: string | null;
           curator_score: number;
           taste_card_public: boolean;
+          setup_steps: string[];
           created_at: string;
         };
         Insert: {
@@ -113,6 +114,7 @@ export type Database = {
           home_city?: string | null;
           curator_score?: number;
           taste_card_public?: boolean;
+          setup_steps?: string[];
           created_at?: string;
         };
         Update: {
@@ -130,6 +132,7 @@ export type Database = {
           home_city?: string | null;
           curator_score?: number;
           taste_card_public?: boolean;
+          setup_steps?: string[];
           created_at?: string;
         };
         Relationships: [];
@@ -2290,6 +2293,10 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
+      };
+      mark_setup_step: {
+        Args: { step: string };
+        Returns: string[];
       };
       appeal_grievance: {
         Args: { p_id: string };

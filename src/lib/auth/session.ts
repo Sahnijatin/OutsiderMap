@@ -101,3 +101,33 @@ export function sessionPrefCookieString(
     ...(secure ? ["secure"] : []),
   ].join("; ");
 }
+
+/**
+ * Where to land after an OAuth round trip.
+ *
+ * Google cannot carry our `?next` through its redirect, so the sign-in panel
+ * stashes it here and /auth/callback reads it back. Ten minutes is longer than
+ * any real consent screen and short enough that a stale value cannot redirect
+ * a later sign-in somewhere unexpected.
+ *
+ * Lives here beside the preference cookie for two reasons: the writer and the
+ * reader can no longer drift apart on the name, and `secure` is applied the
+ * same way rather than being forgotten - which it was, so this cookie used to
+ * travel unencrypted on https.
+ *
+ * SameSite must stay Lax for the same reason as above: the return from Google
+ * is a top-level cross-site GET, and Strict would drop the cookie exactly when
+ * it is needed.
+ */
+export const AUTH_NEXT_COOKIE = "om_auth_next";
+export const AUTH_NEXT_MAX_AGE_SECONDS = 600;
+
+export function authNextCookieString(next: string, secure: boolean): string {
+  return [
+    `${AUTH_NEXT_COOKIE}=${encodeURIComponent(next)}`,
+    "path=/",
+    `max-age=${AUTH_NEXT_MAX_AGE_SECONDS}`,
+    "samesite=lax",
+    ...(secure ? ["secure"] : []),
+  ].join("; ");
+}

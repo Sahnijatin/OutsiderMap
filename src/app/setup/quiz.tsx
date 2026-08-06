@@ -1,22 +1,56 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useState, useTransition } from "react";
+import { useCallback, useState, useSyncExternalStore, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { ProTip } from "@/components/app/pro-tip";
 import { cn } from "@/lib/utils";
 import { QUIZ, type QuizAnswers } from "@/lib/taste/quiz";
+import {
+  clearQuizDraft,
+  quizDraftServerSnapshot,
+  quizDraftSnapshot,
+  subscribeQuizDraft,
+  writeQuizDraft,
+} from "@/lib/setup/draft";
+import { setupStepIndex } from "@/lib/setup/steps";
+import { SetupProgress } from "./progress";
+
+/** Screens ahead of the quiz, so the shared progress bar reads continuously. */
+const QUIZ_OFFSET = setupStepIndex("quiz");
 
 export function OnboardingQuiz({
   action,
+  userId,
 }: {
   /** Server action run with the final answers (completeSetup). */
   action: (answers: QuizAnswers) => Promise<void>;
+  /** Scopes the local draft, so a shared device never crosses members. */
+  userId: string;
 }) {
   const reduced = useReducedMotion() ?? false;
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<QuizAnswers>({});
+
+  // The stored draft, read as an external store so hydration is safe: the
+  // server (and the client's hydrating render) see an untouched quiz, and the
+  // resume applies immediately after. Seeding useState from localStorage would
+  // mismatch on exactly the reload this feature exists to survive.
+  const stored = useSyncExternalStore(
+    subscribeQuizDraft,
+    useCallback(() => quizDraftSnapshot(userId), [userId]),
+    quizDraftServerSnapshot,
+  );
+  // Local edits take over the moment there are any; until then the draft is
+  // the truth.
+  const [local, setLocal] = useState<{
+    answers: QuizAnswers;
+    index: number;
+  } | null>(null);
+  const state = local ?? stored;
+  const step = state.index;
+  const answers = state.answers;
+
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -24,8 +58,17 @@ export function OnboardingQuiz({
   const isLast = step === QUIZ.length - 1;
   const current = answers[question.id];
 
+  function commit(nextAnswers: QuizAnswers, nextIndex: number) {
+    setLocal({ answers: nextAnswers, index: nextIndex });
+    writeQuizDraft(userId, { answers: nextAnswers, index: nextIndex });
+  }
+
   function answer(value: string | string[]) {
-    setAnswers((prev) => ({ ...prev, [question.id]: value }));
+    commit({ ...answers, [question.id]: value }, step);
+  }
+
+  function goTo(index: number, nextAnswers?: QuizAnswers) {
+    commit(nextAnswers ?? answers, index);
   }
 
   function next(updated?: QuizAnswers) {
@@ -33,22 +76,31 @@ export function OnboardingQuiz({
       const finalAnswers = updated ?? answers;
       setError(null);
       startTransition(async () => {
+        // Cleared before the call, restored if it fails.
+        //
+        // completeSetup ends in redirect(), which throws a control-flow
+        // exception server-side, so a clear placed after the await is not
+        // guaranteed to run. A draft that outlives its own submission is worse
+        // than one cleared early: a later "Retake the quiz" would mount
+        // pre-filled with the answers the retake exists to replace.
+        clearQuizDraft(userId);
         try {
           await action(finalAnswers);
         } catch {
+          writeQuizDraft(userId, { answers: finalAnswers, index: step });
           setError(
             "Something broke while saving. Your answers are safe - try again.",
           );
         }
       });
     } else {
-      setStep((s) => s + 1);
+      goTo(step + 1, updated);
     }
   }
 
   function pickSingle(value: string) {
     const updated = { ...answers, [question.id]: value };
-    setAnswers(updated);
+    commit(updated, step);
     // Auto-advance feels cinematic; tiny delay lets the selection register.
     setTimeout(() => next(updated), reduced ? 0 : 220);
   }
@@ -78,18 +130,10 @@ export function OnboardingQuiz({
   return (
     <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-6 pb-10 pt-[calc(var(--safe-top)+2.5rem)]">
       <div className="flex items-center justify-between">
-        <span className="font-display text-lg italic">OutsiderMap</span>
-        <div className="flex gap-1.5" aria-label={`Question ${step + 1} of ${QUIZ.length}`}>
-          {QUIZ.map((q, i) => (
-            <span
-              key={q.id}
-              className={cn(
-                "h-1 w-6 rounded-full transition-colors",
-                i <= step ? "bg-accent" : "bg-line",
-              )}
-            />
-          ))}
-        </div>
+        <span className="shrink-0 font-display text-lg italic">
+          OutsiderMap
+        </span>
+        <SetupProgress index={QUIZ_OFFSET + step} className="ml-4" />
       </div>
 
       <AnimatePresence mode="wait">
@@ -109,6 +153,7 @@ export function OnboardingQuiz({
             {question.hint && (
               <p className="text-sm text-ink-dim">{question.hint}</p>
             )}
+            {question.tip && <ProTip className="mt-2">{question.tip}</ProTip>}
           </div>
 
           {question.kind === "single" && (
@@ -188,7 +233,10 @@ export function OnboardingQuiz({
                     typeof current !== "string" || current.trim().length < 10
                   }
                 >
-                  Build my profile
+                  {/* Derived, not hardcoded: this label sat on every text
+                      question and only read correctly because the last one
+                      happened to be text. */}
+                  {isLast ? "Build my profile" : "Continue"}
                 </Button>
                 <span className="text-xs text-ink-dim">
                   The more honest, the better the answers.
@@ -205,7 +253,7 @@ export function OnboardingQuiz({
         {step > 0 && (
           <button
             type="button"
-            onClick={() => setStep((s) => s - 1)}
+            onClick={() => goTo(step - 1)}
             className="text-sm text-ink-dim transition-colors hover:text-ink"
           >
             ← Back

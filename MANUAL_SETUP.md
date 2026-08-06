@@ -18,6 +18,10 @@ audit these came from.
 - [ ] Google Cloud OAuth clients (iOS + Web) ->
       `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` / `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`;
       enable Google + Apple providers in Supabase.
+      **Web Google needs `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` set on the hosting
+      deploy and a redeploy, or the button stays hidden** (it is gated on
+      configuration now, rather than rendering and failing). Click-by-click
+      walkthrough: `docs/AUTH-google.md`.
 - [ ] Set the `CAP_SERVER_URL` repo variable to staging so native builds
       stop defaulting to production.
 - [ ] CSAM scanning vendor (PhotoDNA/Thorn class) - the scanner interface

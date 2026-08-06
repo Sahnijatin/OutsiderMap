@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { normalizeFollowState } from "@/lib/feed/follows";
+import { ProfilePatchSchema } from "@/lib/profile/patch";
+import type { SetupStepId } from "@/lib/setup/steps";
+import type { Database } from "@/types/database";
 
 /**
  * The member's profile screen: the system's read on their taste (the wow
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
       ctx.supabase
         .from("profiles")
         .select(
-          "display_name, avatar_url, home_area, personalization_enabled, onboarding_completed_at",
+          "display_name, avatar_url, bio, home_city, home_area, personalization_enabled, onboarding_completed_at, setup_steps",
         )
         .eq("id", ctx.user.id)
         .maybeSingle(),
@@ -44,8 +46,11 @@ export async function GET(request: NextRequest) {
   });
 }
 
-const PatchSchema = z.object({ personalization_enabled: z.boolean() });
-
+/**
+ * Profile writes: the personalization toggle, plus the two things the setup
+ * flow captures (where you live, what you are called). This is also the HTTP
+ * twin of those screens, so the native app can capture the same data.
+ */
 export async function PATCH(request: NextRequest) {
   const ctx = await getApiContext(request);
   if (!ctx) {
@@ -57,17 +62,80 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const parsed = PatchSchema.safeParse(await request.json().catch(() => null));
+  const parsed = ProfilePatchSchema.safeParse(
+    await request.json().catch(() => null),
+  );
   if (!parsed.success) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
+  }
+  const body = parsed.data;
+
+  // Build from present keys only: an absent field must stay untouched, and
+  // `null` is a real value here (clearing a name or an area).
+  const update: Database["public"]["Tables"]["profiles"]["Update"] = {};
+  if ("personalization_enabled" in body) {
+    update.personalization_enabled = body.personalization_enabled;
+  }
+  if ("display_name" in body) update.display_name = body.display_name;
+
+  // home_city is a foreign key to cities(slug) and home_area must be one of
+  // that city's known areas. Checking here turns a bad value into a 400
+  // instead of letting Postgres raise an FK violation as a 500 - and keeps
+  // the free-text area column aligned with the catalog's real area names.
+  if ("home_city" in body || "home_area" in body) {
+    // An area-only patch is validated against the city the member is already
+    // in, so "Saket" can't be attached to a profile that lives elsewhere.
+    let citySlug = body.home_city;
+    if (!citySlug) {
+      const { data: current } = await ctx.supabase
+        .from("profiles")
+        .select("home_city")
+        .eq("id", ctx.user.id)
+        .maybeSingle();
+      citySlug = current?.home_city ?? undefined;
+    }
+    if (!citySlug) {
+      return NextResponse.json({ error: "unknown city" }, { status: 400 });
+    }
+    const { data: city } = await ctx.supabase
+      .from("cities")
+      .select("slug, areas")
+      .eq("slug", citySlug)
+      .eq("is_live", true)
+      .maybeSingle();
+    if (!city) {
+      return NextResponse.json({ error: "unknown city" }, { status: 400 });
+    }
+    if ("home_city" in body) update.home_city = city.slug;
+    if ("home_area" in body) {
+      if (
+        body.home_area != null &&
+        !city.areas.includes(body.home_area)
+      ) {
+        return NextResponse.json({ error: "unknown area" }, { status: 400 });
+      }
+      update.home_area = body.home_area;
+    }
   }
 
   const { error } = await ctx.supabase
     .from("profiles")
-    .update({ personalization_enabled: parsed.data.personalization_enabled })
+    .update(update)
     .eq("id", ctx.user.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Record which setup screens this satisfied, so the flow stops asking and
+  // the profile nudge retires. Never fatal: the data landed either way.
+  // Only a value counts as an answer - clearing a name or an area is not the
+  // member telling us who they are, and marking the screen done for it would
+  // retire the profile nudge that exists to ask again.
+  const steps: SetupStepId[] = [];
+  if (body.home_city != null || body.home_area != null) steps.push("city");
+  if (body.display_name != null) steps.push("identity");
+  for (const step of steps) {
+    await ctx.supabase.rpc("mark_setup_step", { step });
   }
 
   return NextResponse.json({ ok: true });

@@ -69,4 +69,16 @@ export async function runOnboarding(
     .from("profiles")
     .update({ onboarding_completed_at: new Date().toISOString() })
     .eq("id", userId);
+
+  // Record the quiz screen as done. This runs here rather than in the web
+  // action so the native app's POST /api/onboarding gets the same marker for
+  // free - and so the marker is written by the server that saw the answers
+  // rather than asserted by a client. Non-fatal: onboarding_completed_at above
+  // is the real gate, and a missing marker must never undo a finished quiz.
+  const { error: markError } = await supabase.rpc("mark_setup_step", {
+    step: "quiz",
+  });
+  if (markError) {
+    console.error("Could not mark the quiz step:", markError.message);
+  }
 }
