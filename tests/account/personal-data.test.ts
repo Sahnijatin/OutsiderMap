@@ -204,9 +204,17 @@ describe("the derived views", () => {
     expect(exported).toContain("consent_events");
   });
 
-  it("never exports another member's blocks", () => {
+  it("exports the blocks a member made, but never the ones against them", () => {
+    // Both directions are erased; only the subject's own side is exported.
+    // Who they blocked is their data (§11); who blocked them is someone else's
+    // safety decision and handing it over would make a block a targeting list.
     const blocks = PERSONAL_DATA.find((t) => t.table === "user_blocks")!;
-    expect(blocks.export).toBe(false);
+    expect(blocks.export).toBe(true);
+    expect(blocks.key).toEqual({
+      by: "columns",
+      columns: ["blocker", "blocked"],
+    });
+    expect(blocks.exportKey).toEqual({ by: "column", column: "blocker" });
   });
 
   it("drops the embedding from the taste profile export", () => {

@@ -58,6 +58,16 @@ export type PersonalTable = {
   /** Section name in the export bundle and on the privacy page. */
   label: string;
   export: boolean;
+  /**
+   * Narrower key for the export than for erasure.
+   *
+   * Two-party tables need this: user_blocks must be ERASED on both columns
+   * (their blocks and the blocks against them both die with the account) but
+   * EXPORTED on `blocker` only. Who the subject blocked is their own data and
+   * §11 entitles them to it; who blocked them is someone else's safety
+   * decision, and handing it over would turn a block into a targeting list.
+   */
+  exportKey?: SubjectKey;
   erase: ErasePlan;
   retainReason?: string;
   /**
@@ -273,6 +283,13 @@ export const PERSONAL_DATA: readonly PersonalTable[] = [
     label: "Who you follow, and who follows you",
     export: true,
     erase: "cascade",
+    // Usernames rather than raw uuids: the subject already knows who these
+    // people are, and a uuid is both useless to them and another member's
+    // internal identifier.
+    select:
+      "created_at, " +
+      "follower:profiles!follows_follower_fkey(username), " +
+      "followee:profiles!follows_followee_fkey(username)",
   },
   {
     table: "friendships",
@@ -284,11 +301,13 @@ export const PERSONAL_DATA: readonly PersonalTable[] = [
   {
     table: "user_blocks",
     key: { by: "columns", columns: ["blocker", "blocked"] },
-    // Exported as counts only: telling a member who blocked THEM would turn a
-    // safety feature into a targeting list.
+    // Erased on both sides, exported on one. Who they blocked is their data;
+    // who blocked them is someone else's safety decision.
+    exportKey: { by: "column", column: "blocker" },
     label: "Accounts you blocked",
-    export: false,
+    export: true,
     erase: "cascade",
+    select: "created_at, blocked:profiles!user_blocks_blocked_fkey(username)",
   },
   {
     table: "activity_events",
@@ -297,6 +316,10 @@ export const PERSONAL_DATA: readonly PersonalTable[] = [
     export: true,
     erase: "cascade",
     exportLimit: 20_000,
+    select:
+      "type, created_at, read_at, " +
+      "actor:profiles!activity_events_actor_id_fkey(username), " +
+      "recipient:profiles!activity_events_recipient_id_fkey(username)",
   },
 
   // --- Scouting and rewards -----------------------------------------------

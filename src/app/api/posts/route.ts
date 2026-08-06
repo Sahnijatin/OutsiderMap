@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getApiContext } from "@/lib/api-auth";
+import {
+  adultGateStatus,
+  getApiContext,
+  requireAdultApiContext,
+} from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { CreatePostSchema } from "@/lib/feed/compose";
@@ -30,10 +34,17 @@ function slugSuffix(): string {
  * cannot drift away from those three guarantees.
  */
 export async function POST(request: NextRequest) {
-  const ctx = await getApiContext(request);
-  if (!ctx) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Age gate (DPDP §9). This route writes with the service role, which has
+  // BYPASSRLS, so the is_active_member() policies from migration 58 never see
+  // it - the check has to happen here.
+  const gate = await requireAdultApiContext(request);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      { status: adultGateStatus(gate.error) },
+    );
   }
+  const ctx = gate.ctx;
   const allowed = await checkRateLimit(`post-create:${ctx.user.id}`, 30, 3600);
   if (!allowed) {
     return NextResponse.json(

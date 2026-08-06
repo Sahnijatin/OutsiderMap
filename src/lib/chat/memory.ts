@@ -265,12 +265,19 @@ export async function rememberFromTurn(
     // Read here rather than taken from the caller because this is a legal
     // question, and the caller that has it is the one place in the system that
     // would have to remember to pass it. Fails closed on a missing row.
+    //
+    // memory_enabled, NOT personalization_enabled. Remembering is its own
+    // consent purpose with its own switch in profile settings, and gating it
+    // on the personalization flag meant turning "Remembering what you tell it"
+    // off deleted the facts and then wrote new ones on the very next turn.
+    // Withdrawing personalization cascades to this column in the database
+    // (migration 61), so one check still covers both.
     const { data: profile } = await supabase
       .from("profiles")
-      .select("personalization_enabled")
+      .select("memory_enabled")
       .eq("id", userId)
       .maybeSingle();
-    if (!profile || profile.personalization_enabled === false) return;
+    if (!profile || profile.memory_enabled === false) return;
 
     // Read through the caller's RLS-scoped client: this is the member's own
     // data and there is no reason to reach past their policies to see it.

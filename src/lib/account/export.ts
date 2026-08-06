@@ -56,32 +56,37 @@ export function planExport(
       limit: exportLimitFor(entry),
     };
 
-    if (entry.key.by === "via") {
+    // exportKey narrows what the export sees relative to what erasure touches
+    // - user_blocks erases both directions and exports only the subject's own
+    // blocks. Reading it here keeps that asymmetry in one place.
+    const key = entry.exportKey ?? entry.key;
+
+    if (key.by === "via") {
       plans.push({
         ...base,
         filters: [],
         via: {
-          parent: entry.key.parent,
-          localColumn: entry.key.localColumn,
-          parentColumn: entry.key.parentColumn,
+          parent: key.parent,
+          localColumn: key.localColumn,
+          parentColumn: key.parentColumn,
         },
       });
       continue;
     }
 
-    if (entry.key.by === "columns") {
+    if (key.by === "columns") {
       plans.push({
         ...base,
         filters: [],
         // Either side of a two-party row is the subject's row.
-        orFilter: entry.key.columns
+        orFilter: key.columns
           .map((column) => `${column}.eq.${subject.userId}`)
           .join(","),
       });
       continue;
     }
 
-    const filters = subjectFilters(entry, subject);
+    const filters = subjectFilters({ ...entry, key }, subject);
     if (!filters) continue;
     plans.push({ ...base, filters });
   }

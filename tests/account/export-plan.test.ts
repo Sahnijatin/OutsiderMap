@@ -75,6 +75,31 @@ describe("planExport", () => {
   it("honours a registry passed in, so the shape is testable in isolation", () => {
     expect(planExport(SUBJECT, [])).toEqual([]);
   });
+
+  it("exports only the subject's own blocks, not blocks against them", () => {
+    // Erasure removes both directions; the export must not hand back who
+    // blocked THEM, which would turn a safety feature into a targeting list.
+    const plan = planExport(SUBJECT).find((p) => p.table === "user_blocks")!;
+    expect(plan.filters).toEqual([{ column: "blocker", value: "u-1" }]);
+    expect(plan.orFilter).toBeUndefined();
+  });
+
+  it("still erases user_blocks on both sides", () => {
+    const entry = PERSONAL_DATA.find((t) => t.table === "user_blocks")!;
+    expect(entry.key).toEqual({
+      by: "columns",
+      columns: ["blocker", "blocked"],
+    });
+  });
+
+  it("returns usernames rather than another member's uuid", () => {
+    // A raw uuid is useless to the subject and is someone else's internal id.
+    for (const table of ["follows", "activity_events", "user_blocks"]) {
+      const plan = planExport(SUBJECT).find((p) => p.table === table)!;
+      expect(plan.select, `${table} exports raw uuids`).not.toBe("*");
+      expect(plan.select).toContain("username");
+    }
+  });
 });
 
 describe("the streamed document", () => {

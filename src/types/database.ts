@@ -117,6 +117,7 @@ export type Database = {
           home_area: string | null;
           is_admin: boolean;
           personalization_enabled: boolean;
+          memory_enabled: boolean;
           onboarding_completed_at: string | null;
           activated_at: string | null;
           outsider_number: number | null;
@@ -139,6 +140,7 @@ export type Database = {
           home_area?: string | null;
           is_admin?: boolean;
           personalization_enabled?: boolean;
+          memory_enabled?: boolean;
           onboarding_completed_at?: string | null;
           activated_at?: string | null;
           outsider_number?: number | null;
@@ -161,6 +163,7 @@ export type Database = {
           home_area?: string | null;
           is_admin?: boolean;
           personalization_enabled?: boolean;
+          memory_enabled?: boolean;
           onboarding_completed_at?: string | null;
           activated_at?: string | null;
           outsider_number?: number | null;

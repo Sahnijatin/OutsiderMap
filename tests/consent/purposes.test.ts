@@ -90,6 +90,34 @@ describe("isGranted", () => {
   });
 });
 
+describe("the personalization -> member_memory cascade", () => {
+  it("is declared in record_consent, not just in the purge helper", () => {
+    // purgeTargets() destroys remembered facts on a personalization
+    // withdrawal, so the consent state has to follow or the two disagree:
+    // facts deleted, consent still reading "granted", and the extractor
+    // happily writing new ones. Migration 61 cascades it in SQL.
+    const sql = readFileSync(
+      path.join(
+        process.cwd(),
+        "supabase",
+        "migrations",
+        "00000000000061_consent_coverage.sql",
+      ),
+      "utf8",
+    );
+    expect(sql).toContain("cascaded := array['member_memory']");
+    expect(sql).toContain("cascaded_from");
+  });
+
+  it("does not cascade the other way", () => {
+    // Withdrawing member_memory alone leaves personalization intact - a member
+    // can reasonably want recommendations without a system that remembers what
+    // they said out loud.
+    expect(purgeTargets("member_memory")).toEqual(["member_memory"]);
+    expect(purgeTargets("member_memory")).not.toContain("interaction_events");
+  });
+});
+
 describe("purgeTargets", () => {
   it("takes member memory down with personalization", () => {
     // Remembered facts exist only to personalize, so keeping them after

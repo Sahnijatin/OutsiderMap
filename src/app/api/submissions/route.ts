@@ -1,6 +1,9 @@
 import { NextResponse, after, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
-import { getApiContext } from "@/lib/api-auth";
+import {
+  adultGateStatus,
+  requireAdultApiContext,
+} from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processIngestItems } from "@/lib/ingest/pipeline";
@@ -16,10 +19,17 @@ import { normalizeSubmission, SubmissionSchema } from "@/lib/ingest/submit";
  * street. Enrichment runs after the response via the ingest processor.
  */
 export async function POST(request: NextRequest) {
-  const ctx = await getApiContext(request);
-  if (!ctx) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Age gate (DPDP §9). This route writes with the service role, which has
+  // BYPASSRLS, so the is_active_member() policies from migration 58 never see
+  // it - the check has to happen here.
+  const gate = await requireAdultApiContext(request);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      { status: adultGateStatus(gate.error) },
+    );
   }
+  const ctx = gate.ctx;
 
   // Generous enough for a scouting walk, tight enough to stop a script.
   const allowed = await checkRateLimit(`submit:${ctx.user.id}`, 20, 3600);

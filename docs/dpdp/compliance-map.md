@@ -16,7 +16,7 @@ an acquirer, or the next engineer asks for.
 | §8(5) | Reasonable security safeguards | RLS throughout; `is_active_member()` restrictive policies; column-level grants on `profiles` (migration 58); service-role key never client-side |
 | §8(6) | Breach notification to the Board and to members | `docs/dpdp/breach-response.md` (procedure; no code path) |
 | §8(7) | Storage limitation — erase when the purpose is served | `src/lib/account/retention.ts` + `retention-sweep.ts`, run nightly from `/api/cron/daily`. Audited in `retention_runs` |
-| §9 | No children; verifiable parental consent otherwise | Age gate: `profiles.date_of_birth`, `set_date_of_birth()` (migration 58), `src/lib/consent/age.ts`, `/blocked`. Under-18s are refused outright |
+| §9 | No children; verifiable parental consent otherwise | Age gate: `profiles.date_of_birth`, `set_date_of_birth()` (migration 58), `src/lib/consent/age.ts`, `/blocked`. Under-18s are refused outright. Enforced twice: `is_active_member()` RESTRICTIVE policies for member-client writes, and `requireAdultApiContext()` for the routes that write with the service role and therefore bypass RLS |
 | §9(3) | No behavioural tracking of children | Follows from §9: no under-18 account exists to track. The refusal record self-deletes after 30 days |
 | §11 | Right to access and to a summary of processing | `GET /api/account/export` — data, consent history, processors and retention windows, all rendered from the enforcing constants |
 | §12 | Right to correction and erasure | Correction: self-service fields, `DELETE /api/memory`, `/setup?redo=1`, and `category: "data_correction"` grievances. Erasure: `DELETE /api/account` → `src/lib/account/erase.ts` |
@@ -37,6 +37,17 @@ Three tests exist specifically to stop this map going stale:
 - **`tests/consent/purposes.test.ts`** diffs the TypeScript purpose union
   against the SQL check constraint in migration 57. They are two declarations
   of one fact; drift means the UI offers a purpose the database rejects.
+- **`tests/account/retention.test.ts`** checks every retention rule's table,
+  age column, filter columns and `id` column against the parsed migrations.
+  Two rules shipped pointing at columns that do not exist
+  (`notification_sends.created_at`, `moderation_cases.updated_at`); neither
+  threw, so both would have failed silently every night while `/privacy`
+  promised the deletions were happening.
+- **`tests/account/profile-grants.test.ts`** parses the column grant out of
+  migration 58 and cross-checks it against every member-client
+  `.from("profiles").update({...})` in `src/`. Writing an ungranted column
+  fails at runtime, not at typecheck — this is what turns that into a build
+  failure instead of a production incident.
 - **`tests/consent/gate.test.ts`** pins the order of the front-door steps, so
   the redirect in `requireOnboarded()` and the page it redirects to cannot
   disagree.
@@ -51,6 +62,19 @@ Three tests exist specifically to stop this map going stale:
 - **Significant Data Fiduciary status is undetermined.** If OutsiderMap is
   notified as one, §10 adds a DPO, a DPIA and independent audits — none of
   which exist yet.
-- Deleting `interaction_events` on withdrawal and at 400 days moves the counts
-  on `/admin` and the precise-answer accept rate. The right fix is a
-  non-personal aggregate rollup; it does not exist yet.
+
+Everything else that was on this list has been closed in code. Two entries in
+particular are worth recording as *checked and not a problem*, so nobody
+re-opens them:
+
+- **Retention does not affect the admin dashboard.** An earlier draft warned it
+  would. It cannot: `(admin)/admin/page.tsx` reads a **7-day** window and
+  retention deletes `interaction_events` at 400 days.
+  `src/lib/chat/followup.ts` reads a per-member bounded window. The only real
+  effect is that a member who withdraws consent stops appearing in a
+  personalization dashboard — the correct outcome, not a regression. No
+  aggregate rollup is needed.
+- **The member-memory purpose is genuinely independent.** `chat/memory.ts`
+  gates writes on `profiles.memory_enabled`, and `record_consent()` cascades a
+  personalization withdrawal onto it (migration 61), so one column read covers
+  both purposes and neither switch is decorative.

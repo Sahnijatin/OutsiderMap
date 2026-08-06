@@ -64,6 +64,16 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
       "one thread, so nothing older is doing any work.",
   },
   {
+    table: "chat_threads",
+    column: "updated_at",
+    days: 180,
+    batch: 200,
+    label: "The conversations themselves",
+    reason:
+      "Six months, matching the messages inside them. Without this the " +
+      "messages went and an empty titled thread stayed behind forever.",
+  },
+  {
     table: "activity_events",
     column: "created_at",
     days: 180,
