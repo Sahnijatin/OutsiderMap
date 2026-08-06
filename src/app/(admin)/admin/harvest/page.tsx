@@ -1,9 +1,13 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { HARVEST_CATEGORIES, loadHarvestGeography } from "@/lib/harvest/registry";
+import {
+  HARVEST_CATEGORIES,
+  HARVEST_STATES,
+  loadHarvestGeography,
+} from "@/lib/harvest/registry";
 import type { StorySignal } from "@/lib/harvest/story";
 import { publicMediaUrl } from "@/lib/media/url";
 import { Badge } from "@/components/ui/badge";
@@ -17,202 +21,45 @@ import {
   rejectHarvestCandidate,
   removeHarvestCity,
   startHarvest,
-  uploadCandidatePhoto,
 } from "./actions";
+import { CandidateMedia, type CandidateMediaItem } from "./candidate-media";
 import { GeoPicker, type GeoPickerState } from "./geo-picker";
 import { HarvestProgress } from "./harvest-progress";
 
 export const metadata: Metadata = { title: "Harvest · Admin" };
 
+/** How many candidates a page of the review queue renders. */
+const PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 300;
+
+type Filters = {
+  run?: string;
+  city?: string;
+  category?: string;
+  q?: string;
+  limit?: string;
+};
+
 /**
  * The in-console scout: start a harvest (state -> cities -> categories),
  * watch the queue advance, then review candidates with full control - the
- * quoted evidence, dedupe context, attached photos/reels - and Approve to
- * publish, Reject, or flag for a real visit. Nothing goes live without the
+ * quoted evidence, dedupe context, attached photos/clips/reels - and Approve
+ * to publish, Reject, or flag for a real visit. Nothing goes live without the
  * reviewer's click.
+ *
+ * The page body is deliberately synchronous. Every section that needs the
+ * database sits behind its own <Suspense>, so clicking the Harvest tab paints
+ * the headings and the "add a city" form immediately and the slow parts (the
+ * geography read, and the dozen counts behind the review queue) stream in
+ * after. Before this, one await at the top of the component held the whole
+ * route - and because /admin is a shared layout, there was no boundary above
+ * it either, so the tab just sat on the previous page for a few seconds.
  */
-export default async function AdminHarvestPage({
+export default function AdminHarvestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ run?: string; city?: string; category?: string; q?: string }>;
+  searchParams: Promise<Filters>;
 }) {
-  await requireAdmin();
-  const admin = createAdminClient();
-  const filters = await searchParams;
-  const q = (filters.q ?? "").trim().slice(0, 80);
-
-  // Every recent run stays on the page - a new harvest never hides an older
-  // one still under review. Filters narrow the shared review list.
-  const { data: runs } = await admin
-    .from("scout_runs")
-    .select("id, state, cities, categories, status, min_rating, min_reviews, created_at")
-    .neq("status", "archived")
-    .order("created_at", { ascending: false })
-    .limit(20);
-  const runIds = (runs ?? []).map((r) => r.id);
-  const runFilter = runIds.includes(filters.run ?? "") ? filters.run : undefined;
-
-  let progress = null;
-  let reviewable: Array<Record<string, unknown>> = [];
-  let gated: Array<Record<string, unknown>> = [];
-  let reviewTotal = 0;
-  let gatedTotal = 0;
-  let facets: Array<{ city_slug: string; city_name: string; category: string }> = [];
-  const mediaByCandidate = new Map<string, Array<{ kind: string; storage_path: string | null; source_url: string | null; author_name: string | null }>>();
-  let handled = { approved: 0, rejected: 0, needs_visit: 0 };
-
-  if (runIds.length > 0) {
-    const activeIds = (runs ?? []).filter((r) => r.status === "active").map((r) => r.id);
-    if (activeIds.length > 0) {
-      const [{ count: total }, { count: done }, { count: failed }, { count: candidates }] =
-        await Promise.all([
-          admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", activeIds),
-          admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", activeIds).eq("status", "done"),
-          admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", activeIds).eq("status", "failed"),
-          admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", activeIds),
-        ]);
-      progress = {
-        runId: activeIds.join(","),
-        status: "active",
-        totalTasks: total ?? 0,
-        doneTasks: done ?? 0,
-        failedTasks: failed ?? 0,
-        candidates: candidates ?? 0,
-      };
-    }
-
-    // Filter facets come from everything pending, unfiltered - so a chip for
-    // "Kochi" stays visible while you're looking at Delhi.
-    const { data: facetRows } = await admin
-      .from("scout_candidates")
-      .select("city_slug, city_name, category")
-      .in("run_id", runIds)
-      .eq("status", "pending")
-      .limit(2000);
-    facets = facetRows ?? [];
-
-    // Reviewable and gated are SEPARATE queries with true database counts.
-    // Splitting one capped list in JS made the numbers lie: the top-200
-    // window shifted with every filter, so narrowing to a city could SHOW
-    // more than "all runs" did.
-    const applyFilters = <T,>(query: T): T => {
-      let qy = query as never as {
-        eq: (c: string, v: string) => unknown;
-        in: (c: string, v: string[]) => unknown;
-        or: (v: string) => unknown;
-      };
-      qy = (runFilter ? qy.eq("run_id", runFilter) : qy.in("run_id", runIds)) as never;
-      if (filters.city) qy = qy.eq("city_slug", filters.city) as never;
-      if (filters.category) qy = qy.eq("category", filters.category) as never;
-      if (q) {
-        // Commas and parens would break PostgREST's or() syntax; spaces
-        // match just as well for a human search.
-        const safe = q.replace(/[%,()]/g, " ").trim();
-        if (safe) {
-          qy = qy.or(`name.ilike.%${safe}%,address.ilike.%${safe}%`) as never;
-        }
-      }
-      return qy as never as T;
-    };
-
-    const [reviewRes, gatedRes] = await Promise.all([
-      applyFilters(
-        admin
-          .from("scout_candidates")
-          .select("*", { count: "exact" })
-          .eq("status", "pending")
-          .is("gate_reason", null),
-      )
-        .order("score", { ascending: false })
-        .limit(200),
-      applyFilters(
-        admin
-          .from("scout_candidates")
-          .select("id, name, city_name, gate_reason", { count: "exact" })
-          .eq("status", "pending")
-          .not("gate_reason", "is", null),
-      )
-        .order("score", { ascending: false })
-        .limit(100),
-    ]);
-    reviewable = (reviewRes.data ?? []) as never;
-    gated = (gatedRes.data ?? []) as never;
-    reviewTotal = reviewRes.count ?? reviewable.length;
-    gatedTotal = gatedRes.count ?? gated.length;
-
-    const ids = reviewable.map((c) => String(c.id));
-    if (ids.length > 0) {
-      const { data: media } = await admin
-        .from("scout_candidate_media")
-        .select("candidate_id, kind, storage_path, source_url, author_name")
-        .in("candidate_id", ids);
-      for (const m of media ?? []) {
-        const list = mediaByCandidate.get(m.candidate_id) ?? [];
-        list.push(m);
-        mediaByCandidate.set(m.candidate_id, list);
-      }
-    }
-
-    const [{ count: approved }, { count: rejected }, { count: needsVisit }] =
-      await Promise.all([
-        admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", runIds).eq("status", "approved"),
-        admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", runIds).eq("status", "rejected"),
-        admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", runIds).eq("status", "needs_visit"),
-      ]);
-    handled = {
-      approved: approved ?? 0,
-      rejected: rejected ?? 0,
-      needs_visit: needsVisit ?? 0,
-    };
-  }
-
-  const geography = await loadHarvestGeography(admin);
-  // Delhi first (home turf), then the rest of India alphabetically.
-  const pickerStates: GeoPickerState[] = Object.entries(geography)
-    .sort(([a, sa], [b, sb]) =>
-      a === "delhi" ? -1 : b === "delhi" ? 1 : sa.name.localeCompare(sb.name),
-    )
-    .map(([slug, state]) => ({
-      slug,
-      name: state.name,
-      cities: state.cities.map((c) => ({
-        slug: c.slug,
-        name: c.name,
-        custom: c.custom,
-      })),
-    }));
-
-  const { data: customCities } = await admin
-    .from("harvest_cities")
-    .select("id, name, state_name, lat, lng, radius_m")
-    .order("created_at", { ascending: false });
-
-  // Facet chips, deduped from everything pending across all runs.
-  const cityFacets = [...new Map(facets.map((f) => [f.city_slug, f.city_name]))];
-  const categoryFacets = [...new Set(facets.map((f) => f.category))].sort();
-
-  const href = (patch: {
-    run?: string | null;
-    city?: string | null;
-    category?: string | null;
-    q?: string | null;
-  }) => {
-    const merged = {
-      run: patch.run === undefined ? (runFilter ?? null) : patch.run,
-      city: patch.city === undefined ? (filters.city ?? null) : patch.city,
-      category:
-        patch.category === undefined ? (filters.category ?? null) : patch.category,
-      q: patch.q === undefined ? (q || null) : patch.q,
-    };
-    const p = new URLSearchParams();
-    if (merged.run) p.set("run", merged.run);
-    if (merged.city) p.set("city", merged.city);
-    if (merged.category) p.set("category", merged.category);
-    if (merged.q) p.set("q", merged.q);
-    const qs = p.toString();
-    return qs ? `/admin/harvest?${qs}` : "/admin/harvest";
-  };
-
   return (
     <div className="flex flex-col gap-10">
       <section>
@@ -222,40 +69,9 @@ export default async function AdminHarvestPage({
           (official API) + OpenStreetMap. Everything lands here for YOUR
           review - approve is what publishes.
         </p>
-        <form action={startHarvest} className="mt-4 flex flex-col gap-4">
-          <GeoPicker states={pickerStates} />
-          <div>
-            <p className="voice">categories</p>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {Object.keys(HARVEST_CATEGORIES).map((cat) => (
-                <label key={cat} className="flex items-center gap-1.5 text-sm">
-                  <input
-                    type="checkbox"
-                    name="categories"
-                    value={cat}
-                    defaultChecked={cat === "cafe" || cat === "restaurant"}
-                  />
-                  {cat}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-end gap-4 text-sm">
-            <label className="flex flex-col gap-1">
-              <span className="voice">min rating</span>
-              <input type="number" name="minRating" defaultValue="4.3" step="0.1" min="3" max="5" className="w-24 rounded-card border border-line bg-surface px-3 py-2" />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="voice">min reviews</span>
-              <input type="number" name="minReviews" defaultValue="300" min="0" className="w-28 rounded-card border border-line bg-surface px-3 py-2" />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="voice">per query</span>
-              <input type="number" name="maxPerQuery" defaultValue="60" min="20" max="60" className="w-24 rounded-card border border-line bg-surface px-3 py-2" />
-            </label>
-            <Button type="submit" size="sm">Start harvest</Button>
-          </div>
-        </form>
+        <Suspense fallback={<Skeleton className="mt-4 h-40" />}>
+          <StartHarvestForm />
+        </Suspense>
       </section>
 
       <section>
@@ -287,23 +103,334 @@ export default async function AdminHarvestPage({
           </label>
           <Button type="submit" size="sm" variant="secondary">Add city</Button>
         </form>
-        {(customCities ?? []).length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {customCities!.map((c) => (
-              <form key={c.id} action={removeHarvestCity} className="flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs">
-                <input type="hidden" name="id" value={c.id} />
-                <span>
-                  {c.name} · {c.state_name} · {Math.round(c.radius_m / 1000)}km
-                </span>
-                <button type="submit" aria-label={`Remove ${c.name}`} className="text-ink-dim transition-colors hover:text-danger">
-                  ✕
-                </button>
-              </form>
-            ))}
-          </div>
-        )}
+        <Suspense fallback={null}>
+          <CustomCities />
+        </Suspense>
       </section>
 
+      <Suspense fallback={<ReviewSkeleton />}>
+        <ReviewQueue searchParams={searchParams} />
+      </Suspense>
+    </div>
+  );
+}
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return (
+    <div
+      aria-hidden
+      className={`animate-pulse rounded-card border border-line bg-surface/40 ${className}`}
+    />
+  );
+}
+
+function ReviewSkeleton() {
+  return (
+    <section className="flex flex-col gap-3">
+      <Skeleton className="h-8 w-48 border-0 bg-surface/60" />
+      <Skeleton className="h-10" />
+      <Skeleton className="h-40" />
+      <Skeleton className="h-40" />
+    </section>
+  );
+}
+
+/** The geography picker + run parameters. Needs the console-added cities. */
+async function StartHarvestForm() {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const geography = await loadHarvestGeography(admin);
+  // Delhi first (home turf), then the rest of India alphabetically.
+  const pickerStates: GeoPickerState[] = Object.entries(geography)
+    .sort(([a, sa], [b, sb]) =>
+      a === "delhi" ? -1 : b === "delhi" ? 1 : sa.name.localeCompare(sb.name),
+    )
+    .map(([slug, state]) => ({
+      slug,
+      name: state.name,
+      cities: state.cities.map((c) => ({
+        slug: c.slug,
+        name: c.name,
+        custom: c.custom,
+      })),
+    }));
+
+  return (
+    <form action={startHarvest} className="mt-4 flex flex-col gap-4">
+      <GeoPicker states={pickerStates} />
+      <div>
+        <p className="voice">categories</p>
+        <div className="mt-2 flex flex-wrap gap-3">
+          {Object.keys(HARVEST_CATEGORIES).map((cat) => (
+            <label key={cat} className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                name="categories"
+                value={cat}
+                defaultChecked={cat === "cafe" || cat === "restaurant"}
+              />
+              {cat}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-end gap-4 text-sm">
+        <label className="flex flex-col gap-1">
+          <span className="voice">min rating</span>
+          <input type="number" name="minRating" defaultValue="4.3" step="0.1" min="3" max="5" className="w-24 rounded-card border border-line bg-surface px-3 py-2" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="voice">min reviews</span>
+          <input type="number" name="minReviews" defaultValue="300" min="0" className="w-28 rounded-card border border-line bg-surface px-3 py-2" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="voice">per query</span>
+          <input type="number" name="maxPerQuery" defaultValue="60" min="20" max="60" className="w-24 rounded-card border border-line bg-surface px-3 py-2" />
+        </label>
+        <Button type="submit" size="sm">Start harvest</Button>
+      </div>
+    </form>
+  );
+}
+
+/** Chips for cities added from the console, each linking to its own removal. */
+async function CustomCities() {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const { data: customCities } = await admin
+    .from("harvest_cities")
+    .select("id, name, state_name, lat, lng, radius_m")
+    .order("created_at", { ascending: false });
+
+  if ((customCities ?? []).length === 0) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {customCities!.map((c) => (
+        <form key={c.id} action={removeHarvestCity} className="flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs">
+          <input type="hidden" name="id" value={c.id} />
+          <span>
+            {c.name} · {c.state_name} · {Math.round(c.radius_m / 1000)}km
+          </span>
+          <button type="submit" aria-label={`Remove ${c.name}`} className="text-ink-dim transition-colors hover:text-danger">
+            ✕
+          </button>
+        </form>
+      ))}
+    </div>
+  );
+}
+
+async function ReviewQueue({
+  searchParams,
+}: {
+  searchParams: Promise<Filters>;
+}) {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const filters = await searchParams;
+  const q = (filters.q ?? "").trim().slice(0, 80);
+  const limit = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(PAGE_SIZE, Number(filters.limit) || PAGE_SIZE),
+  );
+
+  // Every recent run stays on the page - a new harvest never hides an older
+  // one still under review. Filters narrow the shared review list.
+  const { data: runs } = await admin
+    .from("scout_runs")
+    .select("id, state, cities, categories, status, min_rating, min_reviews, created_at")
+    .neq("status", "archived")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const runIds = (runs ?? []).map((r) => r.id);
+  const runFilter = runIds.includes(filters.run ?? "") ? filters.run : undefined;
+
+  let progress = null;
+  let reviewable: Array<Record<string, unknown>> = [];
+  let gated: Array<Record<string, unknown>> = [];
+  let reviewTotal = 0;
+  let gatedTotal = 0;
+  let facets: Array<{ city_slug: string; city_name: string; category: string }> = [];
+  const mediaByCandidate = new Map<
+    string,
+    Array<{
+      id: string;
+      kind: string;
+      storage_path: string | null;
+      source_url: string | null;
+      author_name: string | null;
+    }>
+  >();
+  let handled = { approved: 0, rejected: 0, needs_visit: 0 };
+
+  if (runIds.length > 0) {
+    const activeIds = (runs ?? []).filter((r) => r.status === "active").map((r) => r.id);
+
+    // Filter facets come from everything pending, unfiltered - so a chip for
+    // "Kochi" stays visible while you're looking at Delhi.
+    // Reviewable and gated are SEPARATE queries with true database counts.
+    // Splitting one capped list in JS made the numbers lie: the top-200
+    // window shifted with every filter, so narrowing to a city could SHOW
+    // more than "all runs" did.
+    const applyFilters = <T,>(query: T): T => {
+      let qy = query as never as {
+        eq: (c: string, v: string) => unknown;
+        in: (c: string, v: string[]) => unknown;
+        or: (v: string) => unknown;
+      };
+      qy = (runFilter ? qy.eq("run_id", runFilter) : qy.in("run_id", runIds)) as never;
+      if (filters.city) qy = qy.eq("city_slug", filters.city) as never;
+      if (filters.category) qy = qy.eq("category", filters.category) as never;
+      if (q) {
+        // Commas and parens would break PostgREST's or() syntax; spaces
+        // match just as well for a human search.
+        const safe = q.replace(/[%,()]/g, " ").trim();
+        if (safe) {
+          qy = qy.or(`name.ilike.%${safe}%,address.ilike.%${safe}%`) as never;
+        }
+      }
+      return qy as never as T;
+    };
+
+    // One round trip for the whole queue: the progress counts, the facets, the
+    // two candidate windows and the handled tally all fire together instead of
+    // in four sequential waves.
+    const [
+      facetRes,
+      reviewRes,
+      gatedRes,
+      progressCounts,
+      approvedRes,
+      rejectedRes,
+      needsVisitRes,
+    ] = await Promise.all([
+      admin
+        .from("scout_candidates")
+        .select("city_slug, city_name, category")
+        .in("run_id", runIds)
+        .eq("status", "pending")
+        .limit(2000),
+      applyFilters(
+        admin
+          .from("scout_candidates")
+          .select("*", { count: "exact" })
+          .eq("status", "pending")
+          .is("gate_reason", null),
+      )
+        .order("score", { ascending: false })
+        .limit(limit),
+      applyFilters(
+        admin
+          .from("scout_candidates")
+          .select("id, name, city_name, gate_reason", { count: "exact" })
+          .eq("status", "pending")
+          .not("gate_reason", "is", null),
+      )
+        .order("score", { ascending: false })
+        .limit(100),
+      activeIds.length > 0
+        ? Promise.all([
+            admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", activeIds),
+            admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", activeIds).eq("status", "done"),
+            admin.from("scout_tasks").select("id", { count: "exact", head: true }).in("run_id", activeIds).eq("status", "failed"),
+            admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", activeIds),
+          ])
+        : null,
+      admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", runIds).eq("status", "approved"),
+      admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", runIds).eq("status", "rejected"),
+      admin.from("scout_candidates").select("id", { count: "exact", head: true }).in("run_id", runIds).eq("status", "needs_visit"),
+    ]);
+
+    facets = facetRes.data ?? [];
+    reviewable = (reviewRes.data ?? []) as never;
+    gated = (gatedRes.data ?? []) as never;
+    reviewTotal = reviewRes.count ?? reviewable.length;
+    gatedTotal = gatedRes.count ?? gated.length;
+
+    if (progressCounts) {
+      const [total, done, failed, candidates] = progressCounts;
+      progress = {
+        runId: activeIds.join(","),
+        status: "active",
+        totalTasks: total.count ?? 0,
+        doneTasks: done.count ?? 0,
+        failedTasks: failed.count ?? 0,
+        candidates: candidates.count ?? 0,
+      };
+    }
+
+    handled = {
+      approved: approvedRes.count ?? 0,
+      rejected: rejectedRes.count ?? 0,
+      needs_visit: needsVisitRes.count ?? 0,
+    };
+
+    const ids = reviewable.map((c) => String(c.id));
+    if (ids.length > 0) {
+      const { data: media } = await admin
+        .from("scout_candidate_media")
+        .select("id, candidate_id, kind, storage_path, source_url, author_name")
+        .in("candidate_id", ids)
+        .order("created_at");
+      for (const m of media ?? []) {
+        const list = mediaByCandidate.get(m.candidate_id) ?? [];
+        list.push(m);
+        mediaByCandidate.set(m.candidate_id, list);
+      }
+    }
+  }
+
+  // Run chips are labelled with their state's display name. The built-in
+  // registry covers all but console-added states, so only those cost a query -
+  // reading the whole geography here meant a full harvest_cities scan on every
+  // render of the review queue.
+  const stateNames = new Map<string, string>();
+  const unknownStates = [
+    ...new Set((runs ?? []).map((r) => r.state).filter((s) => !HARVEST_STATES[s])),
+  ];
+  if (unknownStates.length > 0) {
+    const { data: named } = await admin
+      .from("harvest_cities")
+      .select("state_slug, state_name")
+      .in("state_slug", unknownStates);
+    for (const row of named ?? []) stateNames.set(row.state_slug, row.state_name);
+  }
+
+  // Facet chips, deduped from everything pending across all runs.
+  const cityFacets = [...new Map(facets.map((f) => [f.city_slug, f.city_name]))];
+  const categoryFacets = [...new Set(facets.map((f) => f.category))].sort();
+
+  const href = (patch: {
+    run?: string | null;
+    city?: string | null;
+    category?: string | null;
+    q?: string | null;
+    limit?: number | null;
+  }) => {
+    const merged = {
+      run: patch.run === undefined ? (runFilter ?? null) : patch.run,
+      city: patch.city === undefined ? (filters.city ?? null) : patch.city,
+      category:
+        patch.category === undefined ? (filters.category ?? null) : patch.category,
+      q: patch.q === undefined ? (q || null) : patch.q,
+      // A new filter always starts from page one - carrying a raised limit
+      // across a filter change would quietly undo the point of paging.
+      limit: patch.limit === undefined ? null : patch.limit,
+    };
+    const p = new URLSearchParams();
+    if (merged.run) p.set("run", merged.run);
+    if (merged.city) p.set("city", merged.city);
+    if (merged.category) p.set("category", merged.category);
+    if (merged.q) p.set("q", merged.q);
+    if (merged.limit && merged.limit !== PAGE_SIZE) {
+      p.set("limit", String(merged.limit));
+    }
+    const qs = p.toString();
+    return qs ? `/admin/harvest?${qs}` : "/admin/harvest";
+  };
+
+  return (
+    <>
       {progress && <HarvestProgress key={progress.runId} initial={progress} />}
 
       {(runs ?? []).length > 0 && (
@@ -358,7 +485,10 @@ export default async function AdminHarvestPage({
                   href={href({ run: runFilter === r.id ? null : r.id })}
                   active={runFilter === r.id}
                 >
-                  {geography[r.state]?.name ?? r.state} ·{" "}
+                  {HARVEST_STATES[r.state]?.name ??
+                    stateNames.get(r.state) ??
+                    r.state}{" "}
+                  ·{" "}
                   {new Date(r.created_at).toLocaleString("en-IN", {
                     day: "numeric",
                     month: "short",
@@ -420,6 +550,25 @@ export default async function AdminHarvestPage({
               ))}
             </div>
           )}
+
+          {/* Paging keeps the first paint cheap: a queue of 200 candidates was
+              a thousand thumbnails in one response. */}
+          {reviewable.length >= limit && reviewTotal > reviewable.length && (
+            <div className="mt-4">
+              <Link
+                href={href({
+                  run: runFilter ?? null,
+                  city: filters.city ?? null,
+                  category: filters.category ?? null,
+                  q: q || null,
+                  limit: Math.min(MAX_PAGE_SIZE, limit + PAGE_SIZE),
+                })}
+                className="text-sm text-ink-dim underline hover:text-ink"
+              >
+                Show {Math.min(PAGE_SIZE, reviewTotal - reviewable.length)} more
+              </Link>
+            </div>
+          )}
         </section>
       )}
 
@@ -442,7 +591,7 @@ export default async function AdminHarvestPage({
           </div>
         </details>
       )}
-    </div>
+    </>
   );
 }
 
@@ -497,13 +646,44 @@ function CandidateCard({
   media,
 }: {
   candidate: Candidate;
-  media: Array<{ kind: string; storage_path: string | null; source_url: string | null; author_name: string | null }>;
+  media: Array<{
+    id: string;
+    kind: string;
+    storage_path: string | null;
+    source_url: string | null;
+    author_name: string | null;
+  }>;
 }) {
   const signals: StorySignal[] = Array.isArray(candidate.story_signals)
     ? (candidate.story_signals as StorySignal[])
     : [];
-  const photos = media.filter((m) => m.kind === "image" && m.storage_path);
-  const embeds = media.filter((m) => m.kind === "embed");
+
+  // Rows the reviewer can actually see: a hosted file needs a resolvable URL,
+  // an embed needs its link.
+  const mediaItems: CandidateMediaItem[] = media.flatMap((m): CandidateMediaItem[] => {
+    if (m.kind === "embed") {
+      return m.source_url
+        ? [
+            {
+              id: m.id,
+              kind: "embed" as const,
+              sourceUrl: m.source_url,
+              authorName: m.author_name,
+            },
+          ]
+        : [];
+    }
+    const url = publicMediaUrl("place-images", m.storage_path);
+    return url
+      ? [
+          {
+            id: m.id,
+            kind: m.kind === "video" ? ("video" as const) : ("image" as const),
+            url,
+          },
+        ]
+      : [];
+  });
 
   return (
     <Card className="flex flex-col gap-3 p-4">
@@ -547,43 +727,14 @@ function CandidateCard({
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        {photos.map((p) => {
-          const url = publicMediaUrl("place-images", p.storage_path);
-          return url ? (
-            <Image
-              key={p.storage_path}
-              src={url}
-              alt=""
-              width={72}
-              height={72}
-              className="size-16 rounded-xl object-cover"
-            />
-          ) : null;
-        })}
-        {embeds.map((e, i) => (
-          <a
-            key={i}
-            href={e.source_url ?? "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-line px-3 py-1 text-xs text-ink-dim underline"
-          >
-            embed · {e.author_name}
-          </a>
-        ))}
-        <form action={uploadCandidatePhoto} className="flex items-center gap-2">
-          <input type="hidden" name="id" value={candidate.id} />
-          <input type="file" name="photo" accept="image/*" className="max-w-44 text-xs" />
-          <Button type="submit" size="sm" variant="secondary">Add photo</Button>
-        </form>
-        <form action={addCandidateEmbed} className="flex items-center gap-2">
-          <input type="hidden" name="id" value={candidate.id} />
-          <input name="url" placeholder="Reel/video link" className="w-40 rounded-card border border-line bg-surface px-2 py-1 text-xs" />
-          <input name="author" placeholder="Creator handle" className="w-32 rounded-card border border-line bg-surface px-2 py-1 text-xs" />
-          <Button type="submit" size="sm" variant="secondary">Add embed</Button>
-        </form>
-      </div>
+      <CandidateMedia candidateId={candidate.id} items={mediaItems} />
+
+      <form action={addCandidateEmbed} className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="id" value={candidate.id} />
+        <input name="url" placeholder="Reel/video link" className="w-40 rounded-card border border-line bg-surface px-2 py-1 text-xs" />
+        <input name="author" placeholder="Creator handle" className="w-32 rounded-card border border-line bg-surface px-2 py-1 text-xs" />
+        <Button type="submit" size="sm" variant="secondary">Add embed</Button>
+      </form>
 
       <div className="flex flex-wrap items-center gap-2">
         <form action={approveHarvestCandidate}>

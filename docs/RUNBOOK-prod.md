@@ -72,6 +72,14 @@ Created by migrations (not by the seeder): `place-images` (public),
 running the migrations; nothing manual needed. If media 404s, check
 Storage → the bucket exists and is public/private as listed.
 
+**Upload size limits.** Migration 57 sets a `file_size_limit` per bucket -
+50MB for the editorial buckets (`place-images`, `experience-media`), 150MB for
+the member ones (`post-media`, `quest-media`, `reel-media`). A bucket limit can
+never exceed the **project-wide** ceiling, which is not settable from SQL:
+Supabase dashboard → Settings → Storage → "Upload file size limit". If clips
+upload fine at 40MB and fail at 90MB, that project setting is the ceiling being
+hit, not the bucket. Raise it there to whatever the largest bucket limit is.
+
 ## 5. Events
 
 No seed file exists. Events enter through **/admin/events/new**: title,

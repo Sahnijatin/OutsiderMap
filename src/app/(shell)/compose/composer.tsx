@@ -26,6 +26,7 @@ import {
   MAX_POST_MEDIA,
   type PostMediaKind,
 } from "@/lib/feed/compose";
+import { resolveMediaDescriptor } from "@/lib/media/file-kind";
 
 type PlaceHit = {
   id: string;
@@ -57,23 +58,16 @@ const PRECISION_LABELS: Record<(typeof LOCATION_PRECISIONS)[number], string> = {
   hidden: "Hidden",
 };
 
-/** Best-effort {kind, ext} for a picked file; null if unsupported. */
+/**
+ * Best-effort {kind, ext} for a picked file; null if unsupported.
+ *
+ * Deliberately does not require a usable Content-Type: Android's picker
+ * reports `application/octet-stream` for plenty of real MP4s, and this
+ * function used to bail on those - which is what "video doesn't work" looked
+ * like from a phone.
+ */
 function fileKindExt(file: File): { kind: PostMediaKind; ext: string } | null {
-  const kind: PostMediaKind | null = file.type.startsWith("image/")
-    ? "image"
-    : file.type.startsWith("video/")
-      ? "video"
-      : null;
-  if (!kind) return null;
-  const norm = (raw: string | undefined) =>
-    (raw ?? "")
-      .toLowerCase()
-      .replace("jpeg", "jpg")
-      .replace("quicktime", "mov");
-  const mimeExt = norm(file.type.split("/")[1]);
-  const nameExt = norm(file.name.split(".").pop());
-  const ext = allowedPostMediaExt(kind, mimeExt) ? mimeExt : nameExt;
-  return allowedPostMediaExt(kind, ext) ? { kind, ext } : null;
+  return resolveMediaDescriptor(file, allowedPostMediaExt);
 }
 
 export function Composer({ homeCity }: { homeCity: string }) {

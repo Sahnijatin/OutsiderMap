@@ -3,6 +3,11 @@
 import { useMemo, useRef, useState } from "react";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { MAX_ADMIN_MEDIA_LABEL } from "@/lib/media/admin-media";
+import {
+  AdminUploadError,
+  uploadAdminMedia,
+} from "@/lib/media/admin-upload-client";
 import type { Json } from "@/types/database";
 
 type MediaType = "image" | "video";
@@ -137,11 +142,53 @@ function StoryCardRow({
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
 }) {
+  const [status, setStatus] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const preview = useMemo(() => {
     if (card.file) return URL.createObjectURL(card.file);
     if (card.mediaPath) return `${PUBLIC_MEDIA_BASE}/${card.mediaPath}`;
     return null;
   }, [card.file, card.mediaPath]);
+
+  /**
+   * Send the file to Storage the moment it is picked, and submit only the
+   * resulting path with the form.
+   *
+   * The form itself posts through a Server Action, whose request body caps at
+   * 4MB - which is why a story clip never once uploaded successfully. If the
+   * direct upload fails we keep the file on the input, so the old
+   * through-the-action path still handles a small image rather than losing the
+   * reviewer's pick.
+   */
+  async function pick(input: HTMLInputElement) {
+    const file = input.files?.[0] ?? null;
+    setUploadError(null);
+    if (!file) {
+      setStatus(null);
+      onChange({ file: null });
+      return;
+    }
+
+    onChange({
+      file,
+      mediaType: file.type.startsWith("video/") ? "video" : "image",
+    });
+    setStatus("Uploading…");
+    try {
+      const uploaded = await uploadAdminMedia(file, { target: "story" });
+      input.value = "";
+      onChange({ file: null, mediaPath: uploaded.path, mediaType: uploaded.kind });
+      setStatus("Uploaded");
+    } catch (err) {
+      setStatus(null);
+      setUploadError(
+        err instanceof AdminUploadError
+          ? err.message
+          : "Direct upload failed - it will be sent with the form instead.",
+      );
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3 rounded-card border border-line bg-night/30 p-4 sm:flex-row">
@@ -184,16 +231,16 @@ function StoryCardRow({
         <input
           type="file"
           name={`story_${index}_file`}
-          accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime"
+          accept="image/*,video/*"
           className="block w-full text-xs text-ink-dim file:mr-2 file:rounded-md file:border file:border-line file:bg-surface file:px-2 file:py-1 file:text-xs file:text-ink hover:file:border-ink-dim"
-          onChange={(e) => {
-            const f = e.target.files?.[0] ?? null;
-            onChange({
-              file: f,
-              mediaType: f?.type.startsWith("video/") ? "video" : "image",
-            });
-          }}
+          onChange={(e) => pick(e.currentTarget)}
         />
+        <p className="text-[0.65rem] text-ink-dim">
+          {status ?? `Photo or clip, ${MAX_ADMIN_MEDIA_LABEL} max.`}
+        </p>
+        {uploadError && (
+          <p className="text-[0.65rem] text-danger">{uploadError}</p>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-3">

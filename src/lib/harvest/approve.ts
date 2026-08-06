@@ -134,7 +134,12 @@ export async function approveCandidate(
       .join("\n"),
   ]);
 
-  const images = (media ?? []).filter((m) => m.kind === "image" && m.storage_path);
+  // Hosted files (photos and clips we hold a licence to) keep the reviewer's
+  // order; embeds follow. The cover image can only ever be a still.
+  const hosted = (media ?? []).filter(
+    (m) => (m.kind === "image" || m.kind === "video") && m.storage_path,
+  );
+  const images = hosted.filter((m) => m.kind === "image");
   const embeds = (media ?? []).filter((m) => m.kind === "embed" && m.source_url);
 
   const kind = (HARVEST_CATEGORIES[candidate.category]?.kind ?? "spot") as PlaceKind;
@@ -166,9 +171,9 @@ export async function approveCandidate(
   // Attach media under the licence law: uploads are editorial (we hold the
   // file), reels/videos are embeds (a pointer with attribution, never a copy).
   const mediaRows: Array<Record<string, Json>> = [
-    ...images.map((m, i) => ({
+    ...hosted.map((m, i) => ({
       place_id: place.id,
-      kind: "image",
+      kind: m.kind === "video" ? "video" : "image",
       licence_basis: "editorial",
       storage_path: m.storage_path,
       sort_order: i,
@@ -181,7 +186,7 @@ export async function approveCandidate(
       source_url: m.source_url,
       source_platform: detectPlatform(m.source_url!),
       author_name: m.author_name,
-      sort_order: images.length + i,
+      sort_order: hosted.length + i,
       status: "published",
     })),
   ];
