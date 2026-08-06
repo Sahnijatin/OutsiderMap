@@ -2,20 +2,26 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getApiContext } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { MEMBER_VETTING_BUCKET } from "@/lib/vetting/media";
+import { eraseSubject } from "@/lib/account/erase";
 
 /**
- * DPDP right-to-delete: purges all personal data for the authenticated user.
+ * DPDP right to delete: purges all personal data for the authenticated user.
  *
- * Authenticates the caller (bearer or cookie) like every other /api route, then
- * uses the service role to erase everything keyed to them across the schema -
- * behavioural events, saved places, weekend plans, taste profile,
- * profile row, any waitlist application (and its private vetting media) - and
- * finally deletes the auth user so the account is gone, not just emptied.
+ * Authenticates the caller (bearer or cookie) like every other /api route,
+ * then hands off to eraseSubject, which walks the shared registry in
+ * lib/account/personal-data.ts - storage objects first, then every table
+ * marked for explicit deletion, then the profile row and its cascades, then
+ * the auth user, then the erasure record.
  *
- * Best-effort but honest: every step runs even if an earlier one fails, and the
- * response reports any failures so the client never shows "deleted" on a
- * partial purge.
+ * The table list used to live here, inline, and had drifted about twenty
+ * tables behind the schema; post-media objects were orphaned on every deletion
+ * because the post rows that pointed at them cascaded away first. The registry
+ * fixes both, and a test now fails the build if a new user-keyed table is left
+ * unclassified.
+ *
+ * Best-effort but honest, unchanged: every step runs even if an earlier one
+ * fails, and the response reports failures so the client never shows "deleted"
+ * on a partial purge.
  */
 export async function DELETE(request: NextRequest) {
   const ctx = await getApiContext(request);
@@ -35,67 +41,10 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const admin = createAdminClient();
-  const userId = ctx.user.id;
-  const email = ctx.user.email ?? null;
-  const errors: string[] = [];
-
-  // Remove private vetting media first (the paths live on the waitlist row).
-  if (email) {
-    const { data: application } = await admin
-      .from("waitlist")
-      .select("selfie_path, photo_paths")
-      .eq("email", email)
-      .maybeSingle();
-    const paths = [
-      application?.selfie_path,
-      ...(application?.photo_paths ?? []),
-    ].filter((p): p is string => Boolean(p));
-    if (paths.length > 0) {
-      const { error } = await admin.storage
-        .from(MEMBER_VETTING_BUCKET)
-        .remove(paths);
-      if (error) errors.push(`vetting media: ${error.message}`);
-    }
-  }
-
-  // Captured quest media: collect the storage paths BEFORE the row cascade
-  // wipes the pointers, then remove the objects.
-  const { data: questMedia } = await admin
-    .from("quest_stop_media")
-    .select("storage_path")
-    .eq("user_id", userId);
-  const questPaths = (questMedia ?? []).map((m) => m.storage_path);
-  if (questPaths.length > 0) {
-    const { error } = await admin.storage.from("quest-media").remove(questPaths);
-    if (error) errors.push(`quest media: ${error.message}`);
-  }
-
-  // Delete every row keyed to the user. chat threads/messages and quests/
-  // stops/media all cascade from the profiles delete; the explicit deletes
-  // cover rows and collect per-table failures.
-  const deletions: Array<PromiseLike<{ error: { message: string } | null }>> = [
-    admin.from("interaction_events").delete().eq("user_id", userId),
-    admin.from("saved_places").delete().eq("user_id", userId),
-    admin.from("weekend_plans").delete().eq("user_id", userId),
-    admin.from("chat_threads").delete().eq("user_id", userId),
-    admin.from("quests").delete().eq("user_id", userId),
-    admin.from("device_tokens").delete().eq("user_id", userId),
-    admin.from("taste_profiles").delete().eq("user_id", userId),
-    admin.from("profiles").delete().eq("id", userId),
-  ];
-  if (email) {
-    deletions.push(admin.from("waitlist").delete().eq("email", email));
-  }
-
-  const results = await Promise.all(deletions);
-  for (const { error } of results) {
-    if (error) errors.push(error.message);
-  }
-
-  // Finally remove the auth user itself, so the account can't sign back in.
-  const { error: authError } = await admin.auth.admin.deleteUser(userId);
-  if (authError) errors.push(`auth user: ${authError.message}`);
+  const { errors } = await eraseSubject(createAdminClient(), {
+    userId: ctx.user.id,
+    email: ctx.user.email ?? null,
+  });
 
   if (errors.length > 0) {
     return NextResponse.json(

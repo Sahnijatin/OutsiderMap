@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processIngestItems } from "@/lib/ingest/pipeline";
 import { sweepPublishedWithoutEmbeddings } from "@/lib/admin/embed-sweep";
+import { runRetentionSweep } from "@/lib/account/retention-sweep";
 import { serverEnv } from "@/lib/env";
 
 /**
@@ -28,5 +29,17 @@ export async function GET(request: NextRequest) {
   // them one, up to 50 a day. Skips with a report when no OPENAI_API_KEY.
   const embedSweep = await sweepPublishedWithoutEmbeddings(admin, 50);
 
-  return NextResponse.json({ ingest, embedSweep });
+  // DPDP §8(7) storage limitation. Folded in here rather than given its own
+  // schedule because Hobby allows two crons and both are spoken for - and run
+  // LAST, with a wall-clock deadline, so a growing sweep can never starve the
+  // ingest retry or the embedding backfill above it.
+  //
+  // Also finishes two things that are not age-on-a-column: deleting accounts
+  // refused at the age gate once their 30-day refusal record has done its job,
+  // and re-running any withdrawal purge that failed mid-flight.
+  const retention = await runRetentionSweep(admin, Date.now(), {
+    deadlineMs: Date.now() + 90_000,
+  });
+
+  return NextResponse.json({ ingest, embedSweep, retention });
 }

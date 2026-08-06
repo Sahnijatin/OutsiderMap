@@ -36,6 +36,11 @@ const serverEnvSchema = z.object({
   RESEND_ADMIN_EMAIL: z.string().email().optional(),
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+  /** DPDP grievance officer, rendered on /privacy. Unset = "to be appointed"
+   *  (the page still renders); see lib/consent/officer.ts. */
+  DPDP_GRIEVANCE_OFFICER_NAME: z.string().min(1).optional(),
+  DPDP_GRIEVANCE_OFFICER_EMAIL: z.string().email().optional(),
+  DPDP_GRIEVANCE_OFFICER_ADDRESS: z.string().min(1).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

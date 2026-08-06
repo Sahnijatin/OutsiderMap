@@ -40,6 +40,34 @@ export type MemoryKind =
   | "budget"
   | "access";
 
+/**
+ * DPDP consent purposes (see consents.purpose).
+ *
+ * Itemized because the Act requires consent to be specific and independently
+ * refusable per purpose - one blanket checkbox is exactly what §6 forbids.
+ * `essential` is the service itself and cannot be withdrawn short of deleting
+ * the account; the RPC raises if you try.
+ */
+export type ConsentPurpose =
+  | "essential"
+  | "personalization"
+  | "member_memory"
+  | "notifications"
+  | "location";
+
+/** How a consent was given or withdrawn (see consents.method). */
+export type ConsentMethod =
+  | "signup"
+  | "onboarding"
+  | "settings_toggle"
+  | "reconsent"
+  | "api"
+  | "legacy_backfill"
+  | "admin";
+
+/** Why an account is blocked (see profiles.blocked_reason). */
+export type BlockedReason = "underage" | "abuse" | "admin";
+
 /** Interaction taxonomy feeding the learning loop (see interaction_events). */
 export type InteractionEventType =
   | "query"
@@ -89,6 +117,7 @@ export type Database = {
           home_area: string | null;
           is_admin: boolean;
           personalization_enabled: boolean;
+          memory_enabled: boolean;
           onboarding_completed_at: string | null;
           activated_at: string | null;
           outsider_number: number | null;
@@ -96,6 +125,11 @@ export type Database = {
           home_city: string | null;
           curator_score: number;
           taste_card_public: boolean;
+          policy_version_accepted: string | null;
+          date_of_birth: string | null;
+          age_verified_at: string | null;
+          blocked_at: string | null;
+          blocked_reason: BlockedReason | null;
           created_at: string;
         };
         Insert: {
@@ -106,6 +140,7 @@ export type Database = {
           home_area?: string | null;
           is_admin?: boolean;
           personalization_enabled?: boolean;
+          memory_enabled?: boolean;
           onboarding_completed_at?: string | null;
           activated_at?: string | null;
           outsider_number?: number | null;
@@ -113,6 +148,11 @@ export type Database = {
           home_city?: string | null;
           curator_score?: number;
           taste_card_public?: boolean;
+          policy_version_accepted?: string | null;
+          date_of_birth?: string | null;
+          age_verified_at?: string | null;
+          blocked_at?: string | null;
+          blocked_reason?: BlockedReason | null;
           created_at?: string;
         };
         Update: {
@@ -123,6 +163,7 @@ export type Database = {
           home_area?: string | null;
           is_admin?: boolean;
           personalization_enabled?: boolean;
+          memory_enabled?: boolean;
           onboarding_completed_at?: string | null;
           activated_at?: string | null;
           outsider_number?: number | null;
@@ -130,7 +171,162 @@ export type Database = {
           home_city?: string | null;
           curator_score?: number;
           taste_card_public?: boolean;
+          policy_version_accepted?: string | null;
+          date_of_birth?: string | null;
+          age_verified_at?: string | null;
+          blocked_at?: string | null;
+          blocked_reason?: BlockedReason | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      consents: {
+        Row: {
+          user_id: string;
+          purpose: ConsentPurpose;
+          granted: boolean;
+          policy_version: string;
+          method: ConsentMethod;
+          granted_at: string | null;
+          withdrawn_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          purpose: ConsentPurpose;
+          granted: boolean;
+          policy_version: string;
+          method: ConsentMethod;
+          granted_at?: string | null;
+          withdrawn_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          purpose?: ConsentPurpose;
+          granted?: boolean;
+          policy_version?: string;
+          method?: ConsentMethod;
+          granted_at?: string | null;
+          withdrawn_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      consent_events: {
+        Row: {
+          id: number;
+          user_id: string;
+          purpose: ConsentPurpose;
+          action: "grant" | "withdraw";
+          policy_version: string;
+          method: ConsentMethod;
+          source: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          purpose: ConsentPurpose;
+          action: "grant" | "withdraw";
+          policy_version: string;
+          method: ConsentMethod;
+          source?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          purpose?: ConsentPurpose;
+          action?: "grant" | "withdraw";
+          policy_version?: string;
+          method?: ConsentMethod;
+          source?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      nominees: {
+        Row: {
+          user_id: string;
+          name: string;
+          relationship: string | null;
+          email: string | null;
+          phone: string | null;
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          name: string;
+          relationship?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          name?: string;
+          relationship?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      retention_runs: {
+        Row: {
+          id: number;
+          ran_at: string;
+          deleted: Json;
+          errors: Json;
+          stopped_early: boolean;
+        };
+        Insert: {
+          id?: number;
+          ran_at?: string;
+          deleted?: Json;
+          errors?: Json;
+          stopped_early?: boolean;
+        };
+        Update: {
+          id?: number;
+          ran_at?: string;
+          deleted?: Json;
+          errors?: Json;
+          stopped_early?: boolean;
+        };
+        Relationships: [];
+      };
+      erasure_log: {
+        Row: {
+          id: number;
+          user_id: string;
+          erased_at: string;
+          method: "self_serve" | "admin" | "retention_underage";
+          tables_purged: number;
+          errors: number;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          erased_at?: string;
+          method?: "self_serve" | "admin" | "retention_underage";
+          tables_purged?: number;
+          errors?: number;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          erased_at?: string;
+          method?: "self_serve" | "admin" | "retention_underage";
+          tables_purged?: number;
+          errors?: number;
         };
         Relationships: [];
       };
@@ -2294,6 +2490,28 @@ export type Database = {
       appeal_grievance: {
         Args: { p_id: string };
         Returns: undefined;
+      };
+      record_consent: {
+        Args: {
+          p_purpose: ConsentPurpose;
+          p_granted: boolean;
+          p_policy_version: string;
+          p_method?: ConsentMethod;
+          p_source?: Json;
+        };
+        Returns: undefined;
+      };
+      set_date_of_birth: {
+        Args: { p_dob: string };
+        Returns: { adult: boolean; blocked: boolean }[];
+      };
+      is_active_member: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      personalization_granted: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
       };
       create_bounty: {
         Args: {

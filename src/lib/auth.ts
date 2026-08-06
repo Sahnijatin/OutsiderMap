@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { evaluateGate } from "@/lib/consent/gate";
 import type { Tables } from "@/types/database";
 
 /** Returns the signed-in auth user, or null. */
@@ -49,14 +50,53 @@ export async function getProfile(): Promise<Tables<"profiles"> | null> {
 }
 
 /**
- * The (app) gate: must be signed in, have claimed a username, and have
- * finished the taste quiz. /setup walks through whichever steps are missing.
+ * The (app) gate: must be signed in, be a verified adult, have claimed a
+ * username, have finished the taste quiz, and have accepted the current
+ * privacy notice. /setup walks through whichever steps are missing.
+ *
+ * The branching lives in evaluateGate() so it can be unit-tested; this is the
+ * only place that turns a step into a redirect. (shell)/layout.tsx calls this,
+ * so one function covers every member surface and src/proxy.ts stays out of
+ * it - the age gate needs no new protected prefix.
  */
+/**
+ * Which setup step a profile is at.
+ *
+ * Lives here rather than being called inline in /setup because reading the
+ * clock during a component render is impure - React 19 rejects it, and the
+ * lint rule is right that a render which depends on the time is a render that
+ * can disagree with itself. Server-side, this is the module that owns "what is
+ * this member allowed to do", so the clock read belongs here.
+ */
+export async function gateStep(
+  profile: Pick<
+    Tables<"profiles">,
+    | "username"
+    | "onboarding_completed_at"
+    | "age_verified_at"
+    | "blocked_at"
+    | "date_of_birth"
+    | "policy_version_accepted"
+  >,
+) {
+  return evaluateGate(profile, Date.now());
+}
+
 export async function requireOnboarded() {
   const profile = await getProfile();
   if (!profile) redirect("/sign-in");
-  if (!profile.username || !profile.onboarding_completed_at) {
-    redirect("/setup");
+
+  switch (await gateStep(profile)) {
+    case "blocked":
+      redirect("/blocked");
+    case "age":
+    case "username":
+    case "quiz":
+      redirect("/setup");
+    case "reconsent":
+      redirect("/setup?reconsent=1");
+    case "ok":
+      break;
   }
   return profile;
 }

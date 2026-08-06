@@ -86,6 +86,7 @@ interface Rows {
     expires_at: string | null;
   }>;
   personalizationEnabled?: boolean | null;
+  memoryEnabled?: boolean | null;
   /** null models a member row that has gone missing. */
   profileMissing?: boolean;
   messageId?: string | null;
@@ -104,9 +105,14 @@ function fakeSupabase(rows: Rows, failOn?: string) {
         if (table === "member_memory") return rows.memories ?? [];
         if (table === "chat_messages")
           return rows.messageId === null ? [] : [{ id: rows.messageId ?? "m1" }];
-        return rows.profileMissing
-          ? []
-          : [{ personalization_enabled: rows.personalizationEnabled ?? true }];
+        // The extractor reads memory_enabled, which the database maintains:
+        // record_consent() cascades a personalization withdrawal onto the
+        // member_memory purpose, and the sync trigger projects that here. The
+        // fake models the cascade so both inputs stay meaningful.
+        if (rows.profileMissing) return [];
+        const memoryEnabled =
+          rows.memoryEnabled ?? rows.personalizationEnabled ?? true;
+        return [{ memory_enabled: memoryEnabled }];
       };
       const guard = () => {
         if (table === failOn) throw new Error(`${table} unavailable`);
@@ -407,6 +413,7 @@ describe("rememberFromTurn", () => {
   it("writes nothing when personalization is off", async () => {
     // Consent gates the WRITE, not just the read: an opted-out member must not
     // accumulate new derived facts about themselves in the first place.
+    // Withdrawing personalization cascades onto memory_enabled in the database.
     extraction = {
       facts: [{ kind: "constraint", text: "vegetarian", confidence: 0.9, ttl_days: null }],
       supersedes: [],
@@ -417,6 +424,42 @@ describe("rememberFromTurn", () => {
     expect(adminWrites).toHaveLength(0);
     // And does not spend a model call finding that out.
     expect(extractCalls).toHaveLength(0);
+  });
+
+  it("writes nothing when only the memory purpose is withdrawn", async () => {
+    // The bug this pins: "Remembering what you tell it" is its own switch in
+    // profile settings, separate from personalization. Gating the write on
+    // personalization_enabled meant turning memory off deleted the stored
+    // facts and then wrote fresh ones on the very next turn - the member was
+    // told it was off, and it was not.
+    extraction = {
+      facts: [{ kind: "constraint", text: "vegetarian", confidence: 0.9, ttl_days: null }],
+      supersedes: [],
+    };
+    const { client } = fakeSupabase({
+      memoryEnabled: false,
+      personalizationEnabled: true,
+    });
+    await rememberFromTurn(client, "u1", turn);
+
+    expect(adminWrites).toHaveLength(0);
+    expect(extractCalls).toHaveLength(0);
+  });
+
+  it("writes when memory is on and personalization is off in the fake only", async () => {
+    // Guards the fake itself: memoryEnabled must win over the cascade default,
+    // or the case above would pass for the wrong reason.
+    extraction = {
+      facts: [{ kind: "constraint", text: "vegetarian", confidence: 0.9, ttl_days: null }],
+      supersedes: [],
+    };
+    const { client } = fakeSupabase({
+      memoryEnabled: true,
+      personalizationEnabled: false,
+    });
+    await rememberFromTurn(client, "u1", turn);
+
+    expect(extractCalls).toHaveLength(1);
   });
 
   it("fails closed when the profile row cannot be read", async () => {

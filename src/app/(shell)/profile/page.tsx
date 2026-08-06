@@ -11,12 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { priceGlyph } from "@/lib/utils";
 import { resolveCity } from "@/lib/cities";
-import {
-  DangerZone,
-  FeelCard,
-  PersonalizationToggle,
-  SignOutForm,
-} from "./settings-cards";
+import { ConsentCard, DangerZone, FeelCard, SignOutForm } from "./settings-cards";
+import { DataRightsCard } from "./data-rights-card";
+import { loadConsents } from "@/lib/consent/record";
+import { withdrawablePurposes } from "@/lib/consent/purposes";
+import { PRIVACY_POLICY_VERSION } from "@/lib/consent/policy";
+import { grievanceOfficer } from "@/lib/consent/officer";
 import { MemoryCard } from "./memory-card";
 import { TasteCardShare } from "./taste-card-share";
 import { IdentityCard } from "./identity-card";
@@ -60,6 +60,9 @@ export default async function ProfilePage({
     { count: followingCount },
     city,
     { data: memories },
+    consents,
+    { data: nominee },
+    { data: essentialConsent },
   ] = await Promise.all([
     supabase
       .from("taste_profiles")
@@ -99,7 +102,31 @@ export default async function ProfilePage({
       .order("confidence", { ascending: false })
       .order("updated_at", { ascending: false })
       .limit(50),
+    loadConsents(supabase, profile.id),
+    supabase
+      .from("nominees")
+      .select("name, email, phone")
+      .eq("user_id", profile.id)
+      .maybeSingle(),
+    // When they accepted the notice, from the consent record itself - the
+    // profile's created_at is a different fact and would be a lie on a
+    // re-consented account.
+    supabase
+      .from("consents")
+      .select("updated_at")
+      .eq("user_id", profile.id)
+      .eq("purpose", "essential")
+      .maybeSingle(),
   ]);
+
+  const officer = grievanceOfficer();
+  const acceptedOn = essentialConsent?.updated_at
+    ? new Date(essentialConsent.updated_at).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
 
   const parsed = StoredAnswersSchema.safeParse(taste?.quiz_answers);
   const dimensions = parsed.success ? parsed.data.dimensions : undefined;
@@ -304,9 +331,17 @@ export default async function ProfilePage({
 
       <MemoryCard initial={memories ?? []} />
 
-      <PersonalizationToggle
-        initial={profile.personalization_enabled !== false}
+      <ConsentCard
+        initial={consents}
+        purposes={withdrawablePurposes()}
+        // Already loaded for MemoryCard, so naming the cost of withdrawal
+        // exactly ("including 4 remembered facts") costs no extra query.
+        memoryCount={memories?.length ?? 0}
+        policyVersion={PRIVACY_POLICY_VERSION}
+        acceptedOn={acceptedOn}
       />
+
+      <DataRightsCard nominee={nominee} officerEmail={officer?.email ?? null} />
 
       <DangerZone username={profile.username} />
 

@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { getApiContext, type ApiContext } from "@/lib/api-auth";
+import {
+  adultGateStatus,
+  requireAdultApiContext, type ApiContext,
+} from "@/lib/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import {
@@ -38,10 +41,17 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await getApiContext(request);
-  if (!ctx) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Age gate (DPDP §9). This route writes with the service role, which has
+  // BYPASSRLS, so the is_active_member() policies from migration 58 never see
+  // it - the check has to happen here.
+  const gate = await requireAdultApiContext(request);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      { status: adultGateStatus(gate.error) },
+    );
   }
+  const ctx = gate.ctx;
   const allowed = await checkRateLimit(`post-media:${ctx.user.id}`, 60, 3600);
   if (!allowed) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
@@ -102,10 +112,17 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await getApiContext(request);
-  if (!ctx) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Age gate (DPDP §9). This route writes with the service role, which has
+  // BYPASSRLS, so the is_active_member() policies from migration 58 never see
+  // it - the check has to happen here.
+  const gate = await requireAdultApiContext(request);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      { status: adultGateStatus(gate.error) },
+    );
   }
+  const ctx = gate.ctx;
   const { id } = await params;
   if (!idOk(id)) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
