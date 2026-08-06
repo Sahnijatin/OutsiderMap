@@ -101,11 +101,23 @@ export function placeTooltip({
     right: tooltip.width,
   };
 
-  const auto: Side =
-    centerX < viewport.width * 0.25
-      ? "right" // hugging the left edge: the side rail
+  // Which nav is this? The order of these two tests is the whole trick.
+  //
+  // A bottom tab is BOTH docked to the bottom and - if it is the first of six -
+  // hard against the left edge, so a left-edge test that runs first claims it
+  // and puts the panel beside the tab bar with a caret pointing at nothing.
+  // That is not hypothetical: at 390 and 412 CSS px the panel misses fitting to
+  // the right by a couple of pixels and falls through to the correct side by
+  // luck, and at 430 (the larger iPhones) it fits and the placement goes wrong.
+  // Bottom-docked wins first, and only then does hugging-the-left mean rail.
+  const bottomDocked = target.y >= viewport.height * 0.8;
+  const leftDocked = target.x <= bounds.left + 24;
+  const auto: Side = bottomDocked
+    ? "top" // the bottom tabs
+    : leftDocked
+      ? "right" // the side rail
       : centerY > viewport.height / 2
-        ? "top" // lower half: the bottom tabs
+        ? "top"
         : "bottom";
 
   const order: Side[] = [];

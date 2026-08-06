@@ -93,6 +93,11 @@ export const STEP_BY_ANCHOR: ReadonlyMap<string, number> = new Map(
   TOUR_STEPS.map((step, index) => [step.target, index]),
 );
 
+/** route -> step index, for following a member who walks to another surface. */
+export const ROUTE_TO_STEP: ReadonlyMap<string, number> = new Map(
+  TOUR_STEPS.map((step, index) => [step.route, index]),
+);
+
 /**
  * Bump to re-offer the tour after a surface redesign. Also the sessionStorage
  * payload version, so a stale in-flight tour from an older build is discarded

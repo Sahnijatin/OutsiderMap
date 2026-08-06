@@ -443,10 +443,16 @@ export function MapCanvas({
 
   // The welcome card owns the screen while it is up; the guided tour waits its
   // turn rather than stacking a second overlay on top of it.
+  //
+  // The condition has to be the card's OWN render condition, not just
+  // showWelcome: an empty catalog hides the card, and the only thing that
+  // clears showWelcome is a tap on the card itself. Blocking on showWelcome
+  // alone left the tour held off by a card nobody could see or dismiss.
+  const welcomeCardUp = showWelcome && !loadedEmpty;
   useEffect(() => {
-    if (!showWelcome) return;
+    if (!welcomeCardUp) return;
     return blockTour("map-welcome");
-  }, [showWelcome]);
+  }, [welcomeCardUp]);
 
   // Same for a deep-linked place sheet: an arriving ?place= link should get
   // read before the tour starts talking over it.
@@ -578,7 +584,7 @@ export function MapCanvas({
         </div>
       )}
 
-      {showWelcome && !loadedEmpty && (
+      {welcomeCardUp && (
         <button
           type="button"
           onClick={() => setShowWelcome(false)}

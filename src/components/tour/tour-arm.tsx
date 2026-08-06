@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { syncTourEligibility } from "@/lib/tour/store";
+import { retryTourCompletion, syncTourEligibility } from "@/lib/tour/store";
 
 /**
  * Renders nothing. Its only job is to tell the module-level tour store what the
@@ -15,6 +15,10 @@ import { syncTourEligibility } from "@/lib/tour/store";
 export function TourArm({ eligible }: { eligible: boolean }) {
   useEffect(() => {
     syncTourEligibility(eligible);
+    // A dismissal that happened offline still owes the server a write. This is
+    // the natural place to settle it: it runs on every mount, and by definition
+    // a mount means the app just loaded something over the network.
+    retryTourCompletion();
   }, [eligible]);
 
   return null;

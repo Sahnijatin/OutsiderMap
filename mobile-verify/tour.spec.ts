@@ -29,6 +29,15 @@ const STEP_ORDER = [
   "nav-blog",
   "nav-profile",
 ] as const;
+/** The route each step is viewed on, in the same order. */
+const ROUTES = [
+  "/map",
+  "/chat",
+  "/quests",
+  "/feed",
+  "/blog",
+  "/profile",
+] as const;
 
 /** Same invariant flows.spec.ts enforces: never scroll sideways. */
 async function assertNoHorizontalScroll(page: Page) {
@@ -69,7 +78,9 @@ async function openTour(page: Page) {
 test.describe("guided tour", () => {
   test.skip(!AUTHED, "needs a seeded session with tour_completed_at NULL");
 
-  test("walks all six surfaces and stays on screen", async ({ page }) => {
+  test("walks all six surfaces on Next alone, and stays on screen", async ({
+    page,
+  }) => {
     await openTour(page);
 
     for (let i = 0; i < STEP_ORDER.length; i += 1) {
@@ -78,6 +89,10 @@ test.describe("guided tour", () => {
       await expect(page.locator(PANEL)).toContainText(
         `Step ${i + 1} of ${STEP_ORDER.length}`,
       );
+      // Next must actually TAKE you to the surface it is describing. An earlier
+      // revision advanced the counter and then snapped straight back, which
+      // looks identical to a step that never moved unless the URL is checked.
+      await expect(page).toHaveURL(new RegExp(`${ROUTES[i]}$`));
       await assertNoHorizontalScroll(page);
       await assertPanelOnScreen(page);
 
@@ -94,6 +109,27 @@ test.describe("guided tour", () => {
     }
 
     await expect(page.locator(PANEL)).toBeHidden();
+  });
+
+  test("Back walks the tour in reverse", async ({ page }) => {
+    await openTour(page);
+    await page.locator(PANEL).getByRole("button", { name: "Next" }).click();
+    await expect(page.locator(PANEL)).toContainText("Step 2 of 6");
+    await expect(page).toHaveURL(/\/chat$/);
+
+    await page.locator(PANEL).getByRole("button", { name: "Back" }).click();
+    await expect(page.locator(PANEL)).toContainText("Step 1 of 6");
+    await expect(page).toHaveURL(/\/map$/);
+  });
+
+  test("the arrow keys move the tour too", async ({ page }) => {
+    await openTour(page);
+    await page.keyboard.press("ArrowRight");
+    await expect(page.locator(PANEL)).toContainText("Step 2 of 6");
+    await expect(page).toHaveURL(/\/chat$/);
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(page.locator(PANEL)).toContainText("Step 1 of 6");
   });
 
   test("advances when the spotlit nav item is tapped", async ({ page }) => {

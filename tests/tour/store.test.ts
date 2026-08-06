@@ -8,6 +8,7 @@ import {
   nextStep,
   prevStep,
   resetTourStoreForTests,
+  retryTourCompletion,
   startTour,
   subscribeTour,
   syncTourEligibility,
@@ -141,6 +142,19 @@ describe("stepping", () => {
 
   it("ignores stepping when not running", () => {
     endTour("skipped");
+    resetTourStoreForTests(); // a reload: ended stays ended
+    expect(getTourState().status).toBe("finished");
+    nextStep();
+    goToStep(3);
+    expect(getTourState()).toEqual({
+      status: "finished",
+      step: 0,
+      mode: "auto",
+    });
+  });
+
+  it("ignores stepping from a clean idle state", () => {
+    sessionStorage.clear();
     resetTourStoreForTests();
     nextStep();
     expect(getTourState().status).toBe("idle");
@@ -187,11 +201,28 @@ describe("persistence", () => {
     });
   });
 
-  it("does not resume a finished tour", () => {
+  it("stays finished across a reload, so a skip never comes back", () => {
+    // The whole point: the durable fact is in the database, but the POST that
+    // sets it may not have landed yet. If the reload started clean, a stale
+    // server profile would re-arm and the tour a member just dismissed would
+    // walk back in.
     startTour("auto");
-    endTour("finished");
+    endTour("skipped");
     resetTourStoreForTests();
-    expect(getTourState()).toEqual(TOUR_STATE_DEFAULT);
+    expect(getTourState()).toEqual({
+      status: "finished",
+      step: 0,
+      mode: "auto",
+    });
+  });
+
+  it("does not resume a finished tour at the step it died on", () => {
+    startTour("auto");
+    nextStep();
+    nextStep();
+    endTour("skipped");
+    resetTourStoreForTests();
+    expect(getTourState().step).toBe(0);
   });
 
   it("discards a payload from an older build", () => {
@@ -264,5 +295,62 @@ describe("completion", () => {
     syncTourEligibility(true);
     endTour("abandoned");
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+/** Let the fetch chain (.then/.catch/.finally) settle. */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe("owed completions", () => {
+  it("retries on the next mount when the write failed", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    startTour("auto");
+    endTour("skipped");
+    await flush();
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    // A fresh page load: the in-memory flag is gone, but the mirror remembers.
+    resetTourStoreForTests();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    retryTourCompletion();
+    await flush();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops retrying once the server has it", async () => {
+    startTour("auto");
+    endTour("finished");
+    await flush();
+
+    resetTourStoreForTests();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    retryTourCompletion();
+    await flush();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("treats a non-2xx as still owed", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    startTour("auto");
+    endTour("skipped");
+    await flush();
+
+    resetTourStoreForTests();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    retryTourCompletion();
+    await flush();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up rather than hammering the endpoint forever", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    startTour("auto");
+    endTour("skipped");
+    await flush();
+    for (let i = 0; i < 10; i += 1) {
+      retryTourCompletion();
+      await flush();
+    }
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
 });

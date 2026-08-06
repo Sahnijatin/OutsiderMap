@@ -20,6 +20,13 @@ import { TOUR_STEP_COUNT, TOUR_VERSION } from "@/lib/tour/steps";
  * lives in profiles.tour_completed_at. This mirror only has to survive a reload
  * inside one session, and localStorage would resurrect a half-finished tour
  * weeks later on a shared laptop.
+ *
+ * The mirror records ENDED tours as well as in-flight ones. The two facts have
+ * different owners - the database owns "ever", this owns "this session" - and
+ * dropping the second one means a member who skips and then reloads before the
+ * POST lands (offline, rate-limited, or just slow) gets the tour thrown at them
+ * again by the still-stale server profile. `pending` remembers that the write
+ * is owed so the next mount can retry it.
  */
 
 export type TourStatus = "idle" | "armed" | "running" | "finished";
@@ -51,6 +58,11 @@ const listeners = new Set<() => void>();
  */
 const blockers = new Set<string>();
 let completeInFlight = false;
+/** The completion write is owed - it has not been confirmed by a 2xx yet. */
+let completeOwed = false;
+/** Retries are cheap but not free; three attempts per page load is plenty. */
+let completeAttempts = 0;
+const MAX_COMPLETE_ATTEMPTS = 3;
 
 function isTourStatus(value: unknown): value is TourStatus {
   return (
@@ -69,19 +81,21 @@ function readStorage(): TourState {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     // A payload from an older build points at steps that may no longer exist.
     if (parsed.v !== TOUR_VERSION) return TOUR_STATE_DEFAULT;
-    // Only an in-flight tour is worth resuming; anything else starts clean.
-    if (!isTourStatus(parsed.status) || parsed.status !== "running") {
-      return TOUR_STATE_DEFAULT;
+    if (!isTourStatus(parsed.status)) return TOUR_STATE_DEFAULT;
+    const mode: TourMode = parsed.mode === "replay" ? "replay" : "auto";
+    completeOwed = parsed.pending === true;
+    // An ended tour stays ended for the rest of this session, whatever the
+    // server profile says. The server may not know yet.
+    if (parsed.status === "finished") {
+      return { status: "finished", step: 0, mode };
     }
+    // Of the rest only an in-flight tour is worth resuming.
+    if (parsed.status !== "running") return TOUR_STATE_DEFAULT;
     const step =
       typeof parsed.step === "number" && Number.isInteger(parsed.step)
         ? Math.min(Math.max(parsed.step, 0), TOUR_STEP_COUNT - 1)
         : 0;
-    return {
-      status: "running",
-      step,
-      mode: parsed.mode === "replay" ? "replay" : "auto",
-    };
+    return { status: "running", step, mode };
   } catch {
     return TOUR_STATE_DEFAULT;
   }
@@ -90,17 +104,24 @@ function readStorage(): TourState {
 function writeStorage(state: TourState): void {
   try {
     if (typeof sessionStorage === "undefined") return;
-    if (state.status !== "running") {
+    if (state.status !== "running" && state.status !== "finished") {
       sessionStorage.removeItem(STORAGE_KEY);
       return;
     }
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ v: TOUR_VERSION, ...state }),
+      JSON.stringify({ v: TOUR_VERSION, ...state, pending: completeOwed }),
     );
   } catch {
     // Private mode / quota - the in-memory state still drives this session.
   }
+}
+
+/** Record whether the completion write is still owed, and mirror it. */
+function setOwed(owed: boolean): void {
+  if (completeOwed === owed) return;
+  completeOwed = owed;
+  writeStorage(getTourState());
 }
 
 function emit(): void {
@@ -176,7 +197,21 @@ export function syncTourEligibility(eligible: boolean): void {
   // Not eligible. A replay was started deliberately from settings and the
   // server will always say "completed" for it, so leave that one alone.
   if (state.mode === "replay") return;
+  // The server already knows, so nothing is owed - and the session mirror can
+  // go, since the durable fact now carries the weight on its own.
   if (state.status !== "idle") setState(TOUR_STATE_DEFAULT);
+  setOwed(false);
+}
+
+/**
+ * Re-attempt a completion write that never landed. Called on mount, so a
+ * dismissal that happened offline still reaches the server the moment the
+ * member navigates with a connection.
+ */
+export function retryTourCompletion(): void {
+  getTourState(); // forces the storage read that populates `completeOwed`
+  if (!completeOwed) return;
+  persistCompletion();
 }
 
 export function startTour(mode: TourMode): void {
@@ -227,12 +262,24 @@ export function endTour(reason: TourEndReason): void {
 function persistCompletion(): void {
   if (completeInFlight) return;
   if (typeof fetch === "undefined") return;
+  if (completeAttempts >= MAX_COMPLETE_ATTEMPTS) return;
   completeInFlight = true;
+  completeAttempts += 1;
+  // Owed until a 2xx says otherwise. Written BEFORE the request so a member who
+  // closes the tab mid-flight still has the retry queued for next time.
+  setOwed(true);
   // keepalive: a skip is usually followed straight away by a navigation, and
-  // without it the browser may cancel the request in flight. Failure is fine -
-  // sessionStorage already ended it for this session, and the worst case is a
-  // single re-offer next session.
-  void fetch("/api/tour", { method: "POST", keepalive: true }).catch(() => {});
+  // without it the browser may cancel the request in flight. A failure is not
+  // fatal - sessionStorage has ended the tour for this session either way, and
+  // retryTourCompletion() picks the write back up on the next mount.
+  void fetch("/api/tour", { method: "POST", keepalive: true })
+    .then((response) => {
+      if (response.ok) setOwed(false);
+    })
+    .catch(() => {})
+    .finally(() => {
+      completeInFlight = false;
+    });
 }
 
 /**
@@ -253,5 +300,7 @@ export function resetTourStoreForTests(): void {
   cached = null;
   blockers.clear();
   completeInFlight = false;
+  completeOwed = false;
+  completeAttempts = 0;
   listeners.clear();
 }

@@ -201,3 +201,88 @@ describe("pickVisibleCandidate", () => {
     expect(pickVisibleCandidate([invisible])).toBeNull();
   });
 });
+
+/**
+ * The `auto` side is derived from where the target sits, because the same
+ * logical target is a bottom tab on a phone and a left-rail row on a laptop.
+ * The first of six bottom tabs is the case that breaks a naive rule: it is
+ * hard against the left edge, exactly like a rail item.
+ */
+describe("placeTooltip - telling a bottom tab from a side rail", () => {
+  /** The first of six flex-1 tabs in a full-width bar, above the home bar. */
+  function firstTab(width: number, height: number, safeBottom: number): Rect {
+    const tabWidth = Math.min(width, 512) / 6;
+    const barLeft = Math.max(0, (width - 512) / 2);
+    return {
+      x: barLeft,
+      y: height - safeBottom - 64,
+      width: tabWidth,
+      height: 64,
+    };
+  }
+
+  const PHONES = [
+    { name: "iPhone 14 / 390pt", width: 390, height: 844, safe: 34 },
+    { name: "Pixel 7 / 412dp", width: 412, height: 915, safe: 0 },
+    // The one the old left-edge-first rule got wrong: at this width the panel
+    // genuinely fits to the right of the tab, so nothing downstream corrected
+    // it and the caret ended up pointing at empty space above the tab bar.
+    { name: "iPhone 15 Pro Max / 430pt", width: 430, height: 932, safe: 34 },
+    { name: "small tablet / 768dp", width: 768, height: 1024, safe: 0 },
+  ];
+
+  for (const phone of PHONES) {
+    it(`puts the panel above the first tab on a ${phone.name}`, () => {
+      const target = firstTab(phone.width, phone.height, phone.safe);
+      const viewport = { width: phone.width, height: phone.height };
+      const insets: Insets = {
+        top: 0,
+        right: 0,
+        bottom: 64 + phone.safe,
+        left: 0,
+      };
+
+      const p = placeTooltip({ target, tooltip: PANEL, viewport, insets });
+
+      expect(p.side).toBe("top");
+      expect(p.fits).toBe(true);
+      // Inside the viewport, above the bar, caret still on the tab.
+      expect(p.x).toBeGreaterThanOrEqual(0);
+      expect(p.x + PANEL.width).toBeLessThanOrEqual(phone.width);
+      expect(p.y + PANEL.height).toBeLessThanOrEqual(
+        phone.height - insets.bottom,
+      );
+      expect(p.x + p.arrow).toBeCloseTo(target.x + target.width / 2, 1);
+    });
+  }
+
+  it("still reads a left rail row as a rail", () => {
+    const target: Rect = { x: 12, y: 300, width: 192, height: 44 };
+    const p = placeTooltip({
+      target,
+      tooltip: PANEL,
+      viewport: LAPTOP,
+      insets: NO_INSETS,
+    });
+
+    expect(p.side).toBe("right");
+    expect(p.fits).toBe(true);
+    expect(p.x).toBeGreaterThanOrEqual(target.x + target.width);
+    expect(p.y + p.arrow).toBeCloseTo(target.y + target.height / 2, 1);
+  });
+
+  it("reads the last rail row as a rail too, not as a bottom tab", () => {
+    // Six rows down the rail is past the halfway line on a short laptop; the
+    // old centerY test would have flipped it to "top" and hung the panel over
+    // the rail instead of beside it.
+    const target: Rect = { x: 12, y: 470, width: 192, height: 44 };
+    const p = placeTooltip({
+      target,
+      tooltip: PANEL,
+      viewport: { width: 1280, height: 800 },
+      insets: NO_INSETS,
+    });
+
+    expect(p.side).toBe("right");
+  });
+});

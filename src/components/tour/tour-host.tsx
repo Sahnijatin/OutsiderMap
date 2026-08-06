@@ -19,6 +19,7 @@ import {
   type Placement,
   type Rect,
 } from "@/lib/tour/geometry";
+import { reconcileTour } from "@/lib/tour/machine";
 import {
   STEP_BY_ANCHOR,
   TOUR_ROUTES,
@@ -61,10 +62,14 @@ const PAD = 6;
 const TARGET_TIMEOUT_MS = 4000;
 /** Let the surface settle before an unprompted tour takes over the screen. */
 const AUTOSTART_DELAY_MS = 700;
-
-const ROUTE_TO_INDEX: ReadonlyMap<string, number> = new Map(
-  TOUR_STEPS.map((step, index) => [step.route, index]),
-);
+/**
+ * How many steps may fail to find their target before the tour gives up for
+ * good. Each step gets a retry of its own first, so this is three steps that
+ * genuinely have no nav rather than three slow frames. An undismissable broken
+ * tour is worse than one that quietly stops - but retiring the feature for a
+ * member over one unlucky render is worse than either.
+ */
+const MISS_BUDGET = 3;
 
 /** Clicking the dim must not steal focus out of the panel. */
 function swallowFocus(event: { preventDefault: () => void }) {
@@ -87,12 +92,19 @@ export function TourHost() {
   /** The route this host is currently pushing to, so a member-driven
    *  navigation can be told apart from our own. */
   const expectedRef = useRef<string | null>(null);
+  /** The pathname at the previous reconcile. This is what lets the machine
+   *  tell "we advanced the step" from "they navigated" - see lib/tour/machine. */
+  const lastPathRef = useRef<string | null>(null);
   /** Whether any step has actually been shown yet. Distinguishes "the tour
    *  just launched somewhere else, get me to step 0" from "the member wandered
    *  off mid-tour" - the two look identical from pathname alone. */
   const hasShownRef = useRef(false);
   const missesRef = useRef(0);
+  /** The step whose free retry has already been spent. */
+  const retriedRef = useRef(-1);
   const rafRef = useRef(0);
+  /** Bumped to re-run the step effect for a second look at a missing target. */
+  const [retryTick, setRetryTick] = useState(0);
 
   /** Where the spotlight sits, and which step put it there. */
   const [anchor, setAnchor] = useState<{ step: number; rect: Rect } | null>(
@@ -184,46 +196,51 @@ export function TourHost() {
   useEffect(() => {
     if (!running) {
       expectedRef.current = null;
+      lastPathRef.current = null;
       hasShownRef.current = false;
       missesRef.current = 0;
+      retriedRef.current = -1;
       return;
     }
 
-    const current = TOUR_STEPS[stepIndex];
-    // TOUR_STEPS[i] types as TourStep even out of range: tsconfig has no
-    // noUncheckedIndexedAccess, so this guard is hand-written on purpose.
-    if (!current) {
+    // All the reasoning lives in lib/tour/machine.ts, where it can be tested.
+    // Every branch below is just "do what it said".
+    const action = reconcileTour({
+      step: stepIndex,
+      pathname,
+      lastPathname: lastPathRef.current,
+      expected: expectedRef.current,
+      hasShown: hasShownRef.current,
+    });
+    lastPathRef.current = pathname;
+
+    if (action.type === "finish") {
       endTour("finished");
       return;
     }
-
-    if (pathname !== current.route) {
-      // Our own push, still in flight.
-      if (expectedRef.current === current.route) return;
-
-      const followed = ROUTE_TO_INDEX.get(pathname);
-      if (hasShownRef.current) {
-        if (followed !== undefined) {
-          // The member tapped their way to another tour surface. Follow them
-          // rather than dragging them back.
-          goToStep(followed);
-        } else {
-          // They left the tour's surfaces entirely. That is a skip, and a skip
-          // must never nag again - the profile card is the way back in.
-          endTour("abandoned");
-        }
-        return;
-      }
-
-      // Nothing shown yet: this is a launch from elsewhere (the replay button
-      // on /profile), so drive to the first step instead of re-syncing to
-      // wherever they happen to be standing.
-      expectedRef.current = current.route;
-      router.push(current.route);
+    if (action.type === "abandon") {
+      // They left the tour's surfaces entirely. That is a skip, and a skip must
+      // never nag again - the profile card is the way back in.
+      endTour("abandoned");
       return;
     }
+    if (action.type === "sync") {
+      // The member tapped their way to another tour surface. Follow them rather
+      // than dragging them back.
+      goToStep(action.step);
+      return;
+    }
+    if (action.type === "navigate") {
+      expectedRef.current = action.route;
+      router.push(action.route);
+      return;
+    }
+    if (action.type === "wait") return;
 
     expectedRef.current = null;
+
+    const current = TOUR_STEPS[stepIndex];
+    if (!current) return; // unreachable: "show" implies a step in range
 
     const waiter = waitForTourTarget(current.target, {
       timeoutMs: TARGET_TIMEOUT_MS,
@@ -232,8 +249,15 @@ export function TourHost() {
     void waiter.promise.then((hit) => {
       if (!live) return;
       if (!hit) {
+        // One free retry per step: a surface caught mid-fade or mid-fetch on
+        // the first look is usually there on the second.
+        if (retriedRef.current !== stepIndex) {
+          retriedRef.current = stepIndex;
+          setRetryTick((tick) => tick + 1);
+          return;
+        }
         missesRef.current += 1;
-        if (missesRef.current >= 2) {
+        if (missesRef.current >= MISS_BUDGET) {
           // An undismissable broken tour that retries every session is worse
           // than one that quietly gives up.
           endTour("failed");
@@ -243,6 +267,7 @@ export function TourHost() {
         return;
       }
       missesRef.current = 0;
+      retriedRef.current = -1;
       hasShownRef.current = true;
       setAnchor({ step: stepIndex, rect: hit.rect });
       scheduleMeasure();
@@ -252,9 +277,14 @@ export function TourHost() {
       live = false;
       waiter.cancel();
     };
-  }, [running, stepIndex, pathname, router, scheduleMeasure]);
+  }, [running, stepIndex, pathname, retryTick, router, scheduleMeasure]);
 
-  const showStep = running && !!anchor && anchor.step === stepIndex;
+  // A blocker (the map's welcome card, an open place sheet) PAUSES a running
+  // tour rather than ending it: the surface in front gets the screen, and the
+  // step comes back untouched when it releases. Only autostart is gated on
+  // blocked as well, so nothing ever stacks two overlays.
+  const showStep =
+    running && !blocked && !!anchor && anchor.step === stepIndex;
 
   // --- re-measure triggers -------------------------------------------------
 
@@ -305,7 +335,7 @@ export function TourHost() {
   // --- click-through -------------------------------------------------------
 
   useEffect(() => {
-    if (!running) return;
+    if (!running || blocked) return;
     const onClick = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
@@ -322,7 +352,7 @@ export function TourHost() {
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [running, stepIndex]);
+  }, [running, blocked, stepIndex]);
 
   // --- escape --------------------------------------------------------------
 
@@ -335,15 +365,20 @@ export function TourHost() {
   // The directional keys stay on the panel on purpose - hijacking arrows
   // document-wide would fight Leaflet's keyboard panning and any focused input.
   useEffect(() => {
-    if (!running) return;
+    if (!running || blocked) return;
     const onEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      // A truly modal dialog on top owns Escape: closing the thing in front of
+      // you is what the key means there, and the sheet's own handler is the
+      // only one that can do it. The tour's own panel is role="dialog" WITHOUT
+      // aria-modal precisely because it isn't modal, so it never matches here.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       event.stopPropagation();
       endTour("skipped");
     };
     document.addEventListener("keydown", onEscape, true);
     return () => document.removeEventListener("keydown", onEscape, true);
-  }, [running]);
+  }, [running, blocked]);
 
   // --- focus ---------------------------------------------------------------
 
@@ -404,7 +439,7 @@ export function TourHost() {
 
   // --- render --------------------------------------------------------------
 
-  const visible = running && TOUR_ROUTES.has(pathname) && !!step;
+  const visible = running && !blocked && TOUR_ROUTES.has(pathname) && !!step;
   const placement =
     placed && placed.step === stepIndex ? placed.placement : null;
   // Kept across step changes so the spotlight travels to the next target
@@ -510,9 +545,14 @@ export function TourHost() {
             />
           )}
 
-          <p role="status" aria-live="polite" className="sr-only">
-            {`Step ${stepIndex + 1} of ${TOUR_STEP_COUNT}`}
-          </p>
+          {/* Announced only once the step is actually on screen: while a step
+              is still resolving its target there is nothing to look at, and
+              announcing "Step 3 of 6" over an unchanged screen is a lie. */}
+          {showStep && (
+            <p role="status" aria-live="polite" aria-atomic className="sr-only">
+              {`Step ${stepIndex + 1} of ${TOUR_STEP_COUNT}`}
+            </p>
+          )}
 
           {step && showStep && (
             <CoachMark
