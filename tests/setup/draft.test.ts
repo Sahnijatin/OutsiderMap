@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { normalizeQuizDraft, quizDraftKey } from "@/lib/setup/draft";
+import {
+  normalizeQuizDraft,
+  quizDraftKey,
+  quizDraftSnapshot,
+  writeQuizDraft,
+} from "@/lib/setup/draft";
 import { QUIZ } from "@/lib/taste/quiz";
 
 /**
@@ -100,5 +105,29 @@ describe("quizDraftKey", () => {
 
   it("keeps a stable, namespaced shape", () => {
     expect(quizDraftKey("user-a")).toBe("om.setup.quiz.v1.user-a");
+  });
+});
+
+describe("quizDraftSnapshot - cache ownership", () => {
+  // The per-member storage key is worthless if the in-memory cache ignores it.
+  // Signing out and back in as someone else is a client-side navigation on the
+  // email-code path, so this module's state survives it.
+  it("does not hand one member's draft to the next", () => {
+    const a = quizDraftSnapshot("user-a");
+    writeQuizDraft("user-a", { answers: { hours: "after-dark" }, index: 3 });
+    expect(quizDraftSnapshot("user-a").answers).toEqual({
+      hours: "after-dark",
+    });
+
+    // User B, same tab, same module instance.
+    expect(quizDraftSnapshot("user-b")).toEqual({ answers: {}, index: 0 });
+    expect(quizDraftSnapshot("user-b")).not.toBe(a);
+  });
+
+  it("returns a stable reference for the same member", () => {
+    // useSyncExternalStore re-renders whenever the snapshot changes identity,
+    // so a fresh object per call would loop forever.
+    writeQuizDraft("user-c", { answers: { hours: "morning" }, index: 1 });
+    expect(quizDraftSnapshot("user-c")).toBe(quizDraftSnapshot("user-c"));
   });
 });

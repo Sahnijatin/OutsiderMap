@@ -63,7 +63,13 @@ export function CityStep({
 
   function skip() {
     startTransition(async () => {
-      await skipSetupStep("city");
+      // A silent failure here would refresh straight back onto this screen
+      // with no explanation - the shape of a dead end.
+      const { ok } = await skipSetupStep("city");
+      if (!ok) {
+        setError("Couldn't skip that. Try again.");
+        return;
+      }
       router.refresh();
     });
   }

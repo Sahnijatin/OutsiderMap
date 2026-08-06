@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       ctx.supabase
         .from("profiles")
         .select(
-          "display_name, avatar_url, home_city, home_area, personalization_enabled, onboarding_completed_at, setup_steps",
+          "display_name, avatar_url, bio, home_city, home_area, personalization_enabled, onboarding_completed_at, setup_steps",
         )
         .eq("id", ctx.user.id)
         .maybeSingle(),

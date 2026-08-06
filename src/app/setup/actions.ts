@@ -26,6 +26,28 @@ const HomeSchema = z.object({
 const DisplayNameSchema = z.string().trim().min(1).max(60);
 
 /**
+ * Whether the marker write landed.
+ *
+ * It has to be reported, not swallowed: supabase-js `.rpc()` RETURNS its error
+ * rather than throwing, so a caller that ignores the result cannot tell a
+ * successful mark from a failed one. When the mark fails the resolver puts the
+ * member straight back on the screen they just finished - and since skipping
+ * writes the same marker, they have no way forward. Silence there is a dead
+ * end; a reported failure is at least a retry.
+ */
+export type MarkResult = { ok: boolean };
+
+async function markStep(id: SetupStepId): Promise<MarkResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("mark_setup_step", { step: id });
+  if (error) {
+    console.error("mark_setup_step failed", { step: id, message: error.message });
+    return { ok: false };
+  }
+  return { ok: true };
+}
+
+/**
  * Step 1 of /setup: claim a username. One shot - the DB trigger blocks any
  * later change by the owner, so treat this as permanent.
  */
@@ -103,11 +125,7 @@ export async function saveHome(
   // rather than returning ok and refreshing into an apparent no-op. The data
   // itself is saved; home_area doubles as evidence in the resolver, so this is
   // belt and braces rather than the only guard.
-  const { error: markError } = await supabase.rpc("mark_setup_step", {
-    step: "city",
-  });
-  if (markError) {
-    console.error("mark_setup_step(city) failed", { message: markError.message });
+  if (!(await markStep("city")).ok) {
     return { ok: false, error: "Saved, but something stuck. Try again." };
   }
   return { ok: true };
@@ -136,13 +154,7 @@ export async function saveDisplayName(
     return { ok: false, error: "Couldn't save that. Try again." };
   }
 
-  const { error: markError } = await supabase.rpc("mark_setup_step", {
-    step: "identity",
-  });
-  if (markError) {
-    console.error("mark_setup_step(identity) failed", {
-      message: markError.message,
-    });
+  if (!(await markStep("identity")).ok) {
     return { ok: false, error: "Saved, but something stuck. Try again." };
   }
   return { ok: true };
@@ -156,25 +168,23 @@ export async function saveDisplayName(
  * markers, so a skipped screen resurfaces there while never blocking the first
  * run again.
  */
-export async function skipSetupStep(id: SetupStepId): Promise<void> {
+export async function skipSetupStep(id: SetupStepId): Promise<MarkResult> {
   await requireUser();
   // Never trust a client-supplied step id - it goes straight into a row the
   // resolver reads back.
-  if (!SETUP_STEPS.some((s) => s.id === id)) return;
+  if (!SETUP_STEPS.some((s) => s.id === id)) return { ok: false };
   // The quiz and the username are not skippable: one is the product, the other
   // is one-shot and the flow cannot proceed without it.
-  if (id === "quiz" || id === "username") return;
+  if (id === "quiz" || id === "username") return { ok: false };
 
-  const supabase = await createClient();
-  await supabase.rpc("mark_setup_step", { step: id });
+  return markStep(id);
 }
 
 /** Record a screen as answered without changing what it captured. */
-export async function markSetupStep(id: SetupStepId): Promise<void> {
+export async function markSetupStep(id: SetupStepId): Promise<MarkResult> {
   await requireUser();
-  if (!SETUP_STEPS.some((s) => s.id === id)) return;
-  const supabase = await createClient();
-  await supabase.rpc("mark_setup_step", { step: id });
+  if (!SETUP_STEPS.some((s) => s.id === id)) return { ok: false };
+  return markStep(id);
 }
 
 /**

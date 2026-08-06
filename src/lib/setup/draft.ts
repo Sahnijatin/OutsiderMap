@@ -107,6 +107,7 @@ export function readQuizDraft(userId: string): QuizDraft {
 /** Persist the draft. Never throws - a failed write just means no resume. */
 export function writeQuizDraft(userId: string, draft: QuizDraft): void {
   cached = draft;
+  cachedFor = userId;
   try {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(quizDraftKey(userId), JSON.stringify(draft));
@@ -120,6 +121,7 @@ export function writeQuizDraft(userId: string, draft: QuizDraft): void {
 /** Drop the draft once the answers are safely on the server. */
 export function clearQuizDraft(userId: string): void {
   cached = emptyDraft();
+  cachedFor = userId;
   try {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(quizDraftKey(userId));
@@ -142,6 +144,16 @@ export function clearQuizDraft(userId: string): void {
  */
 const listeners = new Set<() => void>();
 let cached: QuizDraft | null = null;
+/**
+ * Who `cached` belongs to.
+ *
+ * Without this the cache defeats the per-member storage key: sign out and sign
+ * in as someone else in the same tab - which the email-code path does as a
+ * client-side navigation, so module state survives - and the second member is
+ * handed the first one's answers straight out of memory, never touching the
+ * correctly-keyed localStorage entry at all.
+ */
+let cachedFor: string | null = null;
 
 function notify() {
   for (const listener of [...listeners]) listener();
@@ -154,9 +166,19 @@ export function subscribeQuizDraft(onChange: () => void): () => void {
   };
 }
 
-/** Client snapshot. Cached, so repeat renders don't re-parse localStorage. */
+/**
+ * Client snapshot. Cached so repeat renders don't re-parse localStorage - and
+ * re-read whenever the member changes, or the cache would outlive its owner.
+ *
+ * The reference must stay stable between calls for the same member:
+ * useSyncExternalStore re-renders whenever the snapshot changes identity, so
+ * returning a fresh object each time would loop forever.
+ */
 export function quizDraftSnapshot(userId: string): QuizDraft {
-  if (!cached) cached = readQuizDraft(userId);
+  if (!cached || cachedFor !== userId) {
+    cached = readQuizDraft(userId);
+    cachedFor = userId;
+  }
   return cached;
 }
 

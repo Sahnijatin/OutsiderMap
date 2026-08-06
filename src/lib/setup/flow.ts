@@ -18,7 +18,13 @@ import {
 export type SetupProfileShape = {
   username: string | null;
   onboarding_completed_at: string | null;
-  setup_steps: string[] | null;
+  /**
+   * `undefined` is meaningfully different from `null` or `[]` here: the column
+   * is NOT NULL with a default, so a profile row selected with `*` can only be
+   * missing this property when the column itself does not exist - i.e. the app
+   * is running ahead of migration 57. See `schemaReady`.
+   */
+  setup_steps?: string[] | null;
   display_name: string | null;
   avatar_url: string | null;
   home_area: string | null;
@@ -34,6 +40,27 @@ export type SetupResolveOptions = {
   /** `?fill=1` - run only the profile screens still missing, then go back. */
   fill?: boolean;
 };
+
+/**
+ * Whether the database can record progress at all.
+ *
+ * False only when the app is deployed ahead of migration 57: the column is
+ * absent, so `select("*")` never returns the property, and `mark_setup_step`
+ * does not exist either. In that state the new screens cannot be completed by
+ * anyone - saving marks nothing, and skipping calls the same missing function,
+ * so a member would be pinned on the identity screen with no way forward. The
+ * city screen escapes on its own (home_area is its own evidence); identity
+ * cannot, because handle_new_user prefills display_name and avatar_url from
+ * the OAuth provider, so neither column proves the member answered.
+ *
+ * The honest response is to stand aside: if progress cannot be recorded, do
+ * not gate anyone on recording it. The new screens simply do not appear until
+ * the migration lands, and the flow behaves exactly as it did before this
+ * feature existed.
+ */
+function schemaReady(profile: SetupProfileShape): boolean {
+  return profile.setup_steps !== undefined;
+}
 
 function completed(profile: SetupProfileShape): Set<string> {
   // A null column (a row written before migration 57 landed, or a hand-edited
@@ -95,12 +122,21 @@ export function resolveSetupStep(
   //    row says. The DB makes this one-shot anyway.
   if (!profile.username) return step("username");
 
-  // 4. THE GUARD. A member who has finished onboarding is done, full stop -
+  // 4. The database cannot record progress yet (app deployed ahead of the
+  //    migration). Skip straight to the part of the flow that predates all of
+  //    this rather than gating anyone on a marker nothing can write.
+  if (!schemaReady(profile)) {
+    return profile.onboarding_completed_at
+      ? { kind: "done", to: "/map" }
+      : step("quiz");
+  }
+
+  // 5. THE GUARD. A member who has finished onboarding is done, full stop -
   //    checked before the step set is consulted, so an empty or stale
   //    setup_steps can never drag an existing member back into the flow.
   if (profile.onboarding_completed_at) return { kind: "done", to: "/map" };
 
-  // 5. Otherwise: the first screen they have not finished. Unknown ids in the
+  // 6. Otherwise: the first screen they have not finished. Unknown ids in the
   //    stored set are simply ignored here, so rolling app code back over a
   //    rolled-forward database degrades instead of breaking.
   const next = SETUP_STEPS.find((s) => !done.has(s.id));
@@ -121,6 +157,11 @@ export function resolveSetupStep(
 export function missingProfileBits(
   profile: SetupProfileShape,
 ): SetupStepId[] {
+  // Nothing to offer while the database cannot record the answer: the card's
+  // CTA leads to screens that cannot be completed yet, so showing it would be
+  // an invitation into a dead end.
+  if (!schemaReady(profile)) return [];
+
   const missing: SetupStepId[] = [];
   if (!profile.home_area) missing.push("city");
   if (!profile.avatar_url || !profile.display_name?.trim()) {

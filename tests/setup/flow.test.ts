@@ -230,6 +230,53 @@ describe("resolveSetupStep - ?fill=1", () => {
   });
 });
 
+describe("when the database cannot record progress yet", () => {
+  // The app deployed ahead of migration 57: the column does not exist, so
+  // select("*") never returns the property and mark_setup_step is missing too.
+  // Nothing can complete the new screens - saving marks nothing and skipping
+  // calls the same absent function - and the identity screen has no column to
+  // fall back on, because handle_new_user prefills both of its columns from the
+  // OAuth provider. Standing aside is the only outcome that isn't a trap.
+  const preMigration = { username: "adi", setup_steps: undefined };
+
+  it("sends a half-onboarded member to the quiz, not into the new screens", () => {
+    expect(stepId(profile(preMigration))).toBe("quiz");
+  });
+
+  it("still sends an onboarded member to the map", () => {
+    expect(
+      resolveSetupStep(
+        profile({
+          ...preMigration,
+          onboarding_completed_at: "2025-01-01T00:00:00Z",
+        }),
+      ),
+    ).toEqual({ kind: "done", to: "/map" });
+  });
+
+  it("still demands a username first", () => {
+    expect(stepId(profile({ setup_steps: undefined }))).toBe("username");
+  });
+
+  it("still honours ?redo=1", () => {
+    expect(stepId(profile(preMigration), { redo: true })).toBe("quiz");
+  });
+
+  it("offers the profile card nothing, so its CTA cannot lead into a dead end", () => {
+    expect(missingProfileBits(profile(preMigration))).toEqual([]);
+  });
+
+  // undefined, null and [] mean three different things and must not be
+  // conflated: absent column, cleared value, and "recorded nothing yet".
+  it("does NOT confuse an absent column with an empty one", () => {
+    expect(stepId(profile({ username: "adi", setup_steps: [] }))).toBe("city");
+    expect(stepId(profile({ username: "adi", setup_steps: null }))).toBe("city");
+    expect(stepId(profile({ username: "adi", setup_steps: undefined }))).toBe(
+      "quiz",
+    );
+  });
+});
+
 describe("a marker write that failed", () => {
   // If the app ships ahead of migration 57 the RPC does not exist, so nothing
   // gets marked - and skipping calls the same RPC. The column fallbacks are

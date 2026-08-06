@@ -151,7 +151,11 @@ export function IdentityStep({
         }
       } else {
         // A photo with no name still answers the screen.
-        await skipSetupStep("identity");
+        const { ok } = await skipSetupStep("identity");
+        if (!ok) {
+          setError("Couldn't save that. Try again.");
+          return;
+        }
       }
       router.refresh();
     });
@@ -159,7 +163,14 @@ export function IdentityStep({
 
   function skip() {
     startTransition(async () => {
-      await skipSetupStep("identity");
+      // This screen has no column the resolver can fall back on - OAuth
+      // prefills both of them - so a silently failed skip would strand the
+      // member here with nothing to click.
+      const { ok } = await skipSetupStep("identity");
+      if (!ok) {
+        setError("Couldn't skip that. Try again.");
+        return;
+      }
       router.refresh();
     });
   }
