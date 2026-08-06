@@ -2,10 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  MAX_ADMIN_MEDIA_BATCH,
+  MAX_ADMIN_MEDIA_BYTES,
+} from "@/lib/media/admin-media";
 import { createHarvestRun, processScoutTasks } from "@/lib/harvest/runner";
 import { approveCandidate } from "@/lib/harvest/approve";
 import { geocodeCity } from "@/lib/harvest/geocode";
@@ -224,30 +227,99 @@ export async function markNeedsVisit(formData: FormData) {
   revalidatePath("/admin/harvest");
 }
 
-/** Photo upload for a candidate - editorial media we hold a licence to. */
-export async function uploadCandidatePhoto(formData: FormData) {
+const AttachSchema = z.object({
+  candidateId: z.string().uuid(),
+  items: z
+    .array(
+      z.object({
+        path: z.string().min(1).max(300),
+        kind: z.enum(["image", "video"]),
+      }),
+    )
+    .min(1)
+    .max(MAX_ADMIN_MEDIA_BATCH),
+});
+
+/**
+ * Record photos and clips the browser has already PUT to Storage.
+ *
+ * The bytes never come through here - the reviewer's browser uploaded them to
+ * a server-issued signed URL (see /api/admin/media/upload-url), which is what
+ * makes a video possible at all: a Server Action body caps out at 4MB. This
+ * step verifies each object actually landed under this candidate's prefix and
+ * writes the rows.
+ */
+export async function attachCandidateMedia(input: {
+  candidateId: string;
+  items: Array<{ path: string; kind: "image" | "video" }>;
+}) {
   await requireAdmin();
-  const id = z.string().uuid().parse(formData.get("id"));
-  const file = formData.get("photo");
-  if (!(file instanceof File) || file.size === 0) return;
-  if (file.size > 8 * 1024 * 1024) throw new Error("Photo too large (8MB max).");
-  if (!/^image\//.test(file.type)) throw new Error("Not an image.");
+  const { candidateId, items } = AttachSchema.parse(input);
+
+  // Paths are server-issued and candidate-prefixed. Re-checking here means a
+  // forged action call can't point a media row at someone else's object.
+  const prefix = `harvest/${candidateId}/`;
+  if (items.some((i) => !i.path.startsWith(prefix))) {
+    throw new Error("Upload path doesn't belong to this candidate.");
+  }
 
   const admin = createAdminClient();
-  const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase().slice(0, 5);
-  const path = `harvest/${id}/${randomUUID()}.${ext}`;
-  const { error } = await admin.storage
-    .from("place-images")
-    .upload(path, Buffer.from(await file.arrayBuffer()), {
-      contentType: file.type,
-      upsert: false,
-    });
+  const landed: typeof items = [];
+  for (const item of items) {
+    const slash = item.path.lastIndexOf("/");
+    const { data } = await admin.storage
+      .from("place-images")
+      .list(item.path.slice(0, slash), {
+        search: item.path.slice(slash + 1),
+        limit: 1,
+      });
+    const object = data?.find((o) => o.name === item.path.slice(slash + 1));
+    if (!object) continue;
+    const size = (object.metadata as { size?: number } | null)?.size ?? 0;
+    if (size > MAX_ADMIN_MEDIA_BYTES) {
+      await admin.storage.from("place-images").remove([item.path]);
+      continue;
+    }
+    landed.push(item);
+  }
+  if (landed.length === 0) {
+    throw new Error("Nothing landed - try the upload again.");
+  }
+
+  const { error } = await admin.from("scout_candidate_media").insert(
+    landed.map((item) => ({
+      candidate_id: candidateId,
+      kind: item.kind,
+      storage_path: item.path,
+    })),
+  );
   if (error) throw new Error(error.message);
-  await admin.from("scout_candidate_media").insert({
-    candidate_id: id,
-    kind: "image",
-    storage_path: path,
-  });
+  revalidatePath("/admin/harvest");
+  return { attached: landed.length, skipped: items.length - landed.length };
+}
+
+/**
+ * Detach one photo, clip or embed from a candidate. Hosted files are deleted
+ * from Storage too - a candidate's media is working material, not a record we
+ * owe anyone; the takedown-safe retention rules apply to published place_media
+ * rows, which approve creates separately.
+ */
+export async function removeCandidateMedia(mediaId: string) {
+  await requireAdmin();
+  const id = z.string().uuid().parse(mediaId);
+  const admin = createAdminClient();
+
+  const { data: row } = await admin
+    .from("scout_candidate_media")
+    .select("id, storage_path")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return;
+
+  await admin.from("scout_candidate_media").delete().eq("id", id);
+  if (row.storage_path) {
+    await admin.storage.from("place-images").remove([row.storage_path]);
+  }
   revalidatePath("/admin/harvest");
 }
 

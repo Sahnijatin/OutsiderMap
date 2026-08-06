@@ -1,10 +1,18 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database";
 
-/** Returns the signed-in auth user, or null. */
-export async function getUser() {
+/**
+ * Returns the signed-in auth user, or null.
+ *
+ * Memoized per request. A layout, its page and any streamed section below it
+ * all gate on this, and each call was a round trip to Supabase Auth - three or
+ * four of them stacked in front of the first byte on the admin pages alone.
+ * React's `cache` collapses them into one for the life of the request.
+ */
+export const getUser = cache(async function getUser() {
   // Public pages call this too - render signed-out rather than crash when
   // Supabase isn't configured (preview builds without env vars).
   if (
@@ -18,7 +26,7 @@ export async function getUser() {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
-}
+});
 
 /**
  * Anon-tolerant user read for the anonymous-explore paths (#116): the same as
@@ -36,7 +44,10 @@ export async function requireUser() {
   return user;
 }
 
-export async function getProfile(): Promise<Tables<"profiles"> | null> {
+/** The caller's profile row, memoized per request alongside getUser(). */
+export const getProfile = cache(async function getProfile(): Promise<
+  Tables<"profiles"> | null
+> {
   const user = await getUser();
   if (!user) return null;
   const supabase = await createClient();
@@ -46,7 +57,7 @@ export async function getProfile(): Promise<Tables<"profiles"> | null> {
     .eq("id", user.id)
     .single();
   return data;
-}
+});
 
 /**
  * The (app) gate: must be signed in, have claimed a username, and have

@@ -476,7 +476,7 @@ export type Database = {
         Row: {
           id: string;
           candidate_id: string;
-          kind: "image" | "embed";
+          kind: "image" | "video" | "embed";
           storage_path: string | null;
           source_url: string | null;
           author_name: string | null;
@@ -485,7 +485,7 @@ export type Database = {
         Insert: {
           id?: string;
           candidate_id: string;
-          kind: "image" | "embed";
+          kind: "image" | "video" | "embed";
           storage_path?: string | null;
           source_url?: string | null;
           author_name?: string | null;

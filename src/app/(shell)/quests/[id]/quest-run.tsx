@@ -20,6 +20,10 @@ import {
   MAP_NIGHT as NIGHT,
   baseTileLayer,
 } from "@/lib/map/style";
+import {
+  normaliseMediaExt,
+  resolveMediaDescriptor,
+} from "@/lib/media/file-kind";
 import { publicMediaUrl } from "@/lib/media/url";
 import { shareOrCopy } from "@/lib/native/share";
 import { success as hapticSuccess } from "@/lib/native/haptics";
@@ -426,8 +430,18 @@ function StopCard({
 
   async function uploadOne(rawFile: File) {
     let file = rawFile;
-    const kind = file.type.startsWith("video/") ? "video" : "image";
     let extFromName = file.name.split(".").pop()?.toLowerCase() ?? "";
+
+    // What the capture actually is. Resolved from the MIME type AND the
+    // filename, because Android's picker reports application/octet-stream for
+    // plenty of real MP4s - and calling one of those an image is how a clip
+    // ended up rejected as an unsupported *image* format.
+    const kind: "image" | "video" =
+      resolveMediaDescriptor(file, (k, ext) =>
+        k === "image"
+          ? ["jpg", "png", "webp", "heic", "heif"].includes(ext)
+          : ["mp4", "webm", "mov", "m4v"].includes(ext),
+      )?.kind ?? (file.type.startsWith("video/") ? "video" : "image");
 
     // iPhones shoot HEIC/HEIF by default. Our renderer can't decode it, so
     // transcode to JPEG on-device - Safari (the platform that produces
@@ -474,7 +488,7 @@ function StopCard({
     const VALID =
       kind === "image" ? ["jpg", "png", "webp"] : ["mp4", "webm", "mov"];
     const fromMime = MIME_EXT[file.type];
-    const fromName = extFromName === "jpeg" ? "jpg" : extFromName;
+    const fromName = normaliseMediaExt(extFromName);
     const ext = fromMime ?? (VALID.includes(fromName) ? fromName : null);
     if (!ext || !VALID.includes(ext)) {
       throw new Error(
